@@ -33,3 +33,18 @@ recipeList:
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: org.codehaus.jackson.map.ObjectMapper
       newFullyQualifiedTypeName: com.fasterxml.jackson.databind.ObjectMapper
+
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: org.codehaus.jackson
+      oldArtifactId: jackson-mapper-asl
+      newGroupId: com.fasterxml.jackson.core
+      newArtifactId: jackson-databind
+      newVersion: 2.x
+      overrideManagedVersion: false
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: org.codehaus.jackson
+      oldArtifactId: jackson-core-asl
+      newGroupId: com.fasterxml.jackson.core
+      newArtifactId: jackson-core
+      newVersion: 2.x
+      overrideManagedVersion: false

@@ -15,12 +15,17 @@
  */
 package org.openrewrite.java.jackson;
 
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.openrewrite.DocumentExample;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
+import java.util.regex.Pattern;
+
 import static org.openrewrite.java.Assertions.java;
+import static org.openrewrite.maven.Assertions.pomXml;
 
 class CodehausToFasterXMLTest implements RewriteTest {
 
@@ -31,6 +36,7 @@ class CodehausToFasterXMLTest implements RewriteTest {
           .parser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()));
     }
 
+    @DocumentExample
     @Test
     void onlyJsonSerializeInclusion() {
         rewriteRun(
@@ -61,5 +67,60 @@ class CodehausToFasterXMLTest implements RewriteTest {
               """
           )
         );
+    }
+
+    @Nested
+    class Dependencies {
+        @Test
+        void changeDependencies() {
+            rewriteRun(
+              //language=xml
+              pomXml(
+                """
+                  <project>
+                      <modelVersion>4.0.0</modelVersion>
+                      <groupId>com.mycompany.app</groupId>
+                      <artifactId>my-app</artifactId>
+                      <version>1</version>
+                      <dependencies>
+                          <dependency>
+                              <groupId>org.codehaus.jackson</groupId>
+                              <artifactId>jackson-core-asl</artifactId>
+                              <version>1.9.13</version>
+                          </dependency>
+                          <dependency>
+                              <groupId>org.codehaus.jackson</groupId>
+                              <artifactId>jackson-mapper-asl</artifactId>
+                              <version>1.9.13</version>
+                          </dependency>
+                      </dependencies>
+                  </project>
+                  """,
+                after -> after.after(pomXml -> {
+                    String version = Pattern.compile("<version>(2\\.\\d+\\.\\d+)</version>").matcher(pomXml).results().findFirst().get().group(1);
+                    return """
+                      <project>
+                          <modelVersion>4.0.0</modelVersion>
+                          <groupId>com.mycompany.app</groupId>
+                          <artifactId>my-app</artifactId>
+                          <version>1</version>
+                          <dependencies>
+                              <dependency>
+                                  <groupId>com.fasterxml.jackson.core</groupId>
+                                  <artifactId>jackson-core</artifactId>
+                                  <version>%1$s</version>
+                              </dependency>
+                              <dependency>
+                                  <groupId>com.fasterxml.jackson.core</groupId>
+                                  <artifactId>jackson-databind</artifactId>
+                                  <version>%s</version>
+                              </dependency>
+                          </dependencies>
+                      </project>
+                      """.formatted(version);
+                })
+              )
+            );
+        }
     }
 }
