@@ -113,7 +113,7 @@ class CodehausToFasterXMLTest implements RewriteTest {
                               <dependency>
                                   <groupId>com.fasterxml.jackson.core</groupId>
                                   <artifactId>jackson-databind</artifactId>
-                                  <version>%s</version>
+                                  <version>%1$s</version>
                               </dependency>
                           </dependencies>
                       </project>

@@ -48,3 +48,11 @@ recipeList:
       newArtifactId: jackson-core
       newVersion: 2.x
       overrideManagedVersion: false
+
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: com.fasterxml.jackson.core
+      artifactId: jackson-databind
+      version: 2.x
+      acceptTransitive: true
+      onlyIfUsing: com.fasterxml.jackson.databind.*
+
