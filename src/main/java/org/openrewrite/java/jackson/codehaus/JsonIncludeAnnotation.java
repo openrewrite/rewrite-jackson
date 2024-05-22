@@ -41,15 +41,15 @@ public class JsonIncludeAnnotation extends Recipe {
                 new UsesType<>("org.codehaus.jackson.map.annotate.JsonSerialize", false),
                 new JavaVisitor<ExecutionContext>() {
                     @Override
-                    public J visitClassDeclaration(J.ClassDeclaration classDecl, ExecutionContext executionContext) {
+                    public J visitClassDeclaration(J.ClassDeclaration classDecl, ExecutionContext ctx) {
                         // TODO Update class and field annotations
-                        return super.visitClassDeclaration(classDecl, executionContext);
+                        return super.visitClassDeclaration(classDecl, ctx);
                     }
 
                     @Override
-                    public J visitMethodDeclaration(J.MethodDeclaration method, ExecutionContext executionContext) {
+                    public J visitMethodDeclaration(J.MethodDeclaration method, ExecutionContext ctx) {
                         // TODO Update method and parameter annotations
-                        return super.visitMethodDeclaration(method, executionContext);
+                        return super.visitMethodDeclaration(method, ctx);
                     }
                 });
     }
