@@ -69,6 +69,186 @@ class CodehausToFasterXMLTest implements RewriteTest {
         );
     }
 
+
+    @Nested
+    class ClassAnnotations {
+        @Test
+        void retainOriginalAnnotationToo() {
+            rewriteRun(
+              //language=java
+              java(
+                """
+                  import org.codehaus.jackson.map.annotate.JsonSerialize;
+                  import org.codehaus.jackson.map.JsonSerializer.None;
+                  import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
+                  
+                  @JsonSerialize(include = NON_NULL, using = None.class)
+                  class Test {
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude;
+                  import com.fasterxml.jackson.databind.JsonSerializer.None;
+                  import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+                  
+                  @JsonInclude(value = JsonInclude.Include.NON_NULL)
+                  @JsonSerialize(using = None.class)
+                  class Test {
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void retainOtherAnnotationArguments() {
+            rewriteRun(
+              //language=java
+              java(
+                """
+                  import org.codehaus.jackson.map.annotate.JsonSerialize;
+                  import org.codehaus.jackson.map.JsonSerializer.None;
+                  
+                  @JsonSerialize(using = None.class)
+                  class Test {
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.JsonSerializer.None;
+                  import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+                  
+                  @JsonSerialize(using = None.class)
+                  class Test {
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void staticImport() {
+            //language=java
+            rewriteRun(
+              java(
+                """
+                  import org.codehaus.jackson.map.annotate.JsonSerialize;
+                  import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
+                  
+                  @JsonSerialize(include = NON_NULL)
+                  class StaticImport {
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude;
+                  
+                  @JsonInclude(value = JsonInclude.Include.NON_NULL)
+                  class StaticImport {
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void inclusionImport() {
+            //language=java
+            rewriteRun(
+              java(
+                """
+                  import org.codehaus.jackson.map.annotate.JsonSerialize;
+                  import org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion;
+                  
+                  @JsonSerialize(include = Inclusion.NON_NULL)
+                  class ViaInclusion {
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude;
+                  
+                  @JsonInclude(value = JsonInclude.Include.NON_NULL)
+                  class ViaInclusion {
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void annotationImport() {
+            //language=java
+            rewriteRun(
+              java(
+                """
+                  import org.codehaus.jackson.map.annotate.JsonSerialize;
+                  
+                  @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
+                  class ViaAnnotation {
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude;
+                  
+                  @JsonInclude(value = JsonInclude.Include.NON_NULL)
+                  class ViaAnnotation {
+                  }
+                  """
+              )
+            );
+        }
+    }
+
+    @Test
+    void replaceFieldAnnotation() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import org.codehaus.jackson.map.annotate.JsonSerialize;
+              import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
+              
+              class Test {
+                  @JsonSerialize(include = NON_NULL)
+                  Object field;
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonInclude;
+              
+              class Test {
+                  @JsonInclude(value = JsonInclude.Include.NON_NULL)
+                  Object field;
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void replaceMethodAnnotation() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import org.codehaus.jackson.map.annotate.JsonSerialize;
+              import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
+              
+              class Test {
+                  @JsonSerialize(include = NON_NULL)
+                  void method() {}
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonInclude;
+              
+              class Test {
+                  @JsonInclude(value = JsonInclude.Include.NON_NULL)
+                  void method() {}
+              }
+              """
+          )
+        );
+    }
+
     @Nested
     class Dependencies {
         @Test

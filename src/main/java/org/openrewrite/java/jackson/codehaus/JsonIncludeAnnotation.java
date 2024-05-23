@@ -42,8 +42,7 @@ public class JsonIncludeAnnotation extends Recipe {
 
     @Override
     public String getDescription() {
-        return "Codehaus Jackson only had `@JsonSerialize`, whereas FasterXML additionally has `@JsonInclude`. " +
-               "This recipe adds that additional or replacement annotation when `include` options are passed.";
+        return "Move Codehaus' `@JsonSerialize.include` argument to FasterXMLs `@JsonInclude` annotation.";
     }
 
     @Override
@@ -53,10 +52,10 @@ public class JsonIncludeAnnotation extends Recipe {
                         new UsesType<>(ORG_CODEHAUS_JACKSON_MAP_ANNOTATE_JSON_SERIALIZE, false),
                         Preconditions.not(new UsesType<>(COM_FASTERXML_JACKSON_ANNOTATION_JSON_INCLUDE, false))
                 ),
-                new ReplaceClassAnnotations());
+                new IntroduceJsonIncludeVisitor());
     }
 
-    private class ReplaceClassAnnotations extends JavaVisitor<ExecutionContext> {
+    private static class IntroduceJsonIncludeVisitor extends JavaVisitor<ExecutionContext> {
         @Override
         public J visitClassDeclaration(J.ClassDeclaration decl, ExecutionContext ctx) {
             J.ClassDeclaration cd = (J.ClassDeclaration) super.visitClassDeclaration(decl, ctx);

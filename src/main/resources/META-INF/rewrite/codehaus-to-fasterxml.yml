@@ -21,6 +21,8 @@ displayName: Migrate from Jackson Codehaus (legacy) to Jackson FasterXML
 description: >
   In Jackson 2, the package and dependency coordinates moved from Codehaus to FasterXML.
 recipeList:
+  - org.openrewrite.java.jackson.codehaus.JsonIncludeAnnotation
+
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: org.codehaus.jackson.map.JsonSerializer
       newFullyQualifiedTypeName: com.fasterxml.jackson.databind.JsonSerializer
