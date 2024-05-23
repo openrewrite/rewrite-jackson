@@ -53,13 +53,7 @@ public class JsonIncludeAnnotation extends Recipe {
                         new UsesType<>(ORG_CODEHAUS_JACKSON_MAP_ANNOTATE_JSON_SERIALIZE, false),
                         Preconditions.not(new UsesType<>(COM_FASTERXML_JACKSON_ANNOTATION_JSON_INCLUDE, false))
                 ),
-                new JavaVisitor<ExecutionContext>() {
-                    @Override
-                    public J visitCompilationUnit(J.CompilationUnit cu, ExecutionContext ctx) {
-                        doAfterVisit(new ReplaceClassAnnotations());
-                        return cu;
-                    }
-                });
+                new ReplaceClassAnnotations());
     }
 
     private class ReplaceClassAnnotations extends JavaVisitor<ExecutionContext> {
@@ -128,9 +122,10 @@ public class JsonIncludeAnnotation extends Recipe {
             return vd;
         }
 
+        private final AnnotationMatcher annotationMatcher = new AnnotationMatcher("@" + ORG_CODEHAUS_JACKSON_MAP_ANNOTATE_JSON_SERIALIZE, false);
+
         @Nullable
         private J.Annotation mapAnnotation(J.Annotation ann, AtomicReference<String> includeArgument) {
-            AnnotationMatcher annotationMatcher = new AnnotationMatcher("@" + ORG_CODEHAUS_JACKSON_MAP_ANNOTATE_JSON_SERIALIZE, false);
             if (!annotationMatcher.matches(ann)) {
                 return ann;
             }
@@ -156,12 +151,12 @@ public class JsonIncludeAnnotation extends Recipe {
                 return null;
             }));
 
-
-            // Only arguments are now empty remove the entire annotation
+            // If arguments are now empty remove the entire annotation
             if (ann.getArguments() == null || ann.getArguments().isEmpty()) {
                 maybeRemoveImport(ORG_CODEHAUS_JACKSON_MAP_ANNOTATE_JSON_SERIALIZE);
                 return null;
             }
+
             return ann;
         }
     }
