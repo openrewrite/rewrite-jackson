@@ -15,7 +15,7 @@
  */
 package org.openrewrite.java.jackson.codehaus;
 
-import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.test.RecipeSpec;
@@ -30,153 +30,156 @@ class JsonIncludeAnnotationTest implements RewriteTest {
         spec.recipe(new JsonIncludeAnnotation());
     }
 
-    @Test
-    @DocumentExample
-    @Disabled("Not yet implemented")
-    void swapAnnotationAndArguments() {
-        rewriteRun(
-          //language=java
-          java(
-            """
-              import org.codehaus.jackson.map.annotate.JsonSerialize;
-              import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
-              
-              @JsonSerialize(include = NON_NULL)
-              class Test {
-                @JsonSerialize(include = NON_NULL)
-                Object field;
-                @JsonSerialize(include = NON_NULL)
-                void method() {}
-              }
-              """,
-            """
-              import com.fasterxml.jackson.annotation.JsonInclude;
-              import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
-              
-              @JsonInclude(value = JsonInclude.Include.NON_NULL)
-              class Test {
-                @JsonInclude(value = JsonInclude.Include.NON_NULL)
-                Object field;
-                @JsonInclude(value = JsonInclude.Include.NON_NULL)
-                void method() {}
-              }
-              """
-          )
-        );
+    @Nested
+    class AnnotatedClass {
+        @Test
+        @DocumentExample
+        void retainOriginalAnnotationToo() {
+            rewriteRun(
+              //language=java
+              java(
+                """
+                  import org.codehaus.jackson.map.annotate.JsonSerialize;
+                  import org.codehaus.jackson.map.JsonSerializer.None;
+                  import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
+                  
+                  @JsonSerialize(include = NON_NULL, using = None.class)
+                  class Test {
+                  }
+                  """,
+                """
+                  import org.codehaus.jackson.map.annotate.JsonSerialize;
+                  import com.fasterxml.jackson.annotation.JsonInclude;
+                  import org.codehaus.jackson.map.JsonSerializer.None;
+                  
+                  @JsonInclude(value = JsonInclude.Include.NON_NULL)
+                  @JsonSerialize(using = None.class)
+                  class Test {
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void doNothingWhenOnlyUsing() {
+            rewriteRun(
+              //language=java
+              java(
+                """
+                  import org.codehaus.jackson.map.annotate.JsonSerialize;
+                  import org.codehaus.jackson.map.JsonSerializer.None;
+                  @JsonSerialize(using = None.class)
+                  class Test {
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void staticImport() {
+            //language=java
+            rewriteRun(
+              java(
+                """
+                  import org.codehaus.jackson.map.annotate.JsonSerialize;
+                  import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
+                  
+                  @JsonSerialize(include = NON_NULL)
+                  class StaticImport {
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude;
+                  
+                  @JsonInclude(value = JsonInclude.Include.NON_NULL)
+                  class StaticImport {
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void inclusionImport() {
+            //language=java
+            rewriteRun(
+              java(
+                """
+                  import org.codehaus.jackson.map.annotate.JsonSerialize;
+                  import org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion;
+                  
+                  @JsonSerialize(include = Inclusion.NON_NULL)
+                  class ViaInclusion {
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude;
+                  
+                  @JsonInclude(value = JsonInclude.Include.NON_NULL)
+                  class ViaInclusion {
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void annotationImport() {
+            //language=java
+            rewriteRun(
+              java(
+                """
+                  import org.codehaus.jackson.map.annotate.JsonSerialize;
+                  
+                  @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
+                  class ViaAnnotation {
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude;
+                  
+                  @JsonInclude(value = JsonInclude.Include.NON_NULL)
+                  class ViaAnnotation {
+                  }
+                  """
+              )
+            );
+        }
     }
 
-    @Test
-    void retainOriginalAnnotationToo() {
-        rewriteRun(
-          //language=java
-          java(
-            """
-              import org.codehaus.jackson.map.annotate.JsonSerialize;
-              import org.codehaus.jackson.map.JsonSerializer.None;
-              import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
-              
-              @JsonSerialize(include = NON_NULL, using = None.class)
-              class Test {
-              }
-              """,
-            """
-              import org.codehaus.jackson.map.annotate.JsonSerialize;
-              import com.fasterxml.jackson.annotation.JsonInclude;
-              import org.codehaus.jackson.map.JsonSerializer.None;
-              
-              @JsonInclude(value = JsonInclude.Include.NON_NULL)
-              @JsonSerialize(using = None.class)
-              class Test {
-              }
-              """
-          )
-        );
+    @Nested
+    class AnnotatedField {
+        // TODO
     }
 
-    @Test
-    void doNothingWhenOnlyUsing() {
-        rewriteRun(
-          //language=java
-          java(
-            """
-              import org.codehaus.jackson.map.annotate.JsonSerialize;
-              import org.codehaus.jackson.map.JsonSerializer.None;
-              @JsonSerialize(using = None.class)
-              class Test {
-              }
-              """
-          )
-        );
-    }
-
-    @Test
-    void staticImport() {
-        //language=java
-        rewriteRun(
-          java(
-            """
-              import org.codehaus.jackson.map.annotate.JsonSerialize;
-              import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
-              
-              @JsonSerialize(include = NON_NULL)
-              class StaticImport {
-              }
-              """,
-            """
-              import com.fasterxml.jackson.annotation.JsonInclude;
-              
-              @JsonInclude(value = JsonInclude.Include.NON_NULL)
-              class StaticImport {
-              }
-              """
-          )
-        );
-    }
-
-    @Test
-    void inclusionImport() {
-        //language=java
-        rewriteRun(
-          java(
-            """
-              import org.codehaus.jackson.map.annotate.JsonSerialize;
-              import org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion;
-              
-              @JsonSerialize(include = Inclusion.NON_NULL)
-              class ViaInclusion {
-              }
-              """,
-            """
-              import com.fasterxml.jackson.annotation.JsonInclude;
-              
-              @JsonInclude(value = JsonInclude.Include.NON_NULL)
-              class ViaInclusion {
-              }
-              """
-          )
-        );
-    }
-
-    @Test
-    void annotationImport() {
-        //language=java
-        rewriteRun(
-          java(
-            """
-              import org.codehaus.jackson.map.annotate.JsonSerialize;
-              
-              @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
-              class ViaAnnotation {
-              }
-              """,
-            """
-              import com.fasterxml.jackson.annotation.JsonInclude;
-              
-              @JsonInclude(value = JsonInclude.Include.NON_NULL)
-              class ViaAnnotation {
-              }
-              """
-          )
-        );
+    @Nested
+    class AnnotatedMethod {
+        @Test
+        void retainOriginalAnnotationToo() {
+            rewriteRun(
+              //language=java
+              java(
+                """
+                  import org.codehaus.jackson.map.annotate.JsonSerialize;
+                  import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
+                  
+                  class Test {
+                      @JsonSerialize(include = NON_NULL)
+                      void method() {}
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude;
+                  
+                  class Test {
+                      @JsonInclude(value = JsonInclude.Include.NON_NULL)
+                      void method() {}
+                  }
+                  """
+              )
+            );
+        }
     }
 }
