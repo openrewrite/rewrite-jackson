@@ -151,7 +151,31 @@ class JsonIncludeAnnotationTest implements RewriteTest {
 
     @Nested
     class AnnotatedField {
-        // TODO
+        @Test
+        void retainOriginalAnnotationToo() {
+            rewriteRun(
+              //language=java
+              java(
+                """
+                  import org.codehaus.jackson.map.annotate.JsonSerialize;
+                  import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
+                  
+                  class Test {
+                      @JsonSerialize(include = NON_NULL)
+                      Object field;
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude;
+                  
+                  class Test {
+                      @JsonInclude(value = JsonInclude.Include.NON_NULL)
+                      Object field;
+                  }
+                  """
+              )
+            );
+        }
     }
 
     @Nested

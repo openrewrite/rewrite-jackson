@@ -107,6 +107,27 @@ public class JsonIncludeAnnotation extends Recipe {
             return md;
         }
 
+        @Override
+        public J visitVariableDeclarations(J.VariableDeclarations decl, ExecutionContext ctx) {
+            J.VariableDeclarations vd = (J.VariableDeclarations) super.visitVariableDeclarations(decl, ctx);
+
+            // Loop over annotations and extract the include argument from the old JsonSerialize annotation
+            AtomicReference<String> includeArgument = new AtomicReference<>();
+            vd = vd.withLeadingAnnotations(ListUtils.map(vd.getLeadingAnnotations(),
+                    ann -> mapAnnotation(ann, includeArgument)));
+
+            // Add the new JsonInclude annotation with the include argument
+            if (includeArgument.get() != null) {
+                vd = JavaTemplate.builder("@JsonInclude(value = JsonInclude.Include." + includeArgument.get() + ")")
+                        .imports(COM_FASTERXML_JACKSON_ANNOTATION_JSON_INCLUDE)
+                        .javaParser(JavaParser.fromJavaVersion().classpath("jackson-annotations"))
+                        .build()
+                        .apply(updateCursor(vd), vd.getCoordinates().addAnnotation(Comparator.comparing(J.Annotation::getSimpleName)));
+                maybeAddImport(COM_FASTERXML_JACKSON_ANNOTATION_JSON_INCLUDE);
+            }
+            return vd;
+        }
+
         @Nullable
         private J.Annotation mapAnnotation(J.Annotation ann, AtomicReference<String> includeArgument) {
             AnnotationMatcher annotationMatcher = new AnnotationMatcher("@" + ORG_CODEHAUS_JACKSON_MAP_ANNOTATE_JSON_SERIALIZE, false);
