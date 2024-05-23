@@ -27,3 +27,7 @@ dependencies {
 
     testImplementation("org.junit.jupiter:junit-jupiter-engine:latest.release")
 }
+
+recipeDependencies {
+    parserClasspath("com.fasterxml.jackson.core:jackson-annotations:latest.release")
+}

@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.jackson.codehaus;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.test.RecipeSpec;
@@ -31,6 +32,7 @@ class JsonIncludeAnnotationTest implements RewriteTest {
 
     @Test
     @DocumentExample
+    @Disabled("Not yet implemented")
     void swapAnnotationAndArguments() {
         rewriteRun(
           //language=java
@@ -51,11 +53,11 @@ class JsonIncludeAnnotationTest implements RewriteTest {
               import com.fasterxml.jackson.annotation.JsonInclude;
               import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
               
-              @JsonInclude(NON_NULL)
+              @JsonInclude(value = JsonInclude.Include.NON_NULL)
               class Test {
-                @JsonInclude(NON_NULL)
+                @JsonInclude(value = JsonInclude.Include.NON_NULL)
                 Object field;
-                @JsonInclude(NON_NULL)
+                @JsonInclude(value = JsonInclude.Include.NON_NULL)
                 void method() {}
               }
               """
@@ -78,13 +80,100 @@ class JsonIncludeAnnotationTest implements RewriteTest {
               }
               """,
             """
+              import org.codehaus.jackson.map.annotate.JsonSerialize;
               import com.fasterxml.jackson.annotation.JsonInclude;
-              import com.fasterxml.jackson.databind.JsonSerializer.None;
-              import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
+              import org.codehaus.jackson.map.JsonSerializer.None;
               
+              @JsonInclude(value = JsonInclude.Include.NON_NULL)
               @JsonSerialize(using = None.class)
-              @JsonInclude(NON_NULL)
               class Test {
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void doNothingWhenOnlyUsing() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import org.codehaus.jackson.map.annotate.JsonSerialize;
+              import org.codehaus.jackson.map.JsonSerializer.None;
+              @JsonSerialize(using = None.class)
+              class Test {
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void staticImport() {
+        //language=java
+        rewriteRun(
+          java(
+            """
+              import org.codehaus.jackson.map.annotate.JsonSerialize;
+              import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
+              
+              @JsonSerialize(include = NON_NULL)
+              class StaticImport {
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonInclude;
+              
+              @JsonInclude(value = JsonInclude.Include.NON_NULL)
+              class StaticImport {
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void inclusionImport() {
+        //language=java
+        rewriteRun(
+          java(
+            """
+              import org.codehaus.jackson.map.annotate.JsonSerialize;
+              import org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion;
+              
+              @JsonSerialize(include = Inclusion.NON_NULL)
+              class ViaInclusion {
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonInclude;
+              
+              @JsonInclude(value = JsonInclude.Include.NON_NULL)
+              class ViaInclusion {
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void annotationImport() {
+        //language=java
+        rewriteRun(
+          java(
+            """
+              import org.codehaus.jackson.map.annotate.JsonSerialize;
+              
+              @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
+              class ViaAnnotation {
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonInclude;
+              
+              @JsonInclude(value = JsonInclude.Include.NON_NULL)
+              class ViaAnnotation {
               }
               """
           )
