@@ -77,12 +77,13 @@ class CodehausToFasterXMLTest implements RewriteTest {
             """
               import org.codehaus.jackson.map.DeserializationConfig;
               import org.codehaus.jackson.map.ObjectMapper;
-              import org.codehaus.jackson.map.SerializationConfig;
+
+              import static org.codehaus.jackson.map.SerializationConfig.Feature.WRAP_ROOT_VALUE;
               
               class Test {
                   void foo(){
                       ObjectMapper mapper = new ObjectMapper();
-                      mapper.configure(SerializationConfig.Feature.WRAP_ROOT_VALUE, true);
+                      mapper.configure(WRAP_ROOT_VALUE, true);
                       mapper.configure(DeserializationConfig.Feature.FAIL_ON_UNKNOWN_PROPERTIES, false);
                   }
               }
@@ -90,12 +91,13 @@ class CodehausToFasterXMLTest implements RewriteTest {
             """
               import com.fasterxml.jackson.databind.DeserializationFeature;
               import com.fasterxml.jackson.databind.ObjectMapper;
-              import com.fasterxml.jackson.databind.SerializationFeature;
+
+              import static com.fasterxml.jackson.databind.SerializationFeature.WRAP_ROOT_VALUE;
 
               class Test {
                   void foo(){
                       ObjectMapper mapper = new ObjectMapper();
-                      mapper.configure(SerializationFeature.WRAP_ROOT_VALUE, true);
+                      mapper.configure(WRAP_ROOT_VALUE, true);
                       mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
                   }
               }
