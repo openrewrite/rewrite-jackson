@@ -42,7 +42,7 @@ class CodehausToFasterXMLTest implements RewriteTest {
             """
               import org.codehaus.jackson.map.ObjectMapper;
               import org.codehaus.jackson.map.annotate.JsonSerialize;
-                            
+
               class Test {
                   private static ObjectMapper initializeObjectMapper() {
                       ObjectMapper mapper = new ObjectMapper();
@@ -54,7 +54,7 @@ class CodehausToFasterXMLTest implements RewriteTest {
               import com.fasterxml.jackson.annotation.JsonInclude;
               import com.fasterxml.jackson.annotation.JsonInclude.Include;
               import com.fasterxml.jackson.databind.ObjectMapper;
-                            
+
               class Test {
                   private static ObjectMapper initializeObjectMapper() {
                       ObjectMapper mapper = new ObjectMapper();
@@ -75,7 +75,7 @@ class CodehausToFasterXMLTest implements RewriteTest {
               import org.codehaus.jackson.map.DeserializationConfig;
               import org.codehaus.jackson.map.ObjectMapper;
               import org.codehaus.jackson.map.SerializationConfig;
-                            
+
               class Test {
                   void foo(){
                       ObjectMapper mapper = new ObjectMapper();
@@ -236,7 +236,7 @@ class CodehausToFasterXMLTest implements RewriteTest {
             """
               import org.codehaus.jackson.map.annotate.JsonSerialize;
               import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
-                            
+
               class Test {
                   @JsonSerialize(include = NON_NULL)
                   Object field;
@@ -244,7 +244,7 @@ class CodehausToFasterXMLTest implements RewriteTest {
               """,
             """
               import com.fasterxml.jackson.annotation.JsonInclude;
-                            
+
               class Test {
                   @JsonInclude(value = JsonInclude.Include.NON_NULL)
                   Object field;
