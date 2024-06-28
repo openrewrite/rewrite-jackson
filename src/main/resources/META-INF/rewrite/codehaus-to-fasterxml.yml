@@ -53,3 +53,8 @@ recipeList:
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: org.codehaus.jackson.map.DeserializationConfig$Feature
       newFullyQualifiedTypeName: com.fasterxml.jackson.databind.DeserializationFeature
+
+  - org.openrewrite.java.ChangePackage:
+      oldPackageName: org.codehaus.jackson.annotate
+      newPackageName: com.fasterxml.jackson.annotation
+      recursive: true
