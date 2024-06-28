@@ -21,6 +21,17 @@ displayName: Migrate from Jackson Codehaus (legacy) to Jackson FasterXML
 description: >
   In Jackson 2, the package and dependency coordinates moved from Codehaus to FasterXML.
 recipeList:
+  - org.openrewrite.java.jackson.CodehausClassesToFasterXML
+  - org.openrewrite.java.jackson.codehaus.CodehausDependencyToFasterXML:
+      version: 2.x
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.jackson.CodehausClassesToFasterXML
+displayName: Migrate classes from Jackson Codehaus (legacy) to Jackson FasterXML
+description: >
+  In Jackson 2, the package and dependency coordinates moved from Codehaus to FasterXML.
+recipeList:
   - org.openrewrite.java.jackson.codehaus.JsonIncludeAnnotation
 
   - org.openrewrite.java.ChangeType:
@@ -42,26 +53,3 @@ recipeList:
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: org.codehaus.jackson.map.DeserializationConfig$Feature
       newFullyQualifiedTypeName: com.fasterxml.jackson.databind.DeserializationFeature
-
-  - org.openrewrite.java.dependencies.ChangeDependency:
-      oldGroupId: org.codehaus.jackson
-      oldArtifactId: jackson-mapper-asl
-      newGroupId: com.fasterxml.jackson.core
-      newArtifactId: jackson-databind
-      newVersion: 2.x
-      overrideManagedVersion: false
-  - org.openrewrite.java.dependencies.ChangeDependency:
-      oldGroupId: org.codehaus.jackson
-      oldArtifactId: jackson-core-asl
-      newGroupId: com.fasterxml.jackson.core
-      newArtifactId: jackson-core
-      newVersion: 2.x
-      overrideManagedVersion: false
-
-  - org.openrewrite.java.dependencies.AddDependency:
-      groupId: com.fasterxml.jackson.core
-      artifactId: jackson-databind
-      version: 2.x
-      acceptTransitive: true
-      onlyIfUsing: com.fasterxml.jackson.databind.*
-
