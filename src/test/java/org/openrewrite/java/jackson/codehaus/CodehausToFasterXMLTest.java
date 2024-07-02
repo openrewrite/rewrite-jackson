@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.openrewrite.java.jackson;
+package org.openrewrite.java.jackson.codehaus;
 
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -22,10 +22,7 @@ import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
-import java.util.regex.Pattern;
-
 import static org.openrewrite.java.Assertions.java;
-import static org.openrewrite.maven.Assertions.pomXml;
 
 class CodehausToFasterXMLTest implements RewriteTest {
 
@@ -45,7 +42,7 @@ class CodehausToFasterXMLTest implements RewriteTest {
             """
               import org.codehaus.jackson.map.ObjectMapper;
               import org.codehaus.jackson.map.annotate.JsonSerialize;
-              
+
               class Test {
                   private static ObjectMapper initializeObjectMapper() {
                       ObjectMapper mapper = new ObjectMapper();
@@ -57,7 +54,7 @@ class CodehausToFasterXMLTest implements RewriteTest {
               import com.fasterxml.jackson.annotation.JsonInclude;
               import com.fasterxml.jackson.annotation.JsonInclude.Include;
               import com.fasterxml.jackson.databind.ObjectMapper;
-              
+
               class Test {
                   private static ObjectMapper initializeObjectMapper() {
                       ObjectMapper mapper = new ObjectMapper();
@@ -117,7 +114,7 @@ class CodehausToFasterXMLTest implements RewriteTest {
                   import org.codehaus.jackson.map.annotate.JsonSerialize;
                   import org.codehaus.jackson.map.JsonSerializer.None;
                   import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
-                  
+
                   @JsonSerialize(include = NON_NULL, using = None.class)
                   class Test {
                   }
@@ -126,7 +123,7 @@ class CodehausToFasterXMLTest implements RewriteTest {
                   import com.fasterxml.jackson.annotation.JsonInclude;
                   import com.fasterxml.jackson.databind.JsonSerializer.None;
                   import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-                  
+
                   @JsonInclude(value = JsonInclude.Include.NON_NULL)
                   @JsonSerialize(using = None.class)
                   class Test {
@@ -144,7 +141,7 @@ class CodehausToFasterXMLTest implements RewriteTest {
                 """
                   import org.codehaus.jackson.map.annotate.JsonSerialize;
                   import org.codehaus.jackson.map.JsonSerializer.None;
-                  
+
                   @JsonSerialize(using = None.class)
                   class Test {
                   }
@@ -152,7 +149,7 @@ class CodehausToFasterXMLTest implements RewriteTest {
                 """
                   import com.fasterxml.jackson.databind.JsonSerializer.None;
                   import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-                  
+
                   @JsonSerialize(using = None.class)
                   class Test {
                   }
@@ -169,14 +166,14 @@ class CodehausToFasterXMLTest implements RewriteTest {
                 """
                   import org.codehaus.jackson.map.annotate.JsonSerialize;
                   import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
-                  
+
                   @JsonSerialize(include = NON_NULL)
                   class StaticImport {
                   }
                   """,
                 """
                   import com.fasterxml.jackson.annotation.JsonInclude;
-                  
+
                   @JsonInclude(value = JsonInclude.Include.NON_NULL)
                   class StaticImport {
                   }
@@ -193,14 +190,14 @@ class CodehausToFasterXMLTest implements RewriteTest {
                 """
                   import org.codehaus.jackson.map.annotate.JsonSerialize;
                   import org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion;
-                  
+
                   @JsonSerialize(include = Inclusion.NON_NULL)
                   class ViaInclusion {
                   }
                   """,
                 """
                   import com.fasterxml.jackson.annotation.JsonInclude;
-                  
+
                   @JsonInclude(value = JsonInclude.Include.NON_NULL)
                   class ViaInclusion {
                   }
@@ -216,14 +213,14 @@ class CodehausToFasterXMLTest implements RewriteTest {
               java(
                 """
                   import org.codehaus.jackson.map.annotate.JsonSerialize;
-                  
+
                   @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
                   class ViaAnnotation {
                   }
                   """,
                 """
                   import com.fasterxml.jackson.annotation.JsonInclude;
-                  
+
                   @JsonInclude(value = JsonInclude.Include.NON_NULL)
                   class ViaAnnotation {
                   }
@@ -241,7 +238,7 @@ class CodehausToFasterXMLTest implements RewriteTest {
             """
               import org.codehaus.jackson.map.annotate.JsonSerialize;
               import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
-              
+
               class Test {
                   @JsonSerialize(include = NON_NULL)
                   Object field;
@@ -249,7 +246,7 @@ class CodehausToFasterXMLTest implements RewriteTest {
               """,
             """
               import com.fasterxml.jackson.annotation.JsonInclude;
-              
+
               class Test {
                   @JsonInclude(value = JsonInclude.Include.NON_NULL)
                   Object field;
@@ -260,14 +257,63 @@ class CodehausToFasterXMLTest implements RewriteTest {
     }
 
     @Test
-    void replaceMethodAnnotation() {
+    void replaceJsonValueAnnotation() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import org.codehaus.jackson.annotate.JsonValue;
+
+              public enum TypeEnumWithValue {
+                  TYPE1(1, "Type A"), TYPE2(2, "Type 2");
+
+                  private Integer id;
+                  private String name;
+
+                  public TypeEnumWithValue(Integer id, String name) {
+                      this.id = id;
+                      this.name = name;
+                  }
+
+                  @JsonValue
+                  public String getName() {
+                      return name;
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonValue;
+
+              public enum TypeEnumWithValue {
+                  TYPE1(1, "Type A"), TYPE2(2, "Type 2");
+
+                  private Integer id;
+                  private String name;
+
+                  public TypeEnumWithValue(Integer id, String name) {
+                      this.id = id;
+                      this.name = name;
+                  }
+
+                  @JsonValue
+                  public String getName() {
+                      return name;
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void replaceJsonSerializeAnnotation() {
         rewriteRun(
           //language=java
           java(
             """
               import org.codehaus.jackson.map.annotate.JsonSerialize;
               import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
-              
+
               class Test {
                   @JsonSerialize(include = NON_NULL)
                   void method() {}
@@ -275,7 +321,7 @@ class CodehausToFasterXMLTest implements RewriteTest {
               """,
             """
               import com.fasterxml.jackson.annotation.JsonInclude;
-              
+
               class Test {
                   @JsonInclude(value = JsonInclude.Include.NON_NULL)
                   void method() {}
@@ -283,60 +329,5 @@ class CodehausToFasterXMLTest implements RewriteTest {
               """
           )
         );
-    }
-
-    @Nested
-    class Dependencies {
-        @Test
-        void changeDependencies() {
-            rewriteRun(
-              //language=xml
-              pomXml(
-                """
-                  <project>
-                      <modelVersion>4.0.0</modelVersion>
-                      <groupId>com.mycompany.app</groupId>
-                      <artifactId>my-app</artifactId>
-                      <version>1</version>
-                      <dependencies>
-                          <dependency>
-                              <groupId>org.codehaus.jackson</groupId>
-                              <artifactId>jackson-core-asl</artifactId>
-                              <version>1.9.13</version>
-                          </dependency>
-                          <dependency>
-                              <groupId>org.codehaus.jackson</groupId>
-                              <artifactId>jackson-mapper-asl</artifactId>
-                              <version>1.9.13</version>
-                          </dependency>
-                      </dependencies>
-                  </project>
-                  """,
-                after -> after.after(pomXml -> {
-                    String version = Pattern.compile("<version>(2\\.\\d+\\.\\d+)</version>").matcher(pomXml).results().findFirst().get().group(1);
-                    return """
-                      <project>
-                          <modelVersion>4.0.0</modelVersion>
-                          <groupId>com.mycompany.app</groupId>
-                          <artifactId>my-app</artifactId>
-                          <version>1</version>
-                          <dependencies>
-                              <dependency>
-                                  <groupId>com.fasterxml.jackson.core</groupId>
-                                  <artifactId>jackson-core</artifactId>
-                                  <version>%1$s</version>
-                              </dependency>
-                              <dependency>
-                                  <groupId>com.fasterxml.jackson.core</groupId>
-                                  <artifactId>jackson-databind</artifactId>
-                                  <version>%1$s</version>
-                              </dependency>
-                          </dependencies>
-                      </project>
-                      """.formatted(version);
-                })
-              )
-            );
-        }
     }
 }
