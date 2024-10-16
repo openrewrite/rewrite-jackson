@@ -16,7 +16,6 @@
 package org.openrewrite.java.jackson.codehaus;
 
 import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
@@ -49,7 +48,7 @@ public class RemoveDoublyAnnotatedCodehausAnnotations extends Recipe {
                 ),
                 new JavaVisitor<ExecutionContext>() {
                     @Override
-                    public @Nullable J preVisit(@NonNull J tree, ExecutionContext executionContext) {
+                    public J preVisit(@NonNull J tree, ExecutionContext executionContext) {
                         stopAfterPreVisit();
                         doAfterVisit(new RemoveAnnotationVisitor(new AnnotationMatcher("@org.codehaus.jackson.map.annotate.JsonSerialize", true)));
                         maybeRemoveImport("org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.*");

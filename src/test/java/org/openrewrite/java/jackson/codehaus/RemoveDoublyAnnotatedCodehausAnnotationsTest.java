@@ -22,7 +22,7 @@ import org.openrewrite.test.RewriteTest;
 
 import static org.openrewrite.java.Assertions.java;
 
-class RemoveDuplicateCodehausAnnotationsTest implements RewriteTest {
+class RemoveDoublyAnnotatedCodehausAnnotationsTest implements RewriteTest {
 
     @Override
     public void defaults(RecipeSpec spec) {
