@@ -48,7 +48,7 @@ public class RemoveDoublyAnnotatedCodehausAnnotations extends Recipe {
                 ),
                 new JavaVisitor<ExecutionContext>() {
                     @Override
-                    public J preVisit(@NonNull J tree, ExecutionContext executionContext) {
+                    public J preVisit(@NonNull J tree, ExecutionContext ctx) {
                         stopAfterPreVisit();
                         doAfterVisit(new RemoveAnnotationVisitor(new AnnotationMatcher("@org.codehaus.jackson.map.annotate.JsonSerialize", true)));
                         maybeRemoveImport("org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.*");

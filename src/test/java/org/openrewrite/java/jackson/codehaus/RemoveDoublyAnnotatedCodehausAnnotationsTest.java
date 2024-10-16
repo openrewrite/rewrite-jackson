@@ -16,6 +16,7 @@
 package org.openrewrite.java.jackson.codehaus;
 
 import org.junit.jupiter.api.Test;
+import org.openrewrite.DocumentExample;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
@@ -31,6 +32,7 @@ class RemoveDoublyAnnotatedCodehausAnnotationsTest implements RewriteTest {
           .parser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()));
     }
 
+    @DocumentExample
     @Test
     void removeCodehausAnnotationsIfDoublyAnnotated() {
         rewriteRun(
