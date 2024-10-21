@@ -64,18 +64,19 @@ class RemoveDoublyAnnotatedCodehausAnnotationsTest implements RewriteTest {
     void preserveCodehausAnnotationsIfNotDoublyAnnotated() {
         rewriteRun(
           //language=java
-          java("""
-            import org.codehaus.jackson.map.annotate.JsonSerialize;
-            import org.codehaus.jackson.map.JsonSerializer.None;
-            import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
-            
-            @JsonSerialize(using = JsonSerializer.None.class)
-            class Test {
-              @JsonSerialize(include=JsonSerialize.Inclusion.NON_NULL)
-              private String first;
-            
-            }
+          java(
             """
+              import org.codehaus.jackson.map.annotate.JsonSerialize;
+              import org.codehaus.jackson.map.JsonSerializer.None;
+              import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
+              
+              @JsonSerialize(using = JsonSerializer.None.class)
+              class Test {
+                @JsonSerialize(include=JsonSerialize.Inclusion.NON_NULL)
+                private String first;
+              
+              }
+              """
           )
         );
     }
