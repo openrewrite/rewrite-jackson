@@ -81,7 +81,8 @@ class RemoveDoublyAnnotatedCodehausAnnotationsTest implements RewriteTest {
     void preserveCodehausAnnotationsIfNotDoublyAnnotatedCombined() {
         rewriteRun(
           //language=java
-          java("""
+          java(
+                """
             import org.codehaus.jackson.map.annotate.JsonSerialize;
             import org.codehaus.jackson.map.JsonSerializer.None;
             import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
