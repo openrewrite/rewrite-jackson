@@ -73,8 +73,11 @@ class RemoveDoublyAnnotatedCodehausAnnotationsTest implements RewriteTest {
             class Test {
               @JsonSerialize(include=JsonSerialize.Inclusion.NON_NULL)
               private String first;
-           
-            }"""));
+            
+            }
+            """
+          )
+        );
     }
 
     @Test
@@ -82,33 +85,34 @@ class RemoveDoublyAnnotatedCodehausAnnotationsTest implements RewriteTest {
         rewriteRun(
           //language=java
           java(
-                """
-            import org.codehaus.jackson.map.annotate.JsonSerialize;
-            import org.codehaus.jackson.map.JsonSerializer.None;
-            import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
-            
-            @JsonSerialize(using = JsonSerializer.None.class)
-            class Test {
-              @JsonSerialize(include=JsonSerialize.Inclusion.NON_NULL)
-              private String first;
-            
-              @JsonSerialize(include = NON_NULL, using = None.class)
-              @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.fasterxml.jackson.databind.JsonSerializer.None.class)
-              private String second;
-            }
-            """, """
-            import com.fasterxml.jackson.databind.JsonSerializer;
-            import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-            
-            @JsonSerialize(using = JsonSerializer.None.class)
-            class Test {
-              @JsonSerialize(include=JsonSerialize.Inclusion.NON_NULL)
-              private String first;
+            """
+              import org.codehaus.jackson.map.annotate.JsonSerialize;
+              import org.codehaus.jackson.map.JsonSerializer.None;
+              import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
               
-              @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.fasterxml.jackson.databind.JsonSerializer.None.class)
-              private String second;
-            }
-            """));
+              @JsonSerialize(using = JsonSerializer.None.class)
+              class Test {
+                @JsonSerialize(include=JsonSerialize.Inclusion.NON_NULL)
+                private String first;
+              
+                @JsonSerialize(include = NON_NULL, using = None.class)
+                @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.fasterxml.jackson.databind.JsonSerializer.None.class)
+                private String second;
+              }
+              """, """
+              import com.fasterxml.jackson.databind.JsonSerializer;
+              import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+              
+              @JsonSerialize(using = JsonSerializer.None.class)
+              class Test {
+                @JsonSerialize(include=JsonSerialize.Inclusion.NON_NULL)
+                private String first;
+              
+                @JsonSerialize(using = JsonSerializer.None.class)
+                private String second;
+              }
+              """
+          )
+        );
     }
-
 }
