@@ -61,6 +61,37 @@ class RemoveDoublyAnnotatedCodehausAnnotationsTest implements RewriteTest {
     }
 
     @Test
+    void removeCodehausAnnotationsDoublyAnnotatedAndRefactorImports() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+            import org.codehaus.jackson.map.annotate.JsonSerialize;
+            import org.codehaus.jackson.map.JsonSerializer.None;
+            import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
+            
+            @JsonSerialize(include = NON_NULL, using = None.class)
+            @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.fasterxml.jackson.databind.JsonSerializer.None.class)
+            class Test {
+              @JsonSerialize(include=JsonSerialize.Inclusion.NON_NULL)
+              @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.fasterxml.jackson.databind.JsonSerializer.None.class)
+              private String first;
+            }
+            """, """
+            import com.fasterxml.jackson.databind.JsonSerializer;
+            import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+            
+            @JsonSerialize(using = JsonSerializer.None.class)
+            class Test {
+              @JsonSerialize(using = JsonSerializer.None.class)
+              private String first;
+            }
+            """
+          )
+        );
+    }
+
+    @Test
     void preserveCodehausAnnotationsIfNotDoublyAnnotated() {
         rewriteRun(
           //language=java
@@ -70,7 +101,7 @@ class RemoveDoublyAnnotatedCodehausAnnotationsTest implements RewriteTest {
               import org.codehaus.jackson.map.JsonSerializer.None;
               import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
               
-              @JsonSerialize(using = JsonSerializer.None.class)
+              @JsonSerialize(using = None.class)
               class Test {
                 @JsonSerialize(include=JsonSerialize.Inclusion.NON_NULL)
                 private String first;
@@ -91,7 +122,8 @@ class RemoveDoublyAnnotatedCodehausAnnotationsTest implements RewriteTest {
             import org.codehaus.jackson.map.JsonSerializer.None;
             import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
             
-            @JsonSerialize(using = JsonSerializer.None.class)
+            @JsonSerialize(include = NON_NULL, using = None.class)
+            @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.fasterxml.jackson.databind.JsonSerializer.None.class)
             class Test {
               @JsonSerialize(include=JsonSerialize.Inclusion.NON_NULL)
               private String first;
@@ -101,16 +133,16 @@ class RemoveDoublyAnnotatedCodehausAnnotationsTest implements RewriteTest {
               private String second;
             }
             """, """
+            import com.fasterxml.jackson.databind.JsonSerializer;
             import org.codehaus.jackson.map.annotate.JsonSerialize;
-            import org.codehaus.jackson.map.JsonSerializer.None;
             import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
             
-            @JsonSerialize(using = JsonSerializer.None.class)
+            @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = JsonSerializer.None.class)
             class Test {
               @JsonSerialize(include=JsonSerialize.Inclusion.NON_NULL)
               private String first;
             
-              @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.fasterxml.jackson.databind.JsonSerializer.None.class)
+              @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = JsonSerializer.None.class)
               private String second;
             }
             """
