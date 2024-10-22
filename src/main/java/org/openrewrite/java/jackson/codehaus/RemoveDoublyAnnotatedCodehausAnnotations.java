@@ -59,7 +59,7 @@ public class RemoveDoublyAnnotatedCodehausAnnotations extends Recipe {
                         AnnotationMatcher matcher = new AnnotationMatcher("@org.codehaus.jackson.map.annotate.JsonSerialize", true) {
                             @Override
                             public boolean matches(J.Annotation annotation) {
-                                return super.matches(annotation) && annotationsToRemove.contains(annotation);
+                                return annotationsToRemove.contains(annotation);
                             }
                         };
 
