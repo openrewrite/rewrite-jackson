@@ -56,7 +56,9 @@ public class RemoveDoublyAnnotatedCodehausAnnotations extends Recipe {
                         stopAfterPreVisit();
 
                         Set<J.Annotation> annotationsToRemove = new FindDoublyAnnotatedVisitor().reduce(tree, new HashSet<>());
-                        AnnotationMatcher matcher = new AnnotationMatcher("@org.codehaus.jackson.map.annotate.JsonSerialize", true) {
+                        AnnotationMatcher matcher = new AnnotationMatcher(
+                                // ignored in practice, as we only match annotations previously found just above
+                                "@org.codehaus.jackson.map.annotate.JsonSerialize", true) {
                             @Override
                             public boolean matches(J.Annotation annotation) {
                                 return annotationsToRemove.contains(annotation);
