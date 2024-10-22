@@ -46,10 +46,7 @@ public class RemoveDoublyAnnotatedCodehausAnnotations extends Recipe {
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
         return Preconditions.check(
-                Preconditions.or(
-                        new UsesType<>("com.fasterxml.jackson.annotation.JsonInclude", false),
-                        new UsesType<>("com.fasterxml.jackson.databind.annotation.JsonSerialize", false)
-                ),
+                new UsesType<>("com.fasterxml.jackson.databind.annotation.JsonSerialize", false),
                 new JavaVisitor<ExecutionContext>() {
                     @Override
                     public J preVisit(@NonNull J tree, ExecutionContext ctx) {

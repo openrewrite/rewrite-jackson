@@ -152,4 +152,26 @@ class RemoveDoublyAnnotatedCodehausAnnotationsTest implements RewriteTest {
           )
         );
     }
+
+    @Test
+    void retainInPresenceOfV2JsonInclude() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import org.codehaus.jackson.map.annotate.JsonSerialize;
+              import org.codehaus.jackson.map.ser.BeanSerializer;
+              import com.fasterxml.jackson.annotation.JsonInclude;
+              import com.fasterxml.jackson.databind.JsonSerializer;
+              
+              @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = JsonSerializer.None.class)
+              class Test {
+                  @JsonSerialize(using = BeanSerializer.class)
+                  @JsonInclude(value = JsonInclude.Include.ALWAYS)
+                  private String sixth;
+              }
+              """
+          )
+        );
+    }
 }
