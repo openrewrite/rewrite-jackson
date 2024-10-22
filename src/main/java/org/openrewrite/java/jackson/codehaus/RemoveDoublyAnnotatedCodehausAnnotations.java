@@ -25,10 +25,11 @@ import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.service.AnnotationService;
 import org.openrewrite.java.tree.J;
 
+import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class RemoveDoublyAnnotatedCodehausAnnotations extends Recipe {
+
     private static final AnnotationMatcher MATCHER_FASTERXML = new AnnotationMatcher("@com.fasterxml.jackson.databind.annotation.JsonSerialize", true);
     private static final AnnotationMatcher MATCHER_CODEHAUS = new AnnotationMatcher("@org.codehaus.jackson.map.annotate.JsonSerialize", true);
 
@@ -54,9 +55,7 @@ public class RemoveDoublyAnnotatedCodehausAnnotations extends Recipe {
                     public J preVisit(@NonNull J tree, ExecutionContext ctx) {
                         stopAfterPreVisit();
 
-                        Set<J.Annotation> annotationsToRemove = ConcurrentHashMap.newKeySet();
-                        new FindDoublyAnnotatedVisitor().reduce(tree, annotationsToRemove);
-
+                        Set<J.Annotation> annotationsToRemove = new FindDoublyAnnotatedVisitor().reduce(tree, new HashSet<>());
                         AnnotationMatcher matcher = new AnnotationMatcher("@org.codehaus.jackson.map.annotate.JsonSerialize", true) {
                             @Override
                             public boolean matches(J.Annotation annotation) {
