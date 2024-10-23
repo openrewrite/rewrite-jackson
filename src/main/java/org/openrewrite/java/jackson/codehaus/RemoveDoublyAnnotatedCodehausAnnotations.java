@@ -25,8 +25,9 @@ import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.service.AnnotationService;
 import org.openrewrite.java.tree.J;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class RemoveDoublyAnnotatedCodehausAnnotations extends Recipe {
 
@@ -52,17 +53,18 @@ public class RemoveDoublyAnnotatedCodehausAnnotations extends Recipe {
                     public J preVisit(@NonNull J tree, ExecutionContext ctx) {
                         stopAfterPreVisit();
 
-                        Set<J.Annotation> annotationsToRemove = new FindDoublyAnnotatedVisitor().reduce(tree, new HashSet<>());
-                        AnnotationMatcher matcher = new AnnotationMatcher(
+                        // Map from codehaus -> fasterxml annotation
+                        Map<J.Annotation, J.Annotation> doubleAnnotated = new FindDoublyAnnotatedVisitor().reduce(tree, new HashMap<>());
+
+                        AnnotationMatcher removeCodehausMatcher = new AnnotationMatcher(
                                 // ignored in practice, as we only match annotations previously found just above
                                 "@org.codehaus.jackson.map.annotate.JsonSerialize", true) {
                             @Override
                             public boolean matches(J.Annotation annotation) {
-                                return annotationsToRemove.contains(annotation);
+                                return doubleAnnotated.containsKey(annotation);
                             }
                         };
-
-                        doAfterVisit(new RemoveAnnotationVisitor(matcher));
+                        doAfterVisit(new RemoveAnnotationVisitor(removeCodehausMatcher));
                         maybeRemoveImport("org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.*");
                         maybeRemoveImport("org.codehaus.jackson.map.annotate.JsonSerialize.Typing.*");
                         doAfterVisit(new ShortenFullyQualifiedTypeReferences().getVisitor());
@@ -71,15 +73,16 @@ public class RemoveDoublyAnnotatedCodehausAnnotations extends Recipe {
                 });
     }
 
-    private static class FindDoublyAnnotatedVisitor extends JavaIsoVisitor<Set<J.Annotation>> {
+    static class FindDoublyAnnotatedVisitor extends JavaIsoVisitor<HashMap<J.Annotation, J.Annotation>> {
+
         @Override
-        public J.Annotation visitAnnotation(J.Annotation annotation, Set<J.Annotation> doublyAnnotated) {
+        public J.Annotation visitAnnotation(J.Annotation annotation, HashMap<J.Annotation, J.Annotation> doublyAnnotated) {
             J.Annotation a = super.visitAnnotation(annotation, doublyAnnotated);
-            if (MATCHER_CODEHAUS.matches(annotation) && service(AnnotationService.class).matches(getCursor().getParentOrThrow(), MATCHER_FASTERXML)) {
-                doublyAnnotated.add(annotation);
+            if (MATCHER_CODEHAUS.matches(annotation)) {
+                List<J.Annotation> doublyAnnotatedList = service(AnnotationService.class).getAllAnnotations(getCursor().getParentOrThrow());
+                doublyAnnotatedList.stream().filter(MATCHER_FASTERXML::matches).findFirst().ifPresent(fasterxml -> doublyAnnotated.put(annotation, fasterxml));
             }
             return a;
         }
     }
-
 }
