@@ -22,6 +22,7 @@ description: >-
   In Jackson 2, the package and dependency coordinates moved from Codehaus to FasterXML.
 recipeList:
   - org.openrewrite.java.jackson.codehaus.RemoveDoublyAnnotatedCodehausAnnotations
+  - org.openrewrite.java.jackson.codehaus.TransferJsonSerializeArgumentsFromCodehausToFasterXML
   - org.openrewrite.java.jackson.CodehausClassesToFasterXML
   - org.openrewrite.java.jackson.codehaus.CodehausDependencyToFasterXML:
       version: 2.x
@@ -58,4 +59,12 @@ recipeList:
   - org.openrewrite.java.ChangePackage:
       oldPackageName: org.codehaus.jackson.annotate
       newPackageName: com.fasterxml.jackson.annotation
+      recursive: true
+  - org.openrewrite.java.ChangePackage:
+      oldPackageName: org.codehaus.jackson.map.ext
+      newPackageName: com.fasterxml.jackson.databind.ext
+      recursive: true
+  - org.openrewrite.java.ChangePackage:
+      oldPackageName: org.codehaus.jackson.map.ser
+      newPackageName: com.fasterxml.jackson.databind.ser
       recursive: true
