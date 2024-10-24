@@ -33,19 +33,18 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class TransferUsingArgumentFromCodehausToFasterXML extends Recipe {
+public class TransferJsonSerializeArgumentsFromCodehausToFasterXML extends Recipe {
 
     @Override
     public String getDisplayName() {
-        return "Transfer using argument from Codehaus to FasterXML";
+        return "Transfer @JsonSerialize arguments from Codehaus to FasterXML";
     }
 
     @Override
     public String getDescription() {
-        return "Transfer the using argument from Codehaus to FasterXML if it was not set before. " +
-               "If the `using` argument was set already, it will not be transferred.";
+        return "Transfer @JsonSerialize annotation arguments (using, contentUsing, keyUsing, nullUsing) from Codehaus " +
+                "to FasterXML. If the argument was set already, it will not be transferred.";
     }
-
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -60,19 +59,17 @@ public class TransferUsingArgumentFromCodehausToFasterXML extends Recipe {
                         // Map from codehaus -> fasterxml annotation
                         Map<J.Annotation, J.Annotation> doubleAnnotated = new FindDoublyAnnotatedVisitor().reduce(tree, new HashMap<>());
 
-                        Map<J.Annotation, Expression> fasterXmlToUsingExpression = mapToArgumentExpression(doubleAnnotated, "using");
-                        doAfterVisit(new TransferUsingVisitor(fasterXmlToUsingExpression, "using"));
-
-                        Map<J.Annotation, Expression> fasterXmlToContentUsingExpression = mapToArgumentExpression(doubleAnnotated, "contentUsing");
-                        doAfterVisit(new TransferUsingVisitor(fasterXmlToContentUsingExpression, "contentUsing"));
-
-                        Map<J.Annotation, Expression> fasterXmlToKeyUsingExpression = mapToArgumentExpression(doubleAnnotated, "keyUsing");
-                        doAfterVisit(new TransferUsingVisitor(fasterXmlToKeyUsingExpression, "keyUsing"));
-
-                        Map<J.Annotation, Expression> fasterXmlToNullsUsingExpression = mapToArgumentExpression(doubleAnnotated, "nullUsing");
-                        doAfterVisit(new TransferUsingVisitor(fasterXmlToNullsUsingExpression, "nullUsing"));
+                        transferArgument(doubleAnnotated, "using");
+                        transferArgument(doubleAnnotated, "contentUsing");
+                        transferArgument(doubleAnnotated, "keyUsing");
+                        transferArgument(doubleAnnotated, "nullUsing");
 
                         return tree;
+                    }
+
+                    private void transferArgument(Map<J.Annotation, J.Annotation> doubleAnnotated, String argumentName) {
+                        Map<J.Annotation, Expression> argumentExpressionMap = mapToArgumentExpression(doubleAnnotated, argumentName);
+                        doAfterVisit(new TransferUsingVisitor(argumentExpressionMap, argumentName));
                     }
                 });
     }

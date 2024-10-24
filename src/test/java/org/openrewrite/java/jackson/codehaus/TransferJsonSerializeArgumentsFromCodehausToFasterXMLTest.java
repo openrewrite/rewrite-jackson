@@ -26,12 +26,12 @@ import org.openrewrite.test.RewriteTest;
 import static org.openrewrite.java.Assertions.java;
 
 @SuppressWarnings("DefaultAnnotationParam")
-class TransferUsingArgumentFromCodehausToFasterXMLTest implements RewriteTest {
+class TransferJsonSerializeArgumentsFromCodehausToFasterXMLTest implements RewriteTest {
 
     @Override
     public void defaults(RecipeSpec spec) {
         spec
-          .recipe(new TransferUsingArgumentFromCodehausToFasterXML())
+          .recipe(new TransferJsonSerializeArgumentsFromCodehausToFasterXML())
           .parser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()));
     }
 
