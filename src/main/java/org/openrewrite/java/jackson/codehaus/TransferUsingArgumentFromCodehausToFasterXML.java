@@ -17,25 +17,32 @@ package org.openrewrite.java.jackson.codehaus;
 
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
-import org.openrewrite.*;
+import org.openrewrite.ExecutionContext;
+import org.openrewrite.Preconditions;
+import org.openrewrite.Recipe;
+import org.openrewrite.TreeVisitor;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
+import org.openrewrite.java.tree.Space;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class TransferUsingArgumentFromCodehausToFasterXML extends Recipe {
 
     @Override
-    public @NlsRewrite.DisplayName String getDisplayName() {
+    public String getDisplayName() {
         return "Transfer using argument from Codehaus to FasterXML";
     }
 
     @Override
-    public @NlsRewrite.Description String getDescription() {
+    public String getDescription() {
         return "Transfer the using argument from Codehaus to FasterXML if it was not set before. " +
-                "If the `using` argument was set already, it will not be transferred.";
+               "If the `using` argument was set already, it will not be transferred.";
     }
 
 
@@ -89,27 +96,26 @@ public class TransferUsingArgumentFromCodehausToFasterXML extends Recipe {
             Expression e = mapToArgument.get(annotation);
             if (e != null) {
                 List<Expression> arguments = annotation.getArguments();
-                if (arguments == null) {
-                    arguments = new ArrayList<>();
-                } else if (!arguments.isEmpty()) {
-                    Optional<Expression> expression = arguments.stream().filter(arg -> {
-                        if (arg instanceof J.Assignment) {
-                            J.Assignment assign = (J.Assignment) arg;
-                            J.Identifier varId = (J.Identifier) assign.getVariable();
-                            return "using".equals(varId.getSimpleName());
-                        }
-                        return false;
-                    }).findFirst();
-
-                    if (expression.isPresent()) {
-                        return annotation;
-                    }
+                if (arguments == null || arguments.isEmpty() || arguments.get(0) instanceof J.Empty) {
+                    return annotation.withArguments(Collections.singletonList(e.withPrefix(Space.EMPTY)));
                 }
 
+                boolean alreadyUsing = arguments.stream()
+                        .filter(arg -> {
+                            if (arg instanceof J.Assignment) {
+                                J.Assignment assign = (J.Assignment) arg;
+                                J.Identifier varId = (J.Identifier) assign.getVariable();
+                                return "using".equals(varId.getSimpleName());
+                            }
+                            return false;
+                        })
+                        .findFirst()
+                        .isPresent();
+                if (alreadyUsing) {
+                    return annotation;
+                }
                 arguments.add(e);
-                J.Annotation a = annotation.withArguments(arguments);
-                a = autoFormat(a, ctx);
-                return a;
+                return annotation.withArguments(arguments);
             }
             return annotation;
         }

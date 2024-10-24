@@ -31,8 +31,8 @@ import java.util.Map;
 
 public class RemoveDoublyAnnotatedCodehausAnnotations extends Recipe {
 
-    private static final AnnotationMatcher MATCHER_FASTERXML = new AnnotationMatcher("@com.fasterxml.jackson.databind.annotation.JsonSerialize", true);
     private static final AnnotationMatcher MATCHER_CODEHAUS = new AnnotationMatcher("@org.codehaus.jackson.map.annotate.JsonSerialize", true);
+    private static final AnnotationMatcher MATCHER_FASTERXML = new AnnotationMatcher("@com.fasterxml.jackson.databind.annotation.JsonSerialize", true);
 
     @Override
     public String getDisplayName() {
@@ -73,14 +73,19 @@ public class RemoveDoublyAnnotatedCodehausAnnotations extends Recipe {
                 });
     }
 
-    static class FindDoublyAnnotatedVisitor extends JavaIsoVisitor<HashMap<J.Annotation, J.Annotation>> {
+    static class FindDoublyAnnotatedVisitor extends JavaIsoVisitor<Map<J.Annotation, J.Annotation>> {
 
         @Override
-        public J.Annotation visitAnnotation(J.Annotation annotation, HashMap<J.Annotation, J.Annotation> doublyAnnotated) {
+        public J.Annotation visitAnnotation(J.Annotation annotation, Map<J.Annotation, J.Annotation> doublyAnnotated) {
             J.Annotation a = super.visitAnnotation(annotation, doublyAnnotated);
             if (MATCHER_CODEHAUS.matches(annotation)) {
-                List<J.Annotation> doublyAnnotatedList = service(AnnotationService.class).getAllAnnotations(getCursor().getParentOrThrow());
-                doublyAnnotatedList.stream().filter(MATCHER_FASTERXML::matches).findFirst().ifPresent(fasterxml -> doublyAnnotated.put(annotation, fasterxml));
+                // Find sibling fasterXMl annotation
+                service(AnnotationService.class)
+                        .getAllAnnotations(getCursor().getParentOrThrow())
+                        .stream()
+                        .filter(MATCHER_FASTERXML::matches)
+                        .findFirst()
+                        .ifPresent(fasterxml -> doublyAnnotated.put(annotation, fasterxml));
             }
             return a;
         }
