@@ -22,6 +22,7 @@ import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
 import org.openrewrite.TreeVisitor;
 import org.openrewrite.java.JavaIsoVisitor;
+import org.openrewrite.java.jackson.codehaus.RemoveDoublyAnnotatedCodehausAnnotations.FindDoublyAnnotatedVisitor;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
@@ -57,17 +58,15 @@ public class TransferUsingArgumentFromCodehausToFasterXML extends Recipe {
                         stopAfterPreVisit();
 
                         // Map from codehaus -> fasterxml annotation
-                        Map<J.Annotation, J.Annotation> doubleAnnotated = new RemoveDoublyAnnotatedCodehausAnnotations
-                                .FindDoublyAnnotatedVisitor().reduce(tree, new HashMap<>());
-
-                        doAfterVisit(new TransferUsingVisitor(mapToArgumentExpression(doubleAnnotated)));
+                        Map<J.Annotation, J.Annotation> doubleAnnotated = new FindDoublyAnnotatedVisitor().reduce(tree, new HashMap<>());
+                        Map<J.Annotation, Expression> fasterXmlToUsingExpression = mapToArgumentExpression(doubleAnnotated);
+                        doAfterVisit(new TransferUsingVisitor(fasterXmlToUsingExpression));
                         return tree;
                     }
                 });
     }
 
-
-    private Map<J.Annotation, Expression> mapToArgumentExpression(Map<J.Annotation, J.Annotation> doubleAnnotated) {
+    private static Map<J.Annotation, Expression> mapToArgumentExpression(Map<J.Annotation, J.Annotation> doubleAnnotated) {
         // Map from fasterxml -> value of "using=..." in codehaus annotation
         Map<J.Annotation, Expression> mapToArgument = new HashMap<>();
         doubleAnnotated.forEach((key, value) -> {
@@ -89,33 +88,29 @@ public class TransferUsingArgumentFromCodehausToFasterXML extends Recipe {
     @RequiredArgsConstructor
     private static class TransferUsingVisitor extends JavaIsoVisitor<ExecutionContext> {
 
-        private final Map<J.Annotation, Expression> mapToArgument;
+        private final Map<J.Annotation, Expression> fasterXmlToUsingExpression;
 
         @Override
         public J.Annotation visitAnnotation(J.Annotation annotation, ExecutionContext ctx) {
-            Expression e = mapToArgument.get(annotation);
+            Expression e = fasterXmlToUsingExpression.get(annotation);
             if (e != null) {
                 List<Expression> arguments = annotation.getArguments();
                 if (arguments == null || arguments.isEmpty() || arguments.get(0) instanceof J.Empty) {
                     return annotation.withArguments(Collections.singletonList(e.withPrefix(Space.EMPTY)));
                 }
 
-                boolean alreadyUsing = arguments.stream()
-                        .filter(arg -> {
-                            if (arg instanceof J.Assignment) {
-                                J.Assignment assign = (J.Assignment) arg;
-                                J.Identifier varId = (J.Identifier) assign.getVariable();
-                                return "using".equals(varId.getSimpleName());
-                            }
-                            return false;
-                        })
-                        .findFirst()
-                        .isPresent();
-                if (alreadyUsing) {
-                    return annotation;
+                boolean notAlreadyUsing = arguments.stream().noneMatch(arg -> {
+                    if (arg instanceof J.Assignment) {
+                        J.Assignment assign = (J.Assignment) arg;
+                        J.Identifier varId = (J.Identifier) assign.getVariable();
+                        return "using".equals(varId.getSimpleName());
+                    }
+                    return false;
+                });
+                if (notAlreadyUsing) {
+                    arguments.add(e);
+                    return annotation.withArguments(arguments);
                 }
-                arguments.add(e);
-                return annotation.withArguments(arguments);
             }
             return annotation;
         }
