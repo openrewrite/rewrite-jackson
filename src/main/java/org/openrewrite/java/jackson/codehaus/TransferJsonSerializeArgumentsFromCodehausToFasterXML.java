@@ -69,7 +69,7 @@ public class TransferJsonSerializeArgumentsFromCodehausToFasterXML extends Recip
 
                     private void transferArgument(Map<J.Annotation, J.Annotation> doubleAnnotated, String argumentName) {
                         Map<J.Annotation, Expression> argumentExpressionMap = mapToArgumentExpression(doubleAnnotated, argumentName);
-                        doAfterVisit(new TransferUsingVisitor(argumentExpressionMap, argumentName));
+                        doAfterVisit(new TransferArgumentsVisitor(argumentExpressionMap, argumentName));
                     }
                 });
     }
@@ -94,7 +94,7 @@ public class TransferJsonSerializeArgumentsFromCodehausToFasterXML extends Recip
     }
 
     @RequiredArgsConstructor
-    private static class TransferUsingVisitor extends JavaIsoVisitor<ExecutionContext> {
+    private static class TransferArgumentsVisitor extends JavaIsoVisitor<ExecutionContext> {
 
         private final Map<J.Annotation, Expression> fasterXmlToUsingExpression;
         private final String argumentName;
