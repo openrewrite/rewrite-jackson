@@ -60,3 +60,11 @@ recipeList:
       oldPackageName: org.codehaus.jackson.annotate
       newPackageName: com.fasterxml.jackson.annotation
       recursive: true
+  - org.openrewrite.java.ChangePackage:
+      oldPackageName: org.codehaus.jackson.map.ext
+      newPackageName: com.fasterxml.jackson.databind.ext
+      recursive: true
+  - org.openrewrite.java.ChangePackage:
+      oldPackageName: org.codehaus.jackson.map.ser
+      newPackageName: com.fasterxml.jackson.databind.ser
+      recursive: true
