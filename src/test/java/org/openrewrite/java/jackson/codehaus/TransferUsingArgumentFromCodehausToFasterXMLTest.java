@@ -15,7 +15,9 @@
  */
 package org.openrewrite.java.jackson.codehaus;
 
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
@@ -34,8 +36,11 @@ class TransferUsingArgumentFromCodehausToFasterXMLTest implements RewriteTest {
     }
 
     @DocumentExample
-    @Test
-    void shouldTransferArgument() {
+    @ParameterizedTest
+    @ValueSource(
+      strings = {"using", "contentUsing", "keyUsing", "nullUsing"}
+    )
+    void shouldTransferArgument(String argumentName) {
         rewriteRun(
           //language=java
           java(
@@ -44,33 +49,36 @@ class TransferUsingArgumentFromCodehausToFasterXMLTest implements RewriteTest {
               import org.codehaus.jackson.map.annotate.JsonSerialize;
               import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
               
-              @JsonSerialize(include = NON_NULL, using = None.class)
+              @JsonSerialize(include = NON_NULL, %1$s = None.class)
               @com.fasterxml.jackson.databind.annotation.JsonSerialize
               class Test {
-                @JsonSerialize(include = NON_NULL, using = None.class)
+                @JsonSerialize(include = NON_NULL, %1$s = None.class)
                 @com.fasterxml.jackson.databind.annotation.JsonSerialize
                 private String first;
               }
-              """,
+              """.formatted(argumentName),
             """
               import org.codehaus.jackson.map.JsonSerializer.None;
               import org.codehaus.jackson.map.annotate.JsonSerialize;
               import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
               
-              @JsonSerialize(include = NON_NULL, using = None.class)
-              @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = None.class)
+              @JsonSerialize(include = NON_NULL, %1$s = None.class)
+              @com.fasterxml.jackson.databind.annotation.JsonSerialize(%1$s = None.class)
               class Test {
-                @JsonSerialize(include = NON_NULL, using = None.class)
-                @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = None.class)
+                @JsonSerialize(include = NON_NULL, %1$s = None.class)
+                @com.fasterxml.jackson.databind.annotation.JsonSerialize(%1$s = None.class)
                 private String first;
               }
-              """
+              """.formatted(argumentName)
           )
         );
     }
 
-    @Test
-    void doNotOverwriteExistingUsing() {
+    @ParameterizedTest
+    @CsvSource(
+      {"using,contentUsing", "keyUsing,nullUsing"}
+    )
+    void shouldTransferArgumentMultiArguments(String firstArg, String secondArg) {
         rewriteRun(
           //language=java
           java(
@@ -79,14 +87,90 @@ class TransferUsingArgumentFromCodehausToFasterXMLTest implements RewriteTest {
               import org.codehaus.jackson.map.annotate.JsonSerialize;
               import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
               
-              @JsonSerialize(include = NON_NULL, using = None.class)
-              @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.fasterxml.jackson.databind.JsonSerializer.None.class)
+              @JsonSerialize(include = NON_NULL, %1$s = None.class, %2$s = None.class)
+              @com.fasterxml.jackson.databind.annotation.JsonSerialize
               class Test {
-                @JsonSerialize(include = NON_NULL, using = None.class)
-                @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.fasterxml.jackson.databind.JsonSerializer.None.class)
+                @JsonSerialize(include = NON_NULL, %1$s = None.class, %2$s = None.class)
+                @com.fasterxml.jackson.databind.annotation.JsonSerialize
                 private String first;
               }
-              """
+              """.formatted(firstArg, secondArg),
+            """
+              import org.codehaus.jackson.map.JsonSerializer.None;
+              import org.codehaus.jackson.map.annotate.JsonSerialize;
+              import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
+              
+              @JsonSerialize(include = NON_NULL, %1$s = None.class, %2$s = None.class)
+              @com.fasterxml.jackson.databind.annotation.JsonSerialize(%1$s = None.class, %2$s = None.class)
+              class Test {
+                @JsonSerialize(include = NON_NULL, %1$s = None.class, %2$s = None.class)
+                @com.fasterxml.jackson.databind.annotation.JsonSerialize(%1$s = None.class, %2$s = None.class)
+                private String first;
+              }
+              """.formatted(firstArg, secondArg)
+          )
+        );
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+      strings = {"using", "contentUsing", "keyUsing", "nullUsing"}
+    )
+    void doNotOverwriteExistingUsing(String argumentName) {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import org.codehaus.jackson.map.JsonSerializer.None;
+              import org.codehaus.jackson.map.annotate.JsonSerialize;
+              import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
+              
+              @JsonSerialize(include = NON_NULL, %1$s = None.class)
+              @com.fasterxml.jackson.databind.annotation.JsonSerialize(%1$s = com.fasterxml.jackson.databind.JsonSerializer.None.class)
+              class Test {
+                @JsonSerialize(include = NON_NULL, %1$s = None.class)
+                @com.fasterxml.jackson.databind.annotation.JsonSerialize(%1$s = com.fasterxml.jackson.databind.JsonSerializer.None.class)
+                private String first;
+              }
+              """.formatted(argumentName)
+          )
+        );
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+      {"using,contentUsing", "keyUsing,nullUsing"}
+    )
+    void shouldTransferArgumentSome(String firstArg, String secondArg) {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import org.codehaus.jackson.map.JsonSerializer.None;
+              import org.codehaus.jackson.map.annotate.JsonSerialize;
+              import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
+              
+              @JsonSerialize(include = NON_NULL, %1$s = None.class, %2$s = None.class)
+              @com.fasterxml.jackson.databind.annotation.JsonSerialize
+              class Test {
+                @JsonSerialize(include = NON_NULL, %1$s = None.class, %2$s = None.class)
+                @com.fasterxml.jackson.databind.annotation.JsonSerialize(%1$s = com.fasterxml.jackson.databind.JsonSerializer.None.class)
+                private String first;
+              }
+              """.formatted(firstArg, secondArg),
+            """
+              import org.codehaus.jackson.map.JsonSerializer.None;
+              import org.codehaus.jackson.map.annotate.JsonSerialize;
+              import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
+              
+              @JsonSerialize(include = NON_NULL, %1$s = None.class, %2$s = None.class)
+              @com.fasterxml.jackson.databind.annotation.JsonSerialize(%1$s = None.class, %2$s = None.class)
+              class Test {
+                @JsonSerialize(include = NON_NULL, %1$s = None.class, %2$s = None.class)
+                @com.fasterxml.jackson.databind.annotation.JsonSerialize(%1$s = com.fasterxml.jackson.databind.JsonSerializer.None.class, %2$s = None.class)
+                private String first;
+              }
+              """.formatted(firstArg, secondArg)
           )
         );
     }

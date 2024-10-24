@@ -59,14 +59,25 @@ public class TransferUsingArgumentFromCodehausToFasterXML extends Recipe {
 
                         // Map from codehaus -> fasterxml annotation
                         Map<J.Annotation, J.Annotation> doubleAnnotated = new FindDoublyAnnotatedVisitor().reduce(tree, new HashMap<>());
-                        Map<J.Annotation, Expression> fasterXmlToUsingExpression = mapToArgumentExpression(doubleAnnotated);
-                        doAfterVisit(new TransferUsingVisitor(fasterXmlToUsingExpression));
+
+                        Map<J.Annotation, Expression> fasterXmlToUsingExpression = mapToArgumentExpression(doubleAnnotated, "using");
+                        doAfterVisit(new TransferUsingVisitor(fasterXmlToUsingExpression, "using"));
+
+                        Map<J.Annotation, Expression> fasterXmlToContentUsingExpression = mapToArgumentExpression(doubleAnnotated, "contentUsing");
+                        doAfterVisit(new TransferUsingVisitor(fasterXmlToContentUsingExpression, "contentUsing"));
+
+                        Map<J.Annotation, Expression> fasterXmlToKeyUsingExpression = mapToArgumentExpression(doubleAnnotated, "keyUsing");
+                        doAfterVisit(new TransferUsingVisitor(fasterXmlToKeyUsingExpression, "keyUsing"));
+
+                        Map<J.Annotation, Expression> fasterXmlToNullsUsingExpression = mapToArgumentExpression(doubleAnnotated, "nullUsing");
+                        doAfterVisit(new TransferUsingVisitor(fasterXmlToNullsUsingExpression, "nullUsing"));
+
                         return tree;
                     }
                 });
     }
 
-    private static Map<J.Annotation, Expression> mapToArgumentExpression(Map<J.Annotation, J.Annotation> doubleAnnotated) {
+    private static Map<J.Annotation, Expression> mapToArgumentExpression(Map<J.Annotation, J.Annotation> doubleAnnotated, String argumentName) {
         // Map from fasterxml -> value of "using=..." in codehaus annotation
         Map<J.Annotation, Expression> mapToArgument = new HashMap<>();
         doubleAnnotated.forEach((key, value) -> {
@@ -75,7 +86,7 @@ public class TransferUsingArgumentFromCodehausToFasterXML extends Recipe {
                     if (arg instanceof J.Assignment) {
                         J.Assignment assign = (J.Assignment) arg;
                         J.Identifier varId = (J.Identifier) assign.getVariable();
-                        if ("using".equals(varId.getSimpleName())) {
+                        if (argumentName.equals(varId.getSimpleName())) {
                             mapToArgument.put(value, arg);
                         }
                     }
@@ -89,6 +100,7 @@ public class TransferUsingArgumentFromCodehausToFasterXML extends Recipe {
     private static class TransferUsingVisitor extends JavaIsoVisitor<ExecutionContext> {
 
         private final Map<J.Annotation, Expression> fasterXmlToUsingExpression;
+        private final String argumentName;
 
         @Override
         public J.Annotation visitAnnotation(J.Annotation annotation, ExecutionContext ctx) {
@@ -103,7 +115,7 @@ public class TransferUsingArgumentFromCodehausToFasterXML extends Recipe {
                     if (arg instanceof J.Assignment) {
                         J.Assignment assign = (J.Assignment) arg;
                         J.Identifier varId = (J.Identifier) assign.getVariable();
-                        return "using".equals(varId.getSimpleName());
+                        return argumentName.equals(varId.getSimpleName());
                     }
                     return false;
                 });
