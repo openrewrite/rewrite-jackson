@@ -35,6 +35,8 @@ import java.util.Map;
 
 public class TransferJsonSerializeArgumentsFromCodehausToFasterXML extends Recipe {
 
+    private static final String[] TRANSFERABLE_ARGUMENTS = {"using", "contentUsing", "keyUsing", "nullUsing"};
+
     @Override
     public String getDisplayName() {
         return "Transfer @JsonSerialize arguments from Codehaus to FasterXML";
@@ -59,10 +61,9 @@ public class TransferJsonSerializeArgumentsFromCodehausToFasterXML extends Recip
                         // Map from codehaus -> fasterxml annotation
                         Map<J.Annotation, J.Annotation> doubleAnnotated = new FindDoublyAnnotatedVisitor().reduce(tree, new HashMap<>());
 
-                        transferArgument(doubleAnnotated, "using");
-                        transferArgument(doubleAnnotated, "contentUsing");
-                        transferArgument(doubleAnnotated, "keyUsing");
-                        transferArgument(doubleAnnotated, "nullUsing");
+                        for (String argumentName : TRANSFERABLE_ARGUMENTS) {
+                            transferArgument(doubleAnnotated, argumentName);
+                        }
 
                         return tree;
                     }
