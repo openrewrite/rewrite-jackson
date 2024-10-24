@@ -26,7 +26,6 @@ import org.openrewrite.java.service.AnnotationService;
 import org.openrewrite.java.tree.J;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class RemoveDoublyAnnotatedCodehausAnnotations extends Recipe {
