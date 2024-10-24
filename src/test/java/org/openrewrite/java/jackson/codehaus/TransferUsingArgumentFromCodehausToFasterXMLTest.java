@@ -70,7 +70,7 @@ class TransferUsingArgumentFromCodehausToFasterXMLTest implements RewriteTest {
     }
 
     @Test
-    void shouldNotTransferArgument() {
+    void doNotOverwriteExistingUsing() {
         rewriteRun(
           //language=java
           java(
