@@ -17,9 +17,12 @@ dependencies {
         exclude("com.google.auto.service", "auto-service-annotations")
     }
 
+    testImplementation("com.fasterxml.jackson.core:jackson-core:latest.release")
     testImplementation("com.fasterxml.jackson.core:jackson-databind:latest.release")
+    testImplementation("com.fasterxml.jackson.module:jackson-module-jaxb-annotations:latest.release")
     testImplementation("org.codehaus.jackson:jackson-core-asl:latest.release")
     testImplementation("org.codehaus.jackson:jackson-mapper-asl:latest.release")
+    testImplementation("org.codehaus.jackson:jackson-xc:latest.release")
 
     testImplementation("org.openrewrite:rewrite-java-17")
     testImplementation("org.openrewrite:rewrite-test")
@@ -30,4 +33,8 @@ dependencies {
 
 recipeDependencies {
     parserClasspath("com.fasterxml.jackson.core:jackson-annotations:latest.release")
+    parserClasspath("com.fasterxml.jackson.module:jackson-module-jaxb-annotations:latest.release")
+    parserClasspath("org.codehaus.jackson:jackson-core-asl:latest.release")
+    parserClasspath("org.codehaus.jackson:jackson-mapper-asl:latest.release")
+    parserClasspath("org.codehaus.jackson:jackson-xc:latest.release")
 }

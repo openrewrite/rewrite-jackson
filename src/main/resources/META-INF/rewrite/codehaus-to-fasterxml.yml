@@ -35,6 +35,7 @@ description: >-
   In Jackson 2, the package and dependency coordinates moved from Codehaus to FasterXML.
 recipeList:
   - org.openrewrite.java.jackson.codehaus.JsonIncludeAnnotation
+  - org.openrewrite.java.jackson.codehaus.ReplaceSerializationConfigAnnotationIntrospector
 
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: org.codehaus.jackson.map.JsonSerializer
@@ -45,6 +46,12 @@ recipeList:
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: org.codehaus.jackson.map.annotate.JsonSerialize
       newFullyQualifiedTypeName: com.fasterxml.jackson.databind.annotation.JsonSerialize
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.map.AnnotationIntrospector
+      newFullyQualifiedTypeName: com.fasterxml.jackson.databind.AnnotationIntrospector
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.xc.JaxbAnnotationIntrospector
+      newFullyQualifiedTypeName: com.fasterxml.jackson.module.jaxb.JaxbAnnotationIntrospector
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: org.codehaus.jackson.map.ObjectMapper
       newFullyQualifiedTypeName: com.fasterxml.jackson.databind.ObjectMapper

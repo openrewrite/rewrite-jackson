@@ -76,7 +76,7 @@ class CodehausToFasterXMLTest implements RewriteTest {
               import org.codehaus.jackson.map.ObjectMapper;
 
               import static org.codehaus.jackson.map.SerializationConfig.Feature.WRAP_ROOT_VALUE;
-              
+
               class Test {
                   void foo(){
                       ObjectMapper mapper = new ObjectMapper();
@@ -325,6 +325,64 @@ class CodehausToFasterXMLTest implements RewriteTest {
               class Test {
                   @JsonInclude(value = JsonInclude.Include.NON_NULL)
                   void method() {}
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void replaceWithSetConfigCallGeneric() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import org.codehaus.jackson.map.AnnotationIntrospector;
+              import org.codehaus.jackson.map.ObjectMapper;
+
+              class Test {
+                  void method(ObjectMapper mapper, AnnotationIntrospector introspector) {
+                      mapper.getSerializationConfig().setAnnotationIntrospector(introspector);
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.AnnotationIntrospector;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void method(ObjectMapper mapper, AnnotationIntrospector introspector) {
+                      mapper.setConfig(mapper.getSerializationConfig().with(introspector));
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void replaceWithSetConfigCallJaxB() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import org.codehaus.jackson.map.ObjectMapper;
+              import org.codehaus.jackson.xc.JaxbAnnotationIntrospector;
+
+              class Test {
+                  void method(ObjectMapper mapper, JaxbAnnotationIntrospector introspector) {
+                      mapper.getSerializationConfig().setAnnotationIntrospector(introspector);
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.module.jaxb.JaxbAnnotationIntrospector;
+
+              class Test {
+                  void method(ObjectMapper mapper, JaxbAnnotationIntrospector introspector) {
+                      mapper.setConfig(mapper.getSerializationConfig().with(introspector));
+                  }
               }
               """
           )
