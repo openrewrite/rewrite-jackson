@@ -23,7 +23,6 @@ import org.openrewrite.java.JavaParser;
 import org.openrewrite.java.JavaTemplate;
 import org.openrewrite.java.JavaVisitor;
 import org.openrewrite.java.search.UsesMethod;
-import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.template.internal.AbstractRefasterJavaVisitor;
 import org.openrewrite.java.tree.J;
 
@@ -68,7 +67,6 @@ public class ReplaceSerializationConfigAnnotationIntrospector extends Recipe {
         };
         return Preconditions.check(
                 Preconditions.and(
-                        new UsesType<>("org.codehaus.jackson.map.ObjectMapper", true),
                         new UsesMethod<>("org.codehaus.jackson.map.MapperConfig setAnnotationIntrospector(..)", true),
                         new UsesMethod<>("org.codehaus.jackson.map.ObjectMapper getSerializationConfig(..)", true)
                 ),

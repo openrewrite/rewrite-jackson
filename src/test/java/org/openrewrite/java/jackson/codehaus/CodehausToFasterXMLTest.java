@@ -18,6 +18,7 @@ package org.openrewrite.java.jackson.codehaus;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
+import org.openrewrite.Issue;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
@@ -331,6 +332,7 @@ class CodehausToFasterXMLTest implements RewriteTest {
         );
     }
 
+    @Issue("https://github.com/openrewrite/rewrite-jackson/issues/17")
     @Test
     void replaceWithSetConfigCallGeneric() {
         rewriteRun(
