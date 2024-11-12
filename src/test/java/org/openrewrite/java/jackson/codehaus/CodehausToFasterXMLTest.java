@@ -333,6 +333,7 @@ class CodehausToFasterXMLTest implements RewriteTest {
     }
 
     @Issue("https://github.com/openrewrite/rewrite-jackson/issues/17")
+    @Issue("https://github.com/openrewrite/rewrite-jackson/issues/17")
     @Test
     void replaceWithSetConfigCallGeneric() {
         rewriteRun(
