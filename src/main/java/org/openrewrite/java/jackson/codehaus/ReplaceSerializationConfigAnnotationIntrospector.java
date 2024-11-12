@@ -41,6 +41,7 @@ public class ReplaceSerializationConfigAnnotationIntrospector extends Recipe {
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
+        // The before and after templates use different types matching types, so we use JavaTemplate.Matcher here only
         JavaVisitor<ExecutionContext> javaVisitor = new AbstractRefasterJavaVisitor() {
             final JavaTemplate before = JavaTemplate
                     .builder("#{mapper:any(org.codehaus.jackson.map.ObjectMapper)}.getSerializationConfig().setAnnotationIntrospector(#{introspector:any(org.codehaus.jackson.map.AnnotationIntrospector)});")
@@ -67,8 +68,8 @@ public class ReplaceSerializationConfigAnnotationIntrospector extends Recipe {
         };
         return Preconditions.check(
                 Preconditions.and(
-                        new UsesMethod<>("org.codehaus.jackson.map.MapperConfig setAnnotationIntrospector(..)", true),
-                        new UsesMethod<>("org.codehaus.jackson.map.ObjectMapper getSerializationConfig(..)", true)
+                        new UsesMethod<>("org.codehaus.jackson.map.ObjectMapper getSerializationConfig(..)", true),
+                        new UsesMethod<>("org.codehaus.jackson.map.MapperConfig setAnnotationIntrospector(..)", true)
                 ),
                 javaVisitor
         );
