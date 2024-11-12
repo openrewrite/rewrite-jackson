@@ -17,7 +17,10 @@ package org.openrewrite.java.jackson.codehaus;
 
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.openrewrite.DocumentExample;
+import org.openrewrite.Issue;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
@@ -76,7 +79,7 @@ class CodehausToFasterXMLTest implements RewriteTest {
               import org.codehaus.jackson.map.ObjectMapper;
 
               import static org.codehaus.jackson.map.SerializationConfig.Feature.WRAP_ROOT_VALUE;
-              
+
               class Test {
                   void foo(){
                       ObjectMapper mapper = new ObjectMapper();
@@ -329,5 +332,71 @@ class CodehausToFasterXMLTest implements RewriteTest {
               """
           )
         );
+    }
+
+    @Issue("https://github.com/openrewrite/rewrite-jackson/issues/17")
+    @Nested
+    class AnnotationIntrospector {
+
+        @Test
+        void replaceWithSetConfigCallGeneric() {
+            rewriteRun(
+              //language=java
+              java(
+                """
+                  import org.codehaus.jackson.map.AnnotationIntrospector;
+                  import org.codehaus.jackson.map.ObjectMapper;
+
+                  class Test {
+                      void method(ObjectMapper mapper, AnnotationIntrospector introspector) {
+                          mapper.getSerializationConfig().setAnnotationIntrospector(introspector);
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.AnnotationIntrospector;
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+
+                  class Test {
+                      void method(ObjectMapper mapper, AnnotationIntrospector introspector) {
+                          mapper.setConfig(mapper.getSerializationConfig().with(introspector));
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @ParameterizedTest
+        @CsvSource(textBlock = """
+          org.codehaus.jackson.xc.JaxbAnnotationIntrospector, com.fasterxml.jackson.module.jaxb.JaxbAnnotationIntrospector
+          org.codehaus.jackson.map.introspect.JacksonAnnotationIntrospector, com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector
+          org.codehaus.jackson.map.introspect.NopAnnotationIntrospector, com.fasterxml.jackson.databind.introspect.NopAnnotationIntrospector
+          """) // org.codehaus.jackson.map.AnnotationIntrospector.Pair, com.fasterxml.jackson.databind.introspect.AnnotationIntrospectorPair
+        void replaceWithSetConfigCallJaxB(String codehausClass, String fasterXmlClass) {
+            rewriteRun(
+              //language=java
+              java(
+                """
+                  import %s;
+
+                  class Test {
+                      void method(org.codehaus.jackson.map.ObjectMapper mapper, %s introspector) {
+                          mapper.getSerializationConfig().setAnnotationIntrospector(introspector);
+                      }
+                  }
+                  """.formatted(codehausClass, codehausClass.substring(codehausClass.lastIndexOf('.') + 1)),
+                """
+                  import %s;
+
+                  class Test {
+                      void method(com.fasterxml.jackson.databind.ObjectMapper mapper, %s introspector) {
+                          mapper.setConfig(mapper.getSerializationConfig().with(introspector));
+                      }
+                  }
+                  """.formatted(fasterXmlClass, fasterXmlClass.substring(fasterXmlClass.lastIndexOf('.') + 1))
+              )
+            );
+        }
     }
 }
