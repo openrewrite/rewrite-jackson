@@ -53,6 +53,15 @@ recipeList:
       oldFullyQualifiedTypeName: org.codehaus.jackson.xc.JaxbAnnotationIntrospector
       newFullyQualifiedTypeName: com.fasterxml.jackson.module.jaxb.JaxbAnnotationIntrospector
   - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.map.introspect.JacksonAnnotationIntrospector
+      newFullyQualifiedTypeName: com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.map.AnnotationIntrospector.Pair
+      newFullyQualifiedTypeName: com.fasterxml.jackson.databind.introspect.AnnotationIntrospectorPair
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.map.introspect.NopAnnotationIntrospector
+      newFullyQualifiedTypeName: com.fasterxml.jackson.databind.introspect.NopAnnotationIntrospector
+  - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: org.codehaus.jackson.map.ObjectMapper
       newFullyQualifiedTypeName: com.fasterxml.jackson.databind.ObjectMapper
 
