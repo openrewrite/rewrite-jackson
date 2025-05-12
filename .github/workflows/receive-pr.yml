@@ -1,7 +1,3 @@
-# Description: This workflow runs OpenRewrite recipes against opened pull request and upload the patch.
-# Since this pull request receives untrusted code, we should **NOT** have any secrets in the environment.
-# https://securitylab.github.com/research/github-actions-preventing-pwn-requests/
----
 name: receive-pr
 
 on:
@@ -14,10 +10,8 @@ concurrency:
   group: '${{ github.workflow }} @ ${{ github.ref }}'
   cancel-in-progress: true
 
-env:
-  GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx2048m -XX:+HeapDumpOnOutOfMemoryError"'
-  GRADLE_SWITCHES: '--console=plain --info --stacktrace'
-
+# https://securitylab.github.com/research/github-actions-preventing-pwn-requests/
+# Since this pull request receives untrusted code, we should **NOT** have any secrets in the environment.
 jobs:
   upload-patch:
     uses: openrewrite/gh-automation/.github/workflows/receive-pr.yml@main
