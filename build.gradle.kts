@@ -24,8 +24,15 @@ dependencies {
     }
 
     testImplementation("org.openrewrite:rewrite-test")
+    testImplementation("org.openrewrite:rewrite-maven")
 
     runtimeOnly("ch.qos.logback:logback-classic:1.2.+")
+}
+
+recipeDependencies {
+    parserClasspath("com.fasterxml.jackson.core:jackson-annotation:2.19.0")
+    parserClasspath("com.fasterxml.jackson.core:jackson-core:2.19.0")
+    parserClasspath("com.fasterxml.jackson.core:jackson-databind:2.19.0")
 }
 
 signing {
