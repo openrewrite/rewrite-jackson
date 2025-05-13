@@ -70,6 +70,21 @@ class UpgradeJackson_2_3Test implements RewriteTest {
                                      <artifactId>jackson-databind</artifactId>
                                      <version>2.19.0</version>
                                  </dependency>
+                                 <dependency>
+                                     <groupId>com.fasterxml.jackson.module</groupId>
+                                     <artifactId>jackson-module-parameter-names</artifactId>
+                                     <version>2.19.0</version>
+                                 </dependency>
+                                 <dependency>
+                                     <groupId>com.fasterxml.jackson.datatype</groupId>
+                                     <artifactId>jackson-datatype-jdk8</artifactId>
+                                     <version>2.19.0</version>
+                                 </dependency>
+                                 <dependency>
+                                     <groupId>com.fasterxml.jackson.datatype</groupId>
+                                     <artifactId>jackson-datatype-jsr310</artifactId>
+                                     <version>2.19.0</version>
+                                 </dependency>
                              </dependencies>
                          </project>
                          """,
@@ -145,6 +160,64 @@ class UpgradeJackson_2_3Test implements RewriteTest {
               }
               """
           )
+        );
+    }
+
+    @Test
+    void jacksonUpgradeToVersion3_java8Only() {
+        rewriteRun(
+          //language=xml
+          pomXml(
+            """
+                       <project>
+                           <modelVersion>4.0.0</modelVersion>
+                           <groupId>org.example</groupId>
+                           <artifactId>example</artifactId>
+                           <version>1.0.0</version>
+                           <dependencies>
+                               <dependency>
+                                   <groupId>com.fasterxml.jackson.module</groupId>
+                                   <artifactId>jackson-module-parameter-names</artifactId>
+                                   <version>2.19.0</version>
+                               </dependency>
+                               <dependency>
+                                   <groupId>com.fasterxml.jackson.datatype</groupId>
+                                   <artifactId>jackson-datatype-jdk8</artifactId>
+                                   <version>2.19.0</version>
+                               </dependency>
+                               <dependency>
+                                   <groupId>com.fasterxml.jackson.datatype</groupId>
+                                   <artifactId>jackson-datatype-jsr310</artifactId>
+                                   <version>2.19.0</version>
+                               </dependency>
+                           </dependencies>
+                       </project>
+                       """,
+            spec -> spec.after(pom -> {
+                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
+                assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
+                String jacksonVersion = versionMatcher.group(0);
+
+                Matcher annotationsVersionMatcher = Pattern.compile("3\\.\\d+(\\.\\d+)*(-rc[\\d]*)?").matcher(pom);
+                assertThat(annotationsVersionMatcher.find()).describedAs("Expected 3.x in %s", pom).isTrue();
+                String annotationsVersion = annotationsVersionMatcher.group(0);
+
+                return """
+                         <project>
+                             <modelVersion>4.0.0</modelVersion>
+                             <groupId>org.example</groupId>
+                             <artifactId>example</artifactId>
+                             <version>1.0.0</version>
+                             <dependencies>
+                                 <dependency>
+                                     <groupId>tools.jackson.core</groupId>
+                                     <artifactId>jackson-databind</artifactId>
+                                     <version>%s</version>
+                                 </dependency>
+                             </dependencies>
+                         </project>
+                  """.formatted(annotationsVersion, jacksonVersion, jacksonVersion);
+            }))
         );
     }
 }

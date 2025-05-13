@@ -40,6 +40,24 @@ recipeList:
       newGroupId: tools.jackson.core
       newArtifactId: jackson-databind
       newVersion: 3.0.0-rc4
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: com.fasterxml.jackson.module
+      oldArtifactId: jackson-module-parameter-names
+      newGroupId: tools.jackson.core
+      newArtifactId: jackson-databind
+      newVersion: 3.0.0-rc4
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: com.fasterxml.jackson.datatype
+      oldArtifactId: jackson-datatype-jdk8
+      newGroupId: tools.jackson.core
+      newArtifactId: jackson-databind
+      newVersion: 3.0.0-rc4
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: com.fasterxml.jackson.datatype
+      oldArtifactId: jackson-datatype-jsr310
+      newGroupId: tools.jackson.core
+      newArtifactId: jackson-databind
+      newVersion: 3.0.0-rc4
   - org.openrewrite.java.ChangePackage:
       oldPackageName: com.fasterxml.jackson.core
       newPackageName: tools.jackson.core
