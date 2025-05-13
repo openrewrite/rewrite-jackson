@@ -34,7 +34,7 @@ class UpgradeJackson_2_3Test implements RewriteTest {
     public void defaults(RecipeSpec spec) {
         spec
           .parser(JavaParser.fromJavaVersion().classpath(
-            "jackson-core", "jackson-databind"))
+            "jackson-annotations", "jackson-core", "jackson-databind"))
           .recipe(Environment.builder()
             .scanRuntimeClasspath("org.openrewrite")
             .build()
@@ -111,10 +111,16 @@ class UpgradeJackson_2_3Test implements RewriteTest {
           //language=java
           java(
             """
+              import com.fasterxml.jackson.annotation.JsonProperty;
               import com.fasterxml.jackson.core.JsonFactory;
               import com.fasterxml.jackson.core.JsonFactoryBuilder;
+              import com.fasterxml.jackson.databind.ObjectMapper;
 
               class Test {
+                  public String foo(@JsonProperty("foo") String foo) {
+                      return foo;
+                  }
+
                   static void helloJackson() {
                       Object[] input = new Object[] { "one", "two" };
                       JsonFactory factory = new JsonFactoryBuilder().build();
@@ -122,10 +128,16 @@ class UpgradeJackson_2_3Test implements RewriteTest {
               }
               """,
             """
+              import com.fasterxml.jackson.annotation.JsonProperty;
               import tools.jackson.core.JsonFactory;
               import tools.jackson.core.JsonFactoryBuilder;
+              import tools.jackson.databind.ObjectMapper;
 
               class Test {
+                  public String foo(@JsonProperty("foo") String foo) {
+                      return foo;
+                  }
+
                   static void helloJackson() {
                       Object[] input = new Object[] { "one", "two" };
                       JsonFactory factory = new JsonFactoryBuilder().build();
