@@ -5,19 +5,18 @@ plugins {
 group = "org.openrewrite.recipe"
 description = "OpenRewrite recipes for modernizing, upgrading, applying best practices for the fasterxml Jackson serialization/deserialization libraries "
 
+val rewriteVersion = rewriteRecipe.rewriteVersion.get()
 dependencies {
-    implementation(platform("org.openrewrite:rewrite-bom:latest.release"))
+    implementation(platform("org.openrewrite:rewrite-bom:$rewriteVersion"))
 
     implementation("org.openrewrite:rewrite-java")
-    implementation("org.openrewrite.recipe:rewrite-java-dependencies")
-    implementation("org.openrewrite:rewrite-yaml")
-    implementation("org.openrewrite.meta:rewrite-analysis")
+    implementation("org.openrewrite.recipe:rewrite-java-dependencies:$rewriteVersion")
     implementation("org.assertj:assertj-core:latest.release")
     runtimeOnly("org.openrewrite:rewrite-java-17")
 
 
-    annotationProcessor("org.openrewrite:rewrite-templating:latest.release")
-    implementation("org.openrewrite:rewrite-templating")
+    annotationProcessor("org.openrewrite:rewrite-templating:$rewriteVersion")
+    implementation("org.openrewrite:rewrite-templating:$rewriteVersion")
     // The `@BeforeTemplate` and `@AfterTemplate` annotations are needed for refaster style recipes
     compileOnly("com.google.errorprone:error_prone_core:latest.release") {
         exclude("com.google.auto.service", "auto-service-annotations")
@@ -47,15 +46,3 @@ configure<PublishingExtension> {
     }
 }
 
-publishing {
-  repositories {
-      maven {
-          name = "moderne"
-          url = uri("https://us-west1-maven.pkg.dev/moderne-dev/moderne-recipe")
-      }
-  }
-}
-
-tasks.register("licenseFormat") {
-    println("License format task not implemented for rewrite-recipe-starter")
-}
