@@ -24,6 +24,7 @@ description: Migrate applications to the latest Jackson 3.x release.
 tags:
   - jackson
 recipeList:
+  - "org.openrewrite.jackson.UpgradeJackson_2_And_3_Base_Exceptions"
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
       groupId: com.fasterxml.jackson.core
       artifactId: jackson-annotations
@@ -58,6 +59,12 @@ recipeList:
       newGroupId: tools.jackson.core
       newArtifactId: jackson-databind
       newVersion: 3.0.0-rc4
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.core.JsonParseException
+      newFullyQualifiedTypeName: tools.jackson.core.StreamReadException
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.core.JsonGenerationException
+      newFullyQualifiedTypeName: tools.jackson.core.StreamWriteException
   - org.openrewrite.java.ChangePackage:
       oldPackageName: com.fasterxml.jackson.core
       newPackageName: tools.jackson.core

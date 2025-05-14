@@ -15,8 +15,6 @@
  */
 package org.openrewrite.jackson;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.config.Environment;
@@ -24,10 +22,12 @@ import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.openrewrite.java.Assertions.java;
 import static org.openrewrite.maven.Assertions.pomXml;
-
 
 class UpgradeJackson_2_3Test implements RewriteTest {
     @Override
@@ -48,46 +48,46 @@ class UpgradeJackson_2_3Test implements RewriteTest {
         rewriteRun(
           //language=xml
           pomXml(
-              """
-                         <project>
-                             <modelVersion>4.0.0</modelVersion>
-                             <groupId>org.example</groupId>
-                             <artifactId>example</artifactId>
-                             <version>1.0.0</version>
-                             <dependencies>
-                                 <dependency>
-                                     <groupId>com.fasterxml.jackson.core</groupId>
-                                     <artifactId>jackson-annotations</artifactId>
-                                     <version>2.19.0</version>
-                                 </dependency>
-                                 <dependency>
-                                     <groupId>com.fasterxml.jackson.core</groupId>
-                                     <artifactId>jackson-core</artifactId>
-                                     <version>2.19.0</version>
-                                 </dependency>
-                                 <dependency>
-                                     <groupId>com.fasterxml.jackson.core</groupId>
-                                     <artifactId>jackson-databind</artifactId>
-                                     <version>2.19.0</version>
-                                 </dependency>
-                                 <dependency>
-                                     <groupId>com.fasterxml.jackson.module</groupId>
-                                     <artifactId>jackson-module-parameter-names</artifactId>
-                                     <version>2.19.0</version>
-                                 </dependency>
-                                 <dependency>
-                                     <groupId>com.fasterxml.jackson.datatype</groupId>
-                                     <artifactId>jackson-datatype-jdk8</artifactId>
-                                     <version>2.19.0</version>
-                                 </dependency>
-                                 <dependency>
-                                     <groupId>com.fasterxml.jackson.datatype</groupId>
-                                     <artifactId>jackson-datatype-jsr310</artifactId>
-                                     <version>2.19.0</version>
-                                 </dependency>
-                             </dependencies>
-                         </project>
-                         """,
+            """
+              <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>org.example</groupId>
+                  <artifactId>example</artifactId>
+                  <version>1.0.0</version>
+                  <dependencies>
+                      <dependency>
+                          <groupId>com.fasterxml.jackson.core</groupId>
+                          <artifactId>jackson-annotations</artifactId>
+                          <version>2.19.0</version>
+                      </dependency>
+                      <dependency>
+                          <groupId>com.fasterxml.jackson.core</groupId>
+                          <artifactId>jackson-core</artifactId>
+                          <version>2.19.0</version>
+                      </dependency>
+                      <dependency>
+                          <groupId>com.fasterxml.jackson.core</groupId>
+                          <artifactId>jackson-databind</artifactId>
+                          <version>2.19.0</version>
+                      </dependency>
+                      <dependency>
+                          <groupId>com.fasterxml.jackson.module</groupId>
+                          <artifactId>jackson-module-parameter-names</artifactId>
+                          <version>2.19.0</version>
+                      </dependency>
+                      <dependency>
+                          <groupId>com.fasterxml.jackson.datatype</groupId>
+                          <artifactId>jackson-datatype-jdk8</artifactId>
+                          <version>2.19.0</version>
+                      </dependency>
+                      <dependency>
+                          <groupId>com.fasterxml.jackson.datatype</groupId>
+                          <artifactId>jackson-datatype-jsr310</artifactId>
+                          <version>2.19.0</version>
+                      </dependency>
+                  </dependencies>
+              </project>
+              """,
             spec -> spec.after(pom -> {
                 Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
                 assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
@@ -130,12 +130,12 @@ class UpgradeJackson_2_3Test implements RewriteTest {
               import com.fasterxml.jackson.core.JsonFactory;
               import com.fasterxml.jackson.core.JsonFactoryBuilder;
               import com.fasterxml.jackson.databind.ObjectMapper;
-
+              
               class Test {
                   public String foo(@JsonProperty("foo") String foo) {
                       return foo;
                   }
-
+              
                   static void helloJackson() {
                       Object[] input = new Object[] { "one", "two" };
                       JsonFactory factory = new JsonFactoryBuilder().build();
@@ -147,12 +147,12 @@ class UpgradeJackson_2_3Test implements RewriteTest {
               import tools.jackson.core.JsonFactory;
               import tools.jackson.core.JsonFactoryBuilder;
               import tools.jackson.databind.ObjectMapper;
-
+              
               class Test {
                   public String foo(@JsonProperty("foo") String foo) {
                       return foo;
                   }
-
+              
                   static void helloJackson() {
                       Object[] input = new Object[] { "one", "two" };
                       JsonFactory factory = new JsonFactoryBuilder().build();
@@ -169,30 +169,30 @@ class UpgradeJackson_2_3Test implements RewriteTest {
           //language=xml
           pomXml(
             """
-                       <project>
-                           <modelVersion>4.0.0</modelVersion>
-                           <groupId>org.example</groupId>
-                           <artifactId>example</artifactId>
-                           <version>1.0.0</version>
-                           <dependencies>
-                               <dependency>
-                                   <groupId>com.fasterxml.jackson.module</groupId>
-                                   <artifactId>jackson-module-parameter-names</artifactId>
-                                   <version>2.19.0</version>
-                               </dependency>
-                               <dependency>
-                                   <groupId>com.fasterxml.jackson.datatype</groupId>
-                                   <artifactId>jackson-datatype-jdk8</artifactId>
-                                   <version>2.19.0</version>
-                               </dependency>
-                               <dependency>
-                                   <groupId>com.fasterxml.jackson.datatype</groupId>
-                                   <artifactId>jackson-datatype-jsr310</artifactId>
-                                   <version>2.19.0</version>
-                               </dependency>
-                           </dependencies>
-                       </project>
-                       """,
+              <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>org.example</groupId>
+                  <artifactId>example</artifactId>
+                  <version>1.0.0</version>
+                  <dependencies>
+                      <dependency>
+                          <groupId>com.fasterxml.jackson.module</groupId>
+                          <artifactId>jackson-module-parameter-names</artifactId>
+                          <version>2.19.0</version>
+                      </dependency>
+                      <dependency>
+                          <groupId>com.fasterxml.jackson.datatype</groupId>
+                          <artifactId>jackson-datatype-jdk8</artifactId>
+                          <version>2.19.0</version>
+                      </dependency>
+                      <dependency>
+                          <groupId>com.fasterxml.jackson.datatype</groupId>
+                          <artifactId>jackson-datatype-jsr310</artifactId>
+                          <version>2.19.0</version>
+                      </dependency>
+                  </dependencies>
+              </project>
+              """,
             spec -> spec.after(pom -> {
                 Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
                 assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
@@ -218,6 +218,170 @@ class UpgradeJackson_2_3Test implements RewriteTest {
                          </project>
                   """.formatted(annotationsVersion, jacksonVersion, jacksonVersion);
             }))
+        );
+    }
+
+    @Test
+    void jacksonUpgradeToVersion3_JsonProcessingException() {
+        rewriteRun(
+          //language=java
+          java(
+          """
+            import com.fasterxml.jackson.core.JsonFactory;
+            import com.fasterxml.jackson.core.JsonFactoryBuilder;
+            import com.fasterxml.jackson.core.JsonProcessingException;
+            import com.fasterxml.jackson.databind.ObjectMapper;
+            
+            class Test {
+                static void helloJackson() {
+                    try {
+                        Object[] input = new Object[] { "one", "two" };
+                        JsonFactory factory = new JsonFactoryBuilder().build();
+                    } catch (JsonProcessingException e) {
+                    }
+                }
+            }
+            """,
+          """
+            import tools.jackson.core.JacksonException;
+            import tools.jackson.core.JsonFactory;
+            import tools.jackson.core.JsonFactoryBuilder;
+            import tools.jackson.databind.ObjectMapper;
+            
+            class Test {
+                static void helloJackson() {
+                    try {
+                        Object[] input = new Object[] { "one", "two" };
+                        JsonFactory factory = new JsonFactoryBuilder().build();
+                    } catch (JacksonException e) {
+                    }
+                }
+            }
+            """
+        )
+        );
+    }
+
+    @Test
+    void jacksonUpgradeToVersion3_JsonParseException() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonFactory;
+              import com.fasterxml.jackson.core.JsonFactoryBuilder;
+              import com.fasterxml.jackson.core.JsonParseException;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              
+              class Test {
+                  static void helloJackson() {
+                      try {
+                          Object[] input = new Object[] { "one", "two" };
+                          JsonFactory factory = new JsonFactoryBuilder().build();
+                      } catch (JsonParseException e) {
+                      }
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonFactory;
+              import tools.jackson.core.JsonFactoryBuilder;
+              import tools.jackson.databind.ObjectMapper;
+              import tools.jackson.core.StreamReadException;
+              
+              class Test {
+                  static void helloJackson() {
+                      try {
+                          Object[] input = new Object[] { "one", "two" };
+                          JsonFactory factory = new JsonFactoryBuilder().build();
+                      } catch (StreamReadException e) {
+                      }
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void jacksonUpgradeToVersion3_JsonGenerationException() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonFactory;
+              import com.fasterxml.jackson.core.JsonFactoryBuilder;
+              import com.fasterxml.jackson.core.JsonGenerationException;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              
+              class Test {
+                  static void helloJackson() {
+                      try {
+                          Object[] input = new Object[] { "one", "two" };
+                          JsonFactory factory = new JsonFactoryBuilder().build();
+                      } catch (JsonGenerationException e) {
+                      }
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonFactory;
+              import tools.jackson.core.JsonFactoryBuilder;
+              import tools.jackson.databind.ObjectMapper;
+              import tools.jackson.core.StreamWriteException;
+              
+              class Test {
+                  static void helloJackson() {
+                      try {
+                          Object[] input = new Object[] { "one", "two" };
+                          JsonFactory factory = new JsonFactoryBuilder().build();
+                      } catch (StreamWriteException e) {
+                      }
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void jacksonUpgradeToVersion3_JsonMappingException() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonFactory;
+              import com.fasterxml.jackson.core.JsonFactoryBuilder;
+              import com.fasterxml.jackson.databind.JsonMappingException;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              
+              class Test {
+                  static void helloJackson() {
+                      try {
+                          Object[] input = new Object[] { "one", "two" };
+                          JsonFactory factory = new JsonFactoryBuilder().build();
+                      } catch (JsonMappingException e) {
+                      }
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonFactory;
+              import tools.jackson.core.JsonFactoryBuilder;
+              import tools.jackson.databind.DatabindException;
+              import tools.jackson.databind.ObjectMapper;
+              
+              class Test {
+                  static void helloJackson() {
+                      try {
+                          Object[] input = new Object[] { "one", "two" };
+                          JsonFactory factory = new JsonFactoryBuilder().build();
+                      } catch (DatabindException e) {
+                      }
+                  }
+              }
+              """
+          )
         );
     }
 }
