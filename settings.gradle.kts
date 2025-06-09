@@ -39,4 +39,3 @@ develocity {
         uploadInBackground = !isCiServer
     }
 }
-
