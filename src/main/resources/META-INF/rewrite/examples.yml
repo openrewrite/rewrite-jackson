@@ -1,0 +1,142 @@
+# Copyright 2025 the original author or authors.
+# <p>
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# <p>
+# https://www.apache.org/licenses/LICENSE-2.0
+# <p>
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.jackson.UpgradeJackson_2_3
+examples:
+- description: ''
+  sources:
+  - before: |
+      import com.fasterxml.jackson.annotation.JsonProperty;
+      import com.fasterxml.jackson.core.JsonFactory;
+      import com.fasterxml.jackson.core.JsonFactoryBuilder;
+      import com.fasterxml.jackson.databind.ObjectMapper;
+
+      class Test {
+          public String foo(@JsonProperty("foo") String foo) {
+              return foo;
+          }
+
+          static void helloJackson() {
+              Object[] input = new Object[] { "one", "two" };
+              JsonFactory factory = new JsonFactoryBuilder().build();
+          }
+      }
+    after: |
+      import com.fasterxml.jackson.annotation.JsonProperty;
+      import tools.jackson.core.JsonFactory;
+      import tools.jackson.core.JsonFactoryBuilder;
+      import tools.jackson.databind.ObjectMapper;
+
+      class Test {
+          public String foo(@JsonProperty("foo") String foo) {
+              return foo;
+          }
+
+          static void helloJackson() {
+              Object[] input = new Object[] { "one", "two" };
+              JsonFactory factory = new JsonFactoryBuilder().build();
+          }
+      }
+    language: java
+  - before: |
+      <project>
+          <modelVersion>4.0.0</modelVersion>
+          <groupId>org.example</groupId>
+          <artifactId>example</artifactId>
+          <version>1.0.0</version>
+          <dependencies>
+              <dependency>
+                  <groupId>com.fasterxml.jackson.core</groupId>
+                  <artifactId>jackson-annotations</artifactId>
+                  <version>2.19.0</version>
+              </dependency>
+              <dependency>
+                  <groupId>com.fasterxml.jackson.core</groupId>
+                  <artifactId>jackson-core</artifactId>
+                  <version>2.19.0</version>
+              </dependency>
+              <dependency>
+                  <groupId>com.fasterxml.jackson.core</groupId>
+                  <artifactId>jackson-databind</artifactId>
+                  <version>2.19.0</version>
+              </dependency>
+              <dependency>
+                  <groupId>com.fasterxml.jackson.module</groupId>
+                  <artifactId>jackson-module-parameter-names</artifactId>
+                  <version>2.19.0</version>
+              </dependency>
+              <dependency>
+                  <groupId>com.fasterxml.jackson.datatype</groupId>
+                  <artifactId>jackson-datatype-jdk8</artifactId>
+                  <version>2.19.0</version>
+              </dependency>
+              <dependency>
+                  <groupId>com.fasterxml.jackson.datatype</groupId>
+                  <artifactId>jackson-datatype-jsr310</artifactId>
+                  <version>2.19.0</version>
+              </dependency>
+          </dependencies>
+      </project>
+    path: pom.xml
+    language: xml
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.jackson.UpgradeJackson_2_And_3_Base_Exceptions
+examples:
+- description: ''
+  sources:
+  - before: |
+      import com.fasterxml.jackson.core.JsonProcessingException;
+      import com.fasterxml.jackson.databind.JsonMappingException;
+      import com.fasterxml.jackson.databind.ObjectMapper;
+
+      class Test {
+          static void helloJackson() {
+              ObjectMapper objectMapper = new ObjectMapper();
+              Object object = new Object();
+              try {
+                  String json = objectMapper.writeValueAsString(object);
+                  try {
+                      objectMapper.readValue(json, Object.class);
+                  } catch (JsonMappingException e) {
+                      throw new RuntimeException(e);
+                  }
+              } catch (JsonProcessingException e) {
+                  throw new RuntimeException(e);
+              }
+          }
+      }
+    after: |
+      import com.fasterxml.jackson.core.JacksonException;
+      import com.fasterxml.jackson.databind.DatabindException;
+      import com.fasterxml.jackson.databind.ObjectMapper;
+
+      class Test {
+          static void helloJackson() {
+              ObjectMapper objectMapper = new ObjectMapper();
+              Object object = new Object();
+              try {
+                  String json = objectMapper.writeValueAsString(object);
+                  try {
+                      objectMapper.readValue(json, Object.class);
+                  } catch (DatabindException e) {
+                      throw new RuntimeException(e);
+                  }
+              } catch (JacksonException e) {
+                  throw new RuntimeException(e);
+              }
+          }
+      }
+    language: java
