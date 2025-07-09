@@ -18,7 +18,7 @@
 # Jackson library
 ---
 type: specs.openrewrite.org/v1beta/recipe
-name: org.openrewrite.jackson.UpgradeJackson_2_And_3_Base_Exceptions
+name: org.openrewrite.java.jackson.UpgradeJackson_2_And_3_Base_Exceptions
 displayName: Migrates Jackson 2.x base exceptions to Jackson 3.x base exceptions
 description: Jackson 3 contains new base exceptions which were also backported to 2.x. This recipe will migrate usage to the new base exceptions to prepare for a 3.x upgrade.
 tags:
