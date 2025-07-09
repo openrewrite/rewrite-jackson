@@ -18,13 +18,13 @@
 # Jackson library
 ---
 type: specs.openrewrite.org/v1beta/recipe
-name: org.openrewrite.jackson.UpgradeJackson_2_3
+name: org.openrewrite.java.jackson.UpgradeJackson_2_3
 displayName: Migrates from Jackson 2.x to Jackson 3.x
 description: Migrate applications to the latest Jackson 3.x release.
 tags:
   - jackson
 recipeList:
-  - "org.openrewrite.jackson.UpgradeJackson_2_And_3_Base_Exceptions"
+  - "org.openrewrite.java.jackson.UpgradeJackson_2_And_3_Base_Exceptions"
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
       groupId: com.fasterxml.jackson.core
       artifactId: jackson-annotations

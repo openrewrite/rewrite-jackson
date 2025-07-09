@@ -16,8 +16,8 @@
 ---
 type: specs.openrewrite.org/v1beta/category
 name: Jackson
-packageName: org.openrewrite.jackson
-description: Recipes to perform [Jackson](https://github.com/FasterXML/jackson) library migration tasks.
+packageName: org.openrewrite.java.jackson
+description: Recipes to perform [Jackson](https://github.com/FasterXML/jackson) migration tasks.
 tags:
   - json
 ---

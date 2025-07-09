@@ -13,7 +13,7 @@
 # limitations under the License.
 ---
 type: specs.openrewrite.org/v1beta/example
-recipeName: org.openrewrite.jackson.UpgradeJackson_2_3
+recipeName: org.openrewrite.java.jackson.UpgradeJackson_2_3
 examples:
 - description: ''
   sources:
@@ -93,7 +93,7 @@ examples:
     language: xml
 ---
 type: specs.openrewrite.org/v1beta/example
-recipeName: org.openrewrite.jackson.UpgradeJackson_2_And_3_Base_Exceptions
+recipeName: org.openrewrite.java.jackson.UpgradeJackson_2_And_3_Base_Exceptions
 examples:
 - description: ''
   sources:
@@ -138,5 +138,108 @@ examples:
                   throw new RuntimeException(e);
               }
           }
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.jackson.CodehausToFasterXML
+examples:
+- description: ''
+  sources:
+  - before: |
+      import org.codehaus.jackson.map.ObjectMapper;
+      import org.codehaus.jackson.map.annotate.JsonSerialize;
+
+      class Test {
+          private static ObjectMapper initializeObjectMapper() {
+              ObjectMapper mapper = new ObjectMapper();
+              return mapper.setSerializationInclusion(JsonSerialize.Inclusion.NON_NULL);
+          }
+      }
+    after: |
+      import com.fasterxml.jackson.annotation.JsonInclude.Include;
+      import com.fasterxml.jackson.databind.ObjectMapper;
+
+      class Test {
+          private static ObjectMapper initializeObjectMapper() {
+              ObjectMapper mapper = new ObjectMapper();
+              return mapper.setSerializationInclusion(Include.NON_NULL);
+          }
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.jackson.codehaus.CodehausDependencyToFasterXML
+examples:
+- description: ''
+  parameters:
+  - 'null'
+  sources:
+  - before: |
+      <project>
+          <modelVersion>4.0.0</modelVersion>
+          <groupId>com.mycompany.app</groupId>
+          <artifactId>my-app</artifactId>
+          <version>1</version>
+          <dependencies>
+              <dependency>
+                  <groupId>org.codehaus.jackson</groupId>
+                  <artifactId>jackson-core-asl</artifactId>
+                  <version>1.9.13</version>
+              </dependency>
+              <dependency>
+                  <groupId>org.codehaus.jackson</groupId>
+                  <artifactId>jackson-mapper-asl</artifactId>
+                  <version>1.9.13</version>
+              </dependency>
+          </dependencies>
+      </project>
+    path: pom.xml
+    language: xml
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.jackson.codehaus.JsonIncludeAnnotation
+examples:
+- description: ''
+  sources:
+  - before: |
+      import org.codehaus.jackson.map.annotate.JsonSerialize;
+      import org.codehaus.jackson.map.JsonSerializer.None;
+      import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
+
+      @JsonSerialize(include = NON_NULL, using = None.class)
+      class Test {
+      }
+    after: |
+      import org.codehaus.jackson.map.annotate.JsonSerialize;
+      import com.fasterxml.jackson.annotation.JsonInclude;
+      import org.codehaus.jackson.map.JsonSerializer.None;
+
+      @JsonInclude(value = JsonInclude.Include.NON_NULL)
+      @JsonSerialize(using = None.class)
+      class Test {
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.jackson.codehaus.RemoveDoublyAnnotatedCodehausAnnotations
+examples:
+- description: ''
+  sources:
+  - before: |
+      import org.codehaus.jackson.map.annotate.JsonSerialize;
+      import org.codehaus.jackson.map.JsonSerializer.None;
+      import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
+
+      @JsonSerialize(include = NON_NULL, using = None.class)
+      @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.fasterxml.jackson.databind.JsonSerializer.None.class)
+      class Test {
+      }
+    after: |
+      import com.fasterxml.jackson.databind.JsonSerializer;
+      import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+
+      @JsonSerialize(using = JsonSerializer.None.class)
+      class Test {
       }
     language: java

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.openrewrite.jackson;
+package org.openrewrite.java.jackson;
 
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
@@ -33,7 +33,7 @@ class UpgradeJackson_2_And_3_Base_ExceptionsTest implements RewriteTest {
           .recipe(Environment.builder()
             .scanRuntimeClasspath("org.openrewrite")
             .build()
-            .activateRecipes("org.openrewrite.jackson.UpgradeJackson_2_And_3_Base_Exceptions")
+            .activateRecipes("org.openrewrite.java.jackson.UpgradeJackson_2_And_3_Base_Exceptions")
           );
     }
 
