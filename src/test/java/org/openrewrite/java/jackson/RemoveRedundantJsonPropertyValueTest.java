@@ -43,7 +43,7 @@ class RemoveRedundantJsonPropertyValueTest implements RewriteTest {
             """
               import com.fasterxml.jackson.annotation.JsonProperty;
 
-              public class CategorieRequest {
+              class CategorieRequest {
                   @JsonProperty(value = "name", required = true)
                   private String name;
                   @JsonProperty("color")
@@ -55,7 +55,7 @@ class RemoveRedundantJsonPropertyValueTest implements RewriteTest {
             """
               import com.fasterxml.jackson.annotation.JsonProperty;
 
-              public class CategorieRequest {
+              class CategorieRequest {
                   @JsonProperty(required = true)
                   private String name;
                   private String color;
@@ -75,7 +75,7 @@ class RemoveRedundantJsonPropertyValueTest implements RewriteTest {
             """
               import com.fasterxml.jackson.annotation.JsonProperty;
 
-              public class Person {
+              class Person {
                   @JsonProperty(value = "firstName")
                   private String firstName;
                   @JsonProperty(value = "lastName")
@@ -83,7 +83,7 @@ class RemoveRedundantJsonPropertyValueTest implements RewriteTest {
               }
               """,
             """
-              public class Person {
+              class Person {
                   private String firstName;
                   private String lastName;
               }
@@ -100,7 +100,7 @@ class RemoveRedundantJsonPropertyValueTest implements RewriteTest {
             """
               import com.fasterxml.jackson.annotation.JsonProperty;
 
-              public class Person {
+              class Person {
                   @JsonProperty("first_name")
                   private String firstName;
                   @JsonProperty("last_name")
@@ -119,7 +119,7 @@ class RemoveRedundantJsonPropertyValueTest implements RewriteTest {
             """
               import com.fasterxml.jackson.annotation.JsonProperty;
 
-              public class Person {
+              class Person {
                   @JsonProperty(value = "name", required = true)
                   private String name;
                   @JsonProperty(value = "age", defaultValue = "0")
@@ -129,7 +129,7 @@ class RemoveRedundantJsonPropertyValueTest implements RewriteTest {
             """
               import com.fasterxml.jackson.annotation.JsonProperty;
 
-              public class Person {
+              class Person {
                   @JsonProperty(required = true)
                   private String name;
                   @JsonProperty(defaultValue = "0")
@@ -148,13 +148,13 @@ class RemoveRedundantJsonPropertyValueTest implements RewriteTest {
             """
               import com.fasterxml.jackson.annotation.JsonProperty;
 
-              public class Person {
+              class Person {
                   @JsonProperty("name")
                   private String name;
               }
               """,
             """
-              public class Person {
+              class Person {
                   private String name;
               }
               """
@@ -171,7 +171,7 @@ class RemoveRedundantJsonPropertyValueTest implements RewriteTest {
               import com.fasterxml.jackson.annotation.JsonProperty;
               import com.fasterxml.jackson.annotation.JsonIgnore;
 
-              public class Person {
+              class Person {
                   @JsonIgnore
                   @JsonProperty("name")
                   private String name;
@@ -183,7 +183,7 @@ class RemoveRedundantJsonPropertyValueTest implements RewriteTest {
             """
               import com.fasterxml.jackson.annotation.JsonIgnore;
 
-              public class Person {
+              class Person {
                   @JsonIgnore
                   private String name;
                   @JsonIgnore
@@ -202,7 +202,7 @@ class RemoveRedundantJsonPropertyValueTest implements RewriteTest {
             """
               import com.fasterxml.jackson.annotation.JsonProperty;
 
-              public class Product {
+              class Product {
                   @JsonProperty("id")
                   private Long id;
                   @JsonProperty("name")
@@ -212,7 +212,7 @@ class RemoveRedundantJsonPropertyValueTest implements RewriteTest {
               }
               """,
             """
-              public class Product {
+              class Product {
                   private Long id;
                   private String name;
                   private Double price;
@@ -223,17 +223,26 @@ class RemoveRedundantJsonPropertyValueTest implements RewriteTest {
     }
 
     @Test
-    void preserveConstructorParameterAnnotations() {
+    void removeConstructorParameterAnnotations() {
         rewriteRun(
           //language=java
           java(
             """
               import com.fasterxml.jackson.annotation.JsonProperty;
 
-              public class Person {
+              class Person {
                   private String name;
 
-                  public Person(String name) {
+                  Person(@JsonProperty("name") String name) {
+                      this.name = name;
+                  }
+              }
+              """,
+            """
+              class Person {
+                  private String name;
+
+                  Person(String name) {
                       this.name = name;
                   }
               }

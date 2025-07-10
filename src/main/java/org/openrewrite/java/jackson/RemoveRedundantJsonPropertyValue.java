@@ -27,9 +27,10 @@ import org.openrewrite.java.RemoveAnnotationVisitor;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
-import org.openrewrite.java.tree.Space;
 
 import java.util.List;
+
+import static java.util.Objects.requireNonNull;
 
 public class RemoveRedundantJsonPropertyValue extends Recipe {
 
@@ -53,65 +54,49 @@ public class RemoveRedundantJsonPropertyValue extends Recipe {
                 new JavaIsoVisitor<ExecutionContext>() {
                     @Override
                     public J.Annotation visitAnnotation(J.Annotation annotation, ExecutionContext ctx) {
-                        J.Annotation a = super.visitAnnotation(annotation, ctx);
-
+                        final J.Annotation a = super.visitAnnotation(annotation, ctx);
                         if (JSON_PROPERTY_MATCHER.matches(a)) {
                             // Get the parent variable declaration
                             J parent = getCursor().dropParentUntil(J.class::isInstance).getValue();
                             if (parent instanceof J.VariableDeclarations) {
-                                J.VariableDeclarations vd = (J.VariableDeclarations) parent;
-                                J.Annotation modifiedAnnotation = processAnnotation(a, vd);
-                                if (modifiedAnnotation == null) {
-                                    // Schedule annotation removal after this pass
-                                    final J.Annotation annotationToRemove = a;
-                                    doAfterVisit(new RemoveAnnotationVisitor(new AnnotationMatcher("@" + JACKSON_JSON_PROPERTY) {
-                                        @Override
-                                        public boolean matches(J.Annotation annotation) {
-                                            return annotation == annotationToRemove;
-                                        }
-                                    }));
-                                    maybeRemoveImport(JACKSON_JSON_PROPERTY);
-                                    return a;
-                                } else if (modifiedAnnotation != a) {
+                                String parameterName = ((J.VariableDeclarations) parent).getVariables().get(0).getSimpleName();
+                                J.Annotation modifiedAnnotation = processAnnotation(a, parameterName);
+                                if (modifiedAnnotation != null) {
                                     return modifiedAnnotation;
                                 }
+                                // Schedule annotation removal after this pass
+                                doAfterVisit(new RemoveAnnotationVisitor(new AnnotationMatcher("@" + JACKSON_JSON_PROPERTY) {
+                                    @Override
+                                    public boolean matches(J.Annotation annotation) {
+                                        return annotation == a;
+                                    }
+                                }));
+                                maybeRemoveImport(JACKSON_JSON_PROPERTY);
+                                return a;
                             }
                         }
 
                         return a;
                     }
 
-                    private J.@Nullable Annotation processAnnotation(J.Annotation annotation, J.VariableDeclarations variableDeclarations) {
-                        if (variableDeclarations.getVariables().isEmpty()) {
-                            return annotation;
-                        }
-
-                        String parameterName = variableDeclarations.getVariables().get(0).getSimpleName();
+                    private J.@Nullable Annotation processAnnotation(J.Annotation annotation, String parameterName) {
                         List<Expression> args = annotation.getArguments();
-
-                        if (args == null || args.isEmpty()) {
+                        if (args == null || args.isEmpty() || args.get(0) instanceof J.Empty) {
                             return annotation;
                         }
 
                         // Process the arguments and remove redundant "value" argument
                         List<Expression> filteredArgs = ListUtils.map(args, arg -> {
-                            if (arg instanceof J.Literal) {
+                            if (J.Literal.isLiteralValue(arg, parameterName)) {
                                 // Unnamed argument case: @JsonProperty("name")
-                                Object value = ((J.Literal) arg).getValue();
-                                if (parameterName.equals(value)) {
-                                    return null; // Remove this argument
-                                }
+                                return null;
                             } else if (arg instanceof J.Assignment) {
                                 // Named argument case: @JsonProperty(value = "name", ...)
                                 J.Assignment assignment = (J.Assignment) arg;
-                                if (assignment.getVariable() instanceof J.Identifier) {
-                                    J.Identifier varId = (J.Identifier) assignment.getVariable();
-                                    if ("value".equals(varId.getSimpleName()) && assignment.getAssignment() instanceof J.Literal) {
-                                        Object value = ((J.Literal) assignment.getAssignment()).getValue();
-                                        if (parameterName.equals(value)) {
-                                            return null; // Remove this argument
-                                        }
-                                    }
+                                if (assignment.getVariable() instanceof J.Identifier &&
+                                        "value".equals(((J.Identifier) assignment.getVariable()).getSimpleName()) &&
+                                        J.Literal.isLiteralValue(assignment.getAssignment(), parameterName)) {
+                                    return null;
                                 }
                             }
                             return arg;
@@ -122,14 +107,10 @@ public class RemoveRedundantJsonPropertyValue extends Recipe {
                             return null;
                         }
 
-                        // If we have remaining arguments and the first one has extra prefix whitespace, fix it
-                        Expression firstArg = filteredArgs.get(0);
-                        if (firstArg.getPrefix().getWhitespace().contains(" ")) {
-                            filteredArgs.set(0, firstArg.withPrefix(Space.EMPTY));
-                        }
-
                         // Return annotation with filtered arguments
-                        return annotation.withArguments(filteredArgs);
+                        return annotation.withArguments(ListUtils.mapFirst(filteredArgs, firstArg ->
+                                requireNonNull(firstArg).withPrefix(annotation.getArguments().get(0).getPrefix())
+                        ));
                     }
                 }
         );
