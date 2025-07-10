@@ -57,7 +57,7 @@ public class RemoveRedundantJsonPropertyValue extends Recipe {
                         final J.Annotation a = super.visitAnnotation(annotation, ctx);
                         if (JSON_PROPERTY_MATCHER.matches(a)) {
                             // Get the parent variable declaration
-                            J parent = getCursor().dropParentUntil(J.class::isInstance).getValue();
+                            J parent = getCursor().getParentTreeCursor().getValue();
                             if (parent instanceof J.VariableDeclarations) {
                                 String parameterName = ((J.VariableDeclarations) parent).getVariables().get(0).getSimpleName();
                                 J.Annotation modifiedAnnotation = processAnnotation(a, parameterName);
