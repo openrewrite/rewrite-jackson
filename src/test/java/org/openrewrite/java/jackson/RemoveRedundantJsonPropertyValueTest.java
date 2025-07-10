@@ -36,27 +36,32 @@ class RemoveRedundantJsonPropertyValueTest implements RewriteTest {
 
     @DocumentExample
     @Test
-    void removeRedundantJsonPropertyFromRecord() {
+    void removeRedundantJsonPropertyFromClass() {
         rewriteRun(
           //language=java
           java(
             """
               import com.fasterxml.jackson.annotation.JsonProperty;
 
-              public record CategorieRequest(
-                  @JsonProperty(value = "name", required = true) String name,
-                  @JsonProperty("color") String color,
-                  @JsonProperty("parent_id") Long parentId
-              ) {}
+              public class CategorieRequest {
+                  @JsonProperty(value = "name", required = true)
+                  private String name;
+                  @JsonProperty("color")
+                  private String color;
+                  @JsonProperty("parent_id")
+                  private Long parentId;
+              }
               """,
             """
               import com.fasterxml.jackson.annotation.JsonProperty;
 
-              public record CategorieRequest(
-                  @JsonProperty(required = true) String name,
-                  String color,
-                  @JsonProperty("parent_id") Long parentId
-              ) {}
+              public class CategorieRequest {
+                  @JsonProperty(required = true)
+                  private String name;
+                  private String color;
+                  @JsonProperty("parent_id")
+                  private Long parentId;
+              }
               """
           )
         );
@@ -70,16 +75,18 @@ class RemoveRedundantJsonPropertyValueTest implements RewriteTest {
             """
               import com.fasterxml.jackson.annotation.JsonProperty;
 
-              public record Person(
-                  @JsonProperty(value = "firstName") String firstName,
-                  @JsonProperty(value = "lastName") String lastName
-              ) {}
+              public class Person {
+                  @JsonProperty(value = "firstName")
+                  private String firstName;
+                  @JsonProperty(value = "lastName")
+                  private String lastName;
+              }
               """,
             """
-              public record Person(
-                  String firstName,
-                  String lastName
-              ) {}
+              public class Person {
+                  private String firstName;
+                  private String lastName;
+              }
               """
           )
         );
@@ -93,10 +100,12 @@ class RemoveRedundantJsonPropertyValueTest implements RewriteTest {
             """
               import com.fasterxml.jackson.annotation.JsonProperty;
 
-              public record Person(
-                  @JsonProperty("first_name") String firstName,
-                  @JsonProperty("last_name") String lastName
-              ) {}
+              public class Person {
+                  @JsonProperty("first_name")
+                  private String firstName;
+                  @JsonProperty("last_name")
+                  private String lastName;
+              }
               """
           )
         );
@@ -110,25 +119,29 @@ class RemoveRedundantJsonPropertyValueTest implements RewriteTest {
             """
               import com.fasterxml.jackson.annotation.JsonProperty;
 
-              public record Person(
-                  @JsonProperty(value = "name", required = true) String name,
-                  @JsonProperty(value = "age", defaultValue = "0") Integer age
-              ) {}
+              public class Person {
+                  @JsonProperty(value = "name", required = true)
+                  private String name;
+                  @JsonProperty(value = "age", defaultValue = "0")
+                  private Integer age;
+              }
               """,
             """
               import com.fasterxml.jackson.annotation.JsonProperty;
 
-              public record Person(
-                  @JsonProperty(required = true) String name,
-                  @JsonProperty(defaultValue = "0") Integer age
-              ) {}
+              public class Person {
+                  @JsonProperty(required = true)
+                  private String name;
+                  @JsonProperty(defaultValue = "0")
+                  private Integer age;
+              }
               """
           )
         );
     }
 
     @Test
-    void notARecord() {
+    void notARecordWithRedundantAnnotation() {
         rewriteRun(
           //language=java
           java(
@@ -138,10 +151,11 @@ class RemoveRedundantJsonPropertyValueTest implements RewriteTest {
               public class Person {
                   @JsonProperty("name")
                   private String name;
-
-                  public Person(@JsonProperty("name") String name) {
-                      this.name = name;
-                  }
+              }
+              """,
+            """
+              public class Person {
+                  private String name;
               }
               """
           )
@@ -155,45 +169,74 @@ class RemoveRedundantJsonPropertyValueTest implements RewriteTest {
           java(
             """
               import com.fasterxml.jackson.annotation.JsonProperty;
-              import javax.validation.constraints.NotNull;
+              import com.fasterxml.jackson.annotation.JsonIgnore;
 
-              public record Person(
-                  @NotNull @JsonProperty("name") String name,
-                  @JsonProperty("email") @NotNull String email
-              ) {}
+              public class Person {
+                  @JsonIgnore
+                  @JsonProperty("name")
+                  private String name;
+                  @JsonProperty("email")
+                  @JsonIgnore
+                  private String email;
+              }
               """,
             """
-              import javax.validation.constraints.NotNull;
+              import com.fasterxml.jackson.annotation.JsonIgnore;
 
-              public record Person(
-                  @NotNull String name,
-                  @NotNull String email
-              ) {}
+              public class Person {
+                  @JsonIgnore
+                  private String name;
+                  @JsonIgnore
+                  private String email;
+              }
               """
           )
         );
     }
 
     @Test
-    void removeUnnamedArgumentMatchingParameterName() {
+    void removeUnnamedArgumentMatchingFieldName() {
         rewriteRun(
           //language=java
           java(
             """
               import com.fasterxml.jackson.annotation.JsonProperty;
 
-              public record Product(
-                  @JsonProperty("id") Long id,
-                  @JsonProperty("name") String name,
-                  @JsonProperty("price") Double price
-              ) {}
+              public class Product {
+                  @JsonProperty("id")
+                  private Long id;
+                  @JsonProperty("name")
+                  private String name;
+                  @JsonProperty("price")
+                  private Double price;
+              }
               """,
             """
-              public record Product(
-                  Long id,
-                  String name,
-                  Double price
-              ) {}
+              public class Product {
+                  private Long id;
+                  private String name;
+                  private Double price;
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void preserveConstructorParameterAnnotations() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonProperty;
+
+              public class Person {
+                  private String name;
+
+                  public Person(String name) {
+                      this.name = name;
+                  }
+              }
               """
           )
         );
