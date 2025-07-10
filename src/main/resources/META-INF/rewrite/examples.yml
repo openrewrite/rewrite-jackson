@@ -13,6 +13,61 @@
 # limitations under the License.
 ---
 type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.jackson.CodehausToFasterXML
+examples:
+- description: ''
+  sources:
+  - before: |
+      import org.codehaus.jackson.map.ObjectMapper;
+      import org.codehaus.jackson.map.annotate.JsonSerialize;
+
+      class Test {
+          private static ObjectMapper initializeObjectMapper() {
+              ObjectMapper mapper = new ObjectMapper();
+              return mapper.setSerializationInclusion(JsonSerialize.Inclusion.NON_NULL);
+          }
+      }
+    after: |
+      import com.fasterxml.jackson.annotation.JsonInclude.Include;
+      import com.fasterxml.jackson.databind.ObjectMapper;
+
+      class Test {
+          private static ObjectMapper initializeObjectMapper() {
+              ObjectMapper mapper = new ObjectMapper();
+              return mapper.setSerializationInclusion(Include.NON_NULL);
+          }
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.jackson.RemoveRedundantJsonPropertyValue
+examples:
+- description: ''
+  sources:
+  - before: |
+      import com.fasterxml.jackson.annotation.JsonProperty;
+
+      public class CategorieRequest {
+          @JsonProperty(value = "name", required = true)
+          private String name;
+          @JsonProperty("color")
+          private String color;
+          @JsonProperty("parent_id")
+          private Long parentId;
+      }
+    after: |
+      import com.fasterxml.jackson.annotation.JsonProperty;
+
+      public class CategorieRequest {
+          @JsonProperty(required = true)
+          private String name;
+          private String color;
+          @JsonProperty("parent_id")
+          private Long parentId;
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.UpgradeJackson_2_3
 examples:
 - description: ''
@@ -137,33 +192,6 @@ examples:
               } catch (JacksonException e) {
                   throw new RuntimeException(e);
               }
-          }
-      }
-    language: java
----
-type: specs.openrewrite.org/v1beta/example
-recipeName: org.openrewrite.java.jackson.CodehausToFasterXML
-examples:
-- description: ''
-  sources:
-  - before: |
-      import org.codehaus.jackson.map.ObjectMapper;
-      import org.codehaus.jackson.map.annotate.JsonSerialize;
-
-      class Test {
-          private static ObjectMapper initializeObjectMapper() {
-              ObjectMapper mapper = new ObjectMapper();
-              return mapper.setSerializationInclusion(JsonSerialize.Inclusion.NON_NULL);
-          }
-      }
-    after: |
-      import com.fasterxml.jackson.annotation.JsonInclude.Include;
-      import com.fasterxml.jackson.databind.ObjectMapper;
-
-      class Test {
-          private static ObjectMapper initializeObjectMapper() {
-              ObjectMapper mapper = new ObjectMapper();
-              return mapper.setSerializationInclusion(Include.NON_NULL);
           }
       }
     language: java

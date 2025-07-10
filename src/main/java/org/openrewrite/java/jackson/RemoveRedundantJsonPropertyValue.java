@@ -51,10 +51,10 @@ public class RemoveRedundantJsonPropertyValue extends Recipe {
         return Preconditions.check(
                 new UsesType<>(JACKSON_JSON_PROPERTY, false),
                 new JavaIsoVisitor<ExecutionContext>() {
-                    @Override 
+                    @Override
                     public J.Annotation visitAnnotation(J.Annotation annotation, ExecutionContext ctx) {
                         J.Annotation a = super.visitAnnotation(annotation, ctx);
-                        
+
                         if (JSON_PROPERTY_MATCHER.matches(a)) {
                             // Get the parent variable declaration
                             J parent = getCursor().dropParentUntil(J.class::isInstance).getValue();
@@ -77,7 +77,7 @@ public class RemoveRedundantJsonPropertyValue extends Recipe {
                                 }
                             }
                         }
-                        
+
                         return a;
                     }
 
