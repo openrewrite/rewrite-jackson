@@ -47,7 +47,7 @@ examples:
   - before: |
       import com.fasterxml.jackson.annotation.JsonProperty;
 
-      public class CategorieRequest {
+      class CategorieRequest {
           @JsonProperty(value = "name", required = true)
           private String name;
           @JsonProperty("color")
@@ -58,7 +58,7 @@ examples:
     after: |
       import com.fasterxml.jackson.annotation.JsonProperty;
 
-      public class CategorieRequest {
+      class CategorieRequest {
           @JsonProperty(required = true)
           private String name;
           private String color;
