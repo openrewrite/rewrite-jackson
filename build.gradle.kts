@@ -31,5 +31,5 @@ dependencies {
 }
 
 recipeDependencies {
-    parserClasspath("com.fasterxml.jackson.core:jackson-annotations:2.19.1")
+    parserClasspath("com.fasterxml.jackson.core:jackson-annotations:2.19.2")
 }

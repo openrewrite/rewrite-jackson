@@ -107,7 +107,7 @@ class UpgradeJackson_2_3Test implements RewriteTest {
                                  <dependency>
                                      <groupId>com.fasterxml.jackson.core</groupId>
                                      <artifactId>jackson-annotations</artifactId>
-                                     <version>%s</version>
+                                     <version>2.19.2</version>
                                  </dependency>
                                  <dependency>
                                      <groupId>tools.jackson.core</groupId>
@@ -130,12 +130,12 @@ class UpgradeJackson_2_3Test implements RewriteTest {
               import com.fasterxml.jackson.core.JsonFactory;
               import com.fasterxml.jackson.core.JsonFactoryBuilder;
               import com.fasterxml.jackson.databind.ObjectMapper;
-              
+
               class Test {
                   public String foo(@JsonProperty("foo") String foo) {
                       return foo;
                   }
-              
+
                   static void helloJackson() {
                       Object[] input = new Object[] { "one", "two" };
                       JsonFactory factory = new JsonFactoryBuilder().build();
@@ -147,12 +147,12 @@ class UpgradeJackson_2_3Test implements RewriteTest {
               import tools.jackson.core.JsonFactory;
               import tools.jackson.core.JsonFactoryBuilder;
               import tools.jackson.databind.ObjectMapper;
-              
+
               class Test {
                   public String foo(@JsonProperty("foo") String foo) {
                       return foo;
                   }
-              
+
                   static void helloJackson() {
                       Object[] input = new Object[] { "one", "two" };
                       JsonFactory factory = new JsonFactoryBuilder().build();
@@ -231,7 +231,7 @@ class UpgradeJackson_2_3Test implements RewriteTest {
             import com.fasterxml.jackson.core.JsonFactoryBuilder;
             import com.fasterxml.jackson.core.JsonProcessingException;
             import com.fasterxml.jackson.databind.ObjectMapper;
-            
+
             class Test {
                 static void helloJackson() {
                     try {
@@ -247,7 +247,7 @@ class UpgradeJackson_2_3Test implements RewriteTest {
             import tools.jackson.core.JsonFactory;
             import tools.jackson.core.JsonFactoryBuilder;
             import tools.jackson.databind.ObjectMapper;
-            
+
             class Test {
                 static void helloJackson() {
                     try {
@@ -272,7 +272,7 @@ class UpgradeJackson_2_3Test implements RewriteTest {
               import com.fasterxml.jackson.core.JsonFactoryBuilder;
               import com.fasterxml.jackson.core.JsonParseException;
               import com.fasterxml.jackson.databind.ObjectMapper;
-              
+
               class Test {
                   static void helloJackson() {
                       try {
@@ -288,7 +288,7 @@ class UpgradeJackson_2_3Test implements RewriteTest {
               import tools.jackson.core.JsonFactoryBuilder;
               import tools.jackson.databind.ObjectMapper;
               import tools.jackson.core.StreamReadException;
-              
+
               class Test {
                   static void helloJackson() {
                       try {
@@ -313,7 +313,7 @@ class UpgradeJackson_2_3Test implements RewriteTest {
               import com.fasterxml.jackson.core.JsonFactoryBuilder;
               import com.fasterxml.jackson.core.JsonGenerationException;
               import com.fasterxml.jackson.databind.ObjectMapper;
-              
+
               class Test {
                   static void helloJackson() {
                       try {
@@ -329,7 +329,7 @@ class UpgradeJackson_2_3Test implements RewriteTest {
               import tools.jackson.core.JsonFactoryBuilder;
               import tools.jackson.databind.ObjectMapper;
               import tools.jackson.core.StreamWriteException;
-              
+
               class Test {
                   static void helloJackson() {
                       try {
@@ -354,7 +354,7 @@ class UpgradeJackson_2_3Test implements RewriteTest {
               import com.fasterxml.jackson.core.JsonFactoryBuilder;
               import com.fasterxml.jackson.databind.JsonMappingException;
               import com.fasterxml.jackson.databind.ObjectMapper;
-              
+
               class Test {
                   static void helloJackson() {
                       try {
@@ -370,7 +370,7 @@ class UpgradeJackson_2_3Test implements RewriteTest {
               import tools.jackson.core.JsonFactoryBuilder;
               import tools.jackson.databind.DatabindException;
               import tools.jackson.databind.ObjectMapper;
-              
+
               class Test {
                   static void helloJackson() {
                       try {
