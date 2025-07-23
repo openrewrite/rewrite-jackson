@@ -90,7 +90,8 @@ public class RemoveRedundantJsonPropertyValue extends Recipe {
                             if (J.Literal.isLiteralValue(arg, parameterName)) {
                                 // Unnamed argument case: @JsonProperty("name")
                                 return null;
-                            } else if (arg instanceof J.Assignment) {
+                            }
+                            if (arg instanceof J.Assignment) {
                                 // Named argument case: @JsonProperty(value = "name", ...)
                                 J.Assignment assignment = (J.Assignment) arg;
                                 if (assignment.getVariable() instanceof J.Identifier &&
