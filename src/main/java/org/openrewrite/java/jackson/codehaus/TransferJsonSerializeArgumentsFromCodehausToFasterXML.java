@@ -28,10 +28,11 @@ import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.Space;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static java.util.Collections.singletonList;
 
 public class TransferJsonSerializeArgumentsFromCodehausToFasterXML extends Recipe {
 
@@ -106,7 +107,7 @@ public class TransferJsonSerializeArgumentsFromCodehausToFasterXML extends Recip
             if (e != null) {
                 List<Expression> arguments = annotation.getArguments();
                 if (arguments == null || arguments.isEmpty() || arguments.get(0) instanceof J.Empty) {
-                    return annotation.withArguments(Collections.singletonList(e.withPrefix(Space.EMPTY)));
+                    return annotation.withArguments(singletonList(e.withPrefix(Space.EMPTY)));
                 }
 
                 boolean notAlreadyUsing = arguments.stream().noneMatch(arg -> {

@@ -18,7 +18,6 @@ package org.openrewrite.java.jackson.codehaus;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.openrewrite.DocumentExample;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
@@ -35,7 +34,6 @@ class TransferJsonSerializeArgumentsFromCodehausToFasterXMLTest implements Rewri
           .parser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()));
     }
 
-    @DocumentExample
     @ParameterizedTest
     @ValueSource(
       strings = {"using", "contentUsing", "keyUsing", "nullUsing"}
