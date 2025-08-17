@@ -93,10 +93,6 @@ class UpgradeJackson_2_3Test implements RewriteTest {
                 assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
                 String jacksonVersion = versionMatcher.group(0);
 
-                Matcher annotationsVersionMatcher = Pattern.compile("3\\.\\d+(\\.\\d+)*(-rc[\\d]*)?").matcher(pom);
-                assertThat(annotationsVersionMatcher.find()).describedAs("Expected 3.x in %s", pom).isTrue();
-                String annotationsVersion = annotationsVersionMatcher.group(0);
-
                 return """
                          <project>
                              <modelVersion>4.0.0</modelVersion>
@@ -107,7 +103,7 @@ class UpgradeJackson_2_3Test implements RewriteTest {
                                  <dependency>
                                      <groupId>com.fasterxml.jackson.core</groupId>
                                      <artifactId>jackson-annotations</artifactId>
-                                     <version>2.19.2</version>
+                                     <version>2.20-rc1</version>
                                  </dependency>
                                  <dependency>
                                      <groupId>tools.jackson.core</groupId>
@@ -121,7 +117,95 @@ class UpgradeJackson_2_3Test implements RewriteTest {
                                  </dependency>
                              </dependencies>
                          </project>
-                  """.formatted(annotationsVersion, jacksonVersion, jacksonVersion);
+                  """.formatted(jacksonVersion, jacksonVersion);
+            })),
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonProperty;
+              import com.fasterxml.jackson.core.JsonFactory;
+              import com.fasterxml.jackson.core.JsonFactoryBuilder;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  public String foo(@JsonProperty("foo") String foo) {
+                      return foo;
+                  }
+
+                  static void helloJackson() {
+                      Object[] input = new Object[] { "one", "two" };
+                      JsonFactory factory = new JsonFactoryBuilder().build();
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonProperty;
+              import tools.jackson.core.JsonFactory;
+              import tools.jackson.core.JsonFactoryBuilder;
+              import tools.jackson.databind.ObjectMapper;
+
+              class Test {
+                  public String foo(@JsonProperty("foo") String foo) {
+                      return foo;
+                  }
+
+                  static void helloJackson() {
+                      Object[] input = new Object[] { "one", "two" };
+                      JsonFactory factory = new JsonFactoryBuilder().build();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void jacksonUpgradeToVersion3_jacksonBomOnly() {
+        rewriteRun(
+          //language=xml
+          pomXml(
+            """
+              <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>org.example</groupId>
+                  <artifactId>example</artifactId>
+                  <version>1.0.0</version>
+                  <dependencyManagement>
+                    <dependencies>
+                      <dependency>
+                          <groupId>com.fasterxml.jackson</groupId>
+                          <artifactId>jackson-bom</artifactId>
+                          <version>2.19.0</version>
+                          <scope>pom</scope>
+                          <type>import</type>
+                      </dependency>
+                    </dependencies>
+                  </dependencyManagement>
+              </project>
+              """,
+            spec -> spec.after(pom -> {
+                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
+                assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
+                String jacksonVersion = versionMatcher.group(0);
+                return """
+                         <project>
+                             <modelVersion>4.0.0</modelVersion>
+                             <groupId>org.example</groupId>
+                             <artifactId>example</artifactId>
+                             <version>1.0.0</version>
+                             <dependencyManagement>
+                               <dependencies>
+                                 <dependency>
+                                     <groupId>tools.jackson</groupId>
+                                     <artifactId>jackson-bom</artifactId>
+                                     <version>%s</version>
+                                     <scope>pom</scope>
+                                     <type>import</type>
+                                 </dependency>
+                               </dependencies>
+                             </dependencyManagement>
+                         </project>
+                  """.formatted(jacksonVersion);
             })),
           //language=java
           java(
