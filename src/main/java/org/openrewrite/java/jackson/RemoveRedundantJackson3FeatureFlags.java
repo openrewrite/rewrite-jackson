@@ -18,11 +18,7 @@ package org.openrewrite.java.jackson;
 import lombok.EqualsAndHashCode;
 import lombok.Value;
 import org.jspecify.annotations.Nullable;
-import org.openrewrite.ExecutionContext;
-import org.openrewrite.Option;
-import org.openrewrite.Preconditions;
-import org.openrewrite.Recipe;
-import org.openrewrite.TreeVisitor;
+import org.openrewrite.*;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.search.UsesMethod;
@@ -30,8 +26,6 @@ import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JavaType.FullyQualified;
 import org.openrewrite.java.tree.Statement;
-
-import java.util.*;
 
 @Value
 @EqualsAndHashCode(callSuper = false)
@@ -64,8 +58,7 @@ public class RemoveRedundantJackson3FeatureFlags extends Recipe {
         return "Remove `ObjectMapper` feature flag configurations that set values to their new Jackson 3 defaults. " +
                 "For example, `disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)` and " +
                 "`configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)` are redundant since this is " +
-                "now disabled by default in Jackson 3. Handles `MapperFeature`, `DeserializationFeature`, " +
-                "`SerializationFeature`, `CBORReadFeature`, `CBORWriteFeature`, and `XmlWriteFeature`.";
+                "now disabled by default in Jackson 3.";
     }
 
     @Override
@@ -99,32 +92,19 @@ public class RemoveRedundantJackson3FeatureFlags extends Recipe {
                     private boolean shouldRemove(J.MethodInvocation mi) {
                         if (ENABLE_MATCHER.matches(mi)) {
                             // Remove enable() if the new default is true
-                            return Boolean.TRUE.equals(newDefaultValue) &&
-                                   featureName.equals(getFeatureNameFromArg(mi.getArguments().get(0)));
+                            return newDefaultValue && featureName.equals(getFeatureNameFromArg(mi.getArguments().get(0)));
                         }
                         if (DISABLE_MATCHER.matches(mi)) {
                             // Remove disable() if the new default is false
-                            return Boolean.FALSE.equals(newDefaultValue) &&
-                                   featureName.equals(getFeatureNameFromArg(mi.getArguments().get(0)));
+                            return !newDefaultValue && featureName.equals(getFeatureNameFromArg(mi.getArguments().get(0)));
                         }
                         if (CONFIGURE_MATCHER.matches(mi)) {
-                            return shouldRemoveConfigureCall(mi);
+                            // configure() takes two arguments: feature and boolean value
+                            return mi.getArguments().size() == 2 &&
+                                    J.Literal.isLiteralValue(mi.getArguments().get(1), newDefaultValue) &&
+                                    featureName.equals(getFeatureNameFromArg(mi.getArguments().get(0)));
                         }
                         return false;
-                    }
-
-                    private boolean shouldRemoveConfigureCall(J.MethodInvocation mi) {
-                        // configure() takes two arguments: feature and boolean value
-                        if (mi.getArguments().size() != 2) {
-                            return false;
-                        }
-
-                        Expression featureArg = mi.getArguments().get(0);
-                        Expression booleanArg = mi.getArguments().get(1);
-
-                        // Remove configure(feature, value) if feature matches and value equals the new default
-                        return featureName.equals(getFeatureNameFromArg(featureArg)) &&
-                               J.Literal.isLiteralValue(booleanArg, newDefaultValue);
                     }
 
                     private @Nullable String getFeatureNameFromArg(Expression arg) {

@@ -31,33 +31,7 @@ class RemoveRedundantJackson3FeatureFlagsTest implements RewriteTest {
 
     @Override
     public void defaults(RecipeSpec spec) {
-        List<Recipe> recipes = new ArrayList<>();
-
-        // Features enabled by default in Jackson 3
-        recipes.add(new RemoveRedundantJackson3FeatureFlags("MapperFeature.SORT_PROPERTIES_ALPHABETICALLY", true));
-        recipes.add(new RemoveRedundantJackson3FeatureFlags("DeserializationFeature.READ_ENUMS_USING_TO_STRING", true));
-        recipes.add(new RemoveRedundantJackson3FeatureFlags("DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES", true));
-        recipes.add(new RemoveRedundantJackson3FeatureFlags("DeserializationFeature.FAIL_ON_TRAILING_TOKENS", true));
-        recipes.add(new RemoveRedundantJackson3FeatureFlags("SerializationFeature.WRITE_ENUMS_USING_TO_STRING", true));
-        recipes.add(new RemoveRedundantJackson3FeatureFlags("CBORReadFeature.DECODE_USING_STANDARD_NEGATIVE_BIGINT_ENCODING", true));
-        recipes.add(new RemoveRedundantJackson3FeatureFlags("CBORReadFeature.READ_UNDEFINED_AS_EMBEDDED_OBJECT", true));
-        recipes.add(new RemoveRedundantJackson3FeatureFlags("CBORReadFeature.READ_SIMPLE_VALUE_AS_EMBEDDED_OBJECT", true));
-        recipes.add(new RemoveRedundantJackson3FeatureFlags("CBORWriteFeature.ENCODE_USING_STANDARD_NEGATIVE_BIGINT_ENCODING", true));
-        recipes.add(new RemoveRedundantJackson3FeatureFlags("XmlWriteFeature.UNWRAP_ROOT_OBJECT_NODE", true));
-        recipes.add(new RemoveRedundantJackson3FeatureFlags("XmlWriteFeature.WRITE_NULLS_AS_XSI_NIL", true));
-        recipes.add(new RemoveRedundantJackson3FeatureFlags("XmlWriteFeature.AUTO_DETECT_XSI_TYPE", true));
-        recipes.add(new RemoveRedundantJackson3FeatureFlags("XmlWriteFeature.WRITE_XML_SCHEMA_CONFORMING_FLOATS", true));
-
-        // Features disabled by default in Jackson 3
-        recipes.add(new RemoveRedundantJackson3FeatureFlags("MapperFeature.ALLOW_FINAL_FIELDS_AS_MUTATORS", false));
-        recipes.add(new RemoveRedundantJackson3FeatureFlags("MapperFeature.DEFAULT_VIEW_INCLUSION", false));
-        recipes.add(new RemoveRedundantJackson3FeatureFlags("MapperFeature.USE_GETTERS_AS_SETTERS", false));
-        recipes.add(new RemoveRedundantJackson3FeatureFlags("DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES", false));
-        recipes.add(new RemoveRedundantJackson3FeatureFlags("SerializationFeature.FAIL_ON_EMPTY_BEANS", false));
-        recipes.add(new RemoveRedundantJackson3FeatureFlags("SerializationFeature.WRITE_DURATIONS_AS_TIMESTAMPS", false));
-        recipes.add(new RemoveRedundantJackson3FeatureFlags("SerializationFeature.WRITE_DATES_AS_TIMESTAMPS", false));
-
-        spec.recipes(recipes.toArray(new Recipe[0]))
+        spec.recipeFromResources("org.openrewrite.java.jackson.UpgradeJackson_2_3_RemoveRedundantFeatureFlags")
           .parser(JavaParser.fromJavaVersion().classpath(
             "jackson-annotations", "jackson-core", "jackson-databind"));
     }
