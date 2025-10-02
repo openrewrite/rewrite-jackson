@@ -28,9 +28,10 @@ import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.Statement;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+
+import static java.util.Collections.unmodifiableSet;
 
 public class RemoveRedundantJackson3FeatureFlags extends Recipe {
 
@@ -40,7 +41,7 @@ public class RemoveRedundantJackson3FeatureFlags extends Recipe {
     private static final MethodMatcher CONFIGURE_MATCHER = new MethodMatcher(OBJECT_MAPPER_TYPE + " configure(..)");
 
     // Features that changed from false to true (should remove enable() or configure(..., true) calls)
-    private static final Set<String> ENABLED_BY_DEFAULT_IN_V3 = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
+    private static final Set<String> ENABLED_BY_DEFAULT_IN_V3 = unmodifiableSet(new HashSet<>(Arrays.asList(
             "MapperFeature.SORT_PROPERTIES_ALPHABETICALLY",
             "DeserializationFeature.READ_ENUMS_USING_TO_STRING",
             "DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES",
@@ -60,7 +61,7 @@ public class RemoveRedundantJackson3FeatureFlags extends Recipe {
     )));
 
     // Features that changed from true to false (should remove disable() calls)
-    private static final Set<String> DISABLED_BY_DEFAULT_IN_V3 = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
+    private static final Set<String> DISABLED_BY_DEFAULT_IN_V3 = unmodifiableSet(new HashSet<>(Arrays.asList(
             "MapperFeature.ALLOW_FINAL_FIELDS_AS_MUTATORS",
             "MapperFeature.DEFAULT_VIEW_INCLUSION",
             "MapperFeature.USE_GETTERS_AS_SETTERS",
@@ -163,7 +164,7 @@ public class RemoveRedundantJackson3FeatureFlags extends Recipe {
                             J.Identifier identifier = (J.Identifier) arg;
                             if (identifier.getFieldType() != null && identifier.getFieldType().getOwner() instanceof org.openrewrite.java.tree.JavaType.FullyQualified) {
                                 org.openrewrite.java.tree.JavaType.FullyQualified owner =
-                                    (org.openrewrite.java.tree.JavaType.FullyQualified) identifier.getFieldType().getOwner();
+                                        (org.openrewrite.java.tree.JavaType.FullyQualified) identifier.getFieldType().getOwner();
                                 // Extract the simple class name from the fully qualified name
                                 String fullyQualifiedName = owner.getFullyQualifiedName();
                                 String className = fullyQualifiedName.substring(fullyQualifiedName.lastIndexOf('.') + 1);

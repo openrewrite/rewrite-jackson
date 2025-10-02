@@ -16,6 +16,7 @@
 package org.openrewrite.java.jackson;
 
 import org.junit.jupiter.api.Test;
+import org.openrewrite.DocumentExample;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
@@ -32,6 +33,7 @@ class Jackson3DependenciesTest implements RewriteTest {
         spec.recipeFromResources("org.openrewrite.java.jackson.UpgradeJackson_2_3");
     }
 
+    @DocumentExample
     @Test
     void jacksonAnnotations() {
         rewriteRun(
