@@ -20,6 +20,7 @@ import lombok.Value;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.*;
 import org.openrewrite.java.JavaIsoVisitor;
+import org.openrewrite.java.JavaVisitor;
 import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.search.UsesMethod;
 import org.openrewrite.java.tree.Expression;
@@ -69,24 +70,14 @@ public class RemoveRedundantJackson3FeatureFlags extends Recipe {
                         new UsesMethod<>(DISABLE_MATCHER),
                         new UsesMethod<>(CONFIGURE_MATCHER)
                 ),
-                new JavaIsoVisitor<ExecutionContext>() {
+                new JavaVisitor<ExecutionContext>() {
                     @Override
-                    public @Nullable Statement visitStatement(Statement statement, ExecutionContext ctx) {
-                        Statement s = super.visitStatement(statement, ctx);
-
-                        // Check if this statement is a method invocation we want to remove
-                        if (s instanceof J.MethodInvocation) {
-                            J.MethodInvocation mi = (J.MethodInvocation) s;
-                            if (shouldRemove(mi)) {
-                                // If it's part of a chain, return the select; otherwise remove the statement
-                                if (mi.getSelect() instanceof J.MethodInvocation) {
-                                    return (Statement) mi.getSelect();
-                                }
-                                return null;
-                            }
+                    public J visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
+                        if (shouldRemove(method)) {
+                            // If it's part of a chain, return the select; otherwise remove the statement
+                            return method.getSelect() instanceof J.MethodInvocation ? method.getSelect() : null;
                         }
-
-                        return s;
+                        return super.visitMethodInvocation(method, ctx);
                     }
 
                     private boolean shouldRemove(J.MethodInvocation mi) {
