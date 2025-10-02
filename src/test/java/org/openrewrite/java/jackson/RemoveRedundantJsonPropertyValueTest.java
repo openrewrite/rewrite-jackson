@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.jackson;
 
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.java.JavaParser;
@@ -245,6 +246,34 @@ class RemoveRedundantJsonPropertyValueTest implements RewriteTest {
                   Person(String name) {
                       this.name = name;
                   }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void recordWithMixOfAnnotations() {
+        rewriteRun(
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonProperty;
+
+              record Person(
+                  @JsonProperty("name") String name,
+                  @JsonProperty("user_age") int age,
+                  @JsonProperty("email") String email
+              ) {
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonProperty;
+
+              record Person(
+                  String name,
+                  @JsonProperty("user_age") int age,
+                  String email
+              ) {
               }
               """
           )
