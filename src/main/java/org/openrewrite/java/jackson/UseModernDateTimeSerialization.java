@@ -27,7 +27,12 @@ import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JavaType;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import static java.util.Collections.singleton;
 
 public class UseModernDateTimeSerialization extends Recipe {
 
@@ -66,7 +71,7 @@ public class UseModernDateTimeSerialization extends Recipe {
 
     @Override
     public Set<String> getTags() {
-        return Collections.singleton("jackson-3");
+        return singleton("jackson-3");
     }
 
     @Override

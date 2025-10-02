@@ -28,9 +28,10 @@ import org.openrewrite.java.tree.Statement;
 import org.openrewrite.java.tree.TypeUtils;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+
+import static java.util.Collections.singleton;
 
 public class RemoveBuiltInModuleRegistrations extends Recipe {
 
@@ -57,7 +58,7 @@ public class RemoveBuiltInModuleRegistrations extends Recipe {
 
     @Override
     public Set<String> getTags() {
-        return Collections.singleton("jackson-3");
+        return singleton("jackson-3");
     }
 
     @Override

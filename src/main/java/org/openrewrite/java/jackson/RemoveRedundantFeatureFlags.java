@@ -26,8 +26,9 @@ import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JavaType.FullyQualified;
 
-import java.util.Collections;
 import java.util.Set;
+
+import static java.util.Collections.singleton;
 
 @Value
 @EqualsAndHashCode(callSuper = false)
@@ -65,7 +66,7 @@ public class RemoveRedundantFeatureFlags extends Recipe {
 
     @Override
     public Set<String> getTags() {
-        return Collections.singleton("jackson-3");
+        return singleton("jackson-3");
     }
 
     @Override
