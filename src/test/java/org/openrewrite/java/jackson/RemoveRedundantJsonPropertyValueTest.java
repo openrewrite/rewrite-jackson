@@ -250,4 +250,32 @@ class RemoveRedundantJsonPropertyValueTest implements RewriteTest {
           )
         );
     }
+
+    @Test
+    void recordWithMixOfAnnotations() {
+        rewriteRun(
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonProperty;
+
+              record Person(
+                  @JsonProperty("name") String name,
+                  @JsonProperty("user_age") int age,
+                  @JsonProperty("email") String email
+              ) {
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonProperty;
+
+              record Person(
+                  String name,
+                  @JsonProperty("user_age") int age,
+                  String email
+              ) {
+              }
+              """
+          )
+        );
+    }
 }

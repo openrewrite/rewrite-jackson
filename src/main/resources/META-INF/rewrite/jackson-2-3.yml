@@ -26,12 +26,14 @@ description: >-
   renames, and method renames (e.g., `JsonGenerator.writeObject()` -> `writePOJO()`,
   `JsonParser.getCurrentValue()` -> `currentValue()`).
 tags:
-  - jackson
+  - jackson-3
 recipeList:
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_Dependencies
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_TypeChanges
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_MethodRenames
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_RemoveRedundantFeatureFlags
+  - org.openrewrite.java.jackson.RemoveBuiltInModuleRegistrations
+  - org.openrewrite.java.jackson.UseModernDateTimeSerialization
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_PackageChanges
 
 ---
@@ -40,7 +42,7 @@ name: org.openrewrite.java.jackson.UpgradeJackson_2_3_Dependencies
 displayName: Upgrade Jackson 2.x dependencies to 3.x
 description: Upgrade Jackson Maven dependencies from 2.x to 3.x versions and update group IDs.
 tags:
-  - jackson
+  - jackson-3
 recipeList:
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
       groupId: com.fasterxml.jackson.core
@@ -89,7 +91,7 @@ name: org.openrewrite.java.jackson.UpgradeJackson_2_3_TypeChanges
 displayName: Update Jackson 2.x types to 3.x
 description: Update Jackson type names including exception types and core class renames.
 tags:
-  - jackson
+  - jackson-3
 recipeList:
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: com.fasterxml.jackson.core.JsonParseException
@@ -146,7 +148,7 @@ name: org.openrewrite.java.jackson.UpgradeJackson_2_3_MethodRenames
 displayName: Rename Jackson 2.x methods to 3.x equivalents
 description: Rename Jackson methods that were renamed in 3.x (e.g., `writeObject()` to `writePOJO()`, `getCurrentValue()` to `currentValue()`).
 tags:
-  - jackson
+  - jackson-3
 recipeList:
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: com.fasterxml.jackson.core.JsonGenerator writeObject(..)
@@ -182,68 +184,68 @@ name: org.openrewrite.java.jackson.UpgradeJackson_2_3_RemoveRedundantFeatureFlag
 displayName: Remove redundant Jackson 3 feature flag configurations
 description: Remove `ObjectMapper` feature flag configurations that are now defaults in Jackson 3.
 tags:
-  - jackson
+  - jackson-3
 recipeList:
   # Features enabled by default in Jackson 3 (changed from false to true)
-  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+  - org.openrewrite.java.jackson.RemoveRedundantFeatureFlags:
       featureName: MapperFeature.SORT_PROPERTIES_ALPHABETICALLY
       newDefaultValue: true
-  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+  - org.openrewrite.java.jackson.RemoveRedundantFeatureFlags:
       featureName: DeserializationFeature.READ_ENUMS_USING_TO_STRING
       newDefaultValue: true
-  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+  - org.openrewrite.java.jackson.RemoveRedundantFeatureFlags:
       featureName: DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES
       newDefaultValue: true
-  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+  - org.openrewrite.java.jackson.RemoveRedundantFeatureFlags:
       featureName: DeserializationFeature.FAIL_ON_TRAILING_TOKENS
       newDefaultValue: true
-  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+  - org.openrewrite.java.jackson.RemoveRedundantFeatureFlags:
       featureName: SerializationFeature.WRITE_ENUMS_USING_TO_STRING
       newDefaultValue: true
-  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+  - org.openrewrite.java.jackson.RemoveRedundantFeatureFlags:
       featureName: CBORReadFeature.DECODE_USING_STANDARD_NEGATIVE_BIGINT_ENCODING
       newDefaultValue: true
-  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+  - org.openrewrite.java.jackson.RemoveRedundantFeatureFlags:
       featureName: CBORReadFeature.READ_UNDEFINED_AS_EMBEDDED_OBJECT
       newDefaultValue: true
-  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+  - org.openrewrite.java.jackson.RemoveRedundantFeatureFlags:
       featureName: CBORReadFeature.READ_SIMPLE_VALUE_AS_EMBEDDED_OBJECT
       newDefaultValue: true
-  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+  - org.openrewrite.java.jackson.RemoveRedundantFeatureFlags:
       featureName: CBORWriteFeature.ENCODE_USING_STANDARD_NEGATIVE_BIGINT_ENCODING
       newDefaultValue: true
-  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+  - org.openrewrite.java.jackson.RemoveRedundantFeatureFlags:
       featureName: XmlWriteFeature.UNWRAP_ROOT_OBJECT_NODE
       newDefaultValue: true
-  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+  - org.openrewrite.java.jackson.RemoveRedundantFeatureFlags:
       featureName: XmlWriteFeature.WRITE_NULLS_AS_XSI_NIL
       newDefaultValue: true
-  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+  - org.openrewrite.java.jackson.RemoveRedundantFeatureFlags:
       featureName: XmlWriteFeature.AUTO_DETECT_XSI_TYPE
       newDefaultValue: true
-  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+  - org.openrewrite.java.jackson.RemoveRedundantFeatureFlags:
       featureName: XmlWriteFeature.WRITE_XML_SCHEMA_CONFORMING_FLOATS
       newDefaultValue: true
   # Features disabled by default in Jackson 3 (changed from true to false)
-  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+  - org.openrewrite.java.jackson.RemoveRedundantFeatureFlags:
       featureName: MapperFeature.ALLOW_FINAL_FIELDS_AS_MUTATORS
       newDefaultValue: false
-  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+  - org.openrewrite.java.jackson.RemoveRedundantFeatureFlags:
       featureName: MapperFeature.DEFAULT_VIEW_INCLUSION
       newDefaultValue: false
-  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+  - org.openrewrite.java.jackson.RemoveRedundantFeatureFlags:
       featureName: MapperFeature.USE_GETTERS_AS_SETTERS
       newDefaultValue: false
-  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+  - org.openrewrite.java.jackson.RemoveRedundantFeatureFlags:
       featureName: DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES
       newDefaultValue: false
-  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+  - org.openrewrite.java.jackson.RemoveRedundantFeatureFlags:
       featureName: SerializationFeature.FAIL_ON_EMPTY_BEANS
       newDefaultValue: false
-  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+  - org.openrewrite.java.jackson.RemoveRedundantFeatureFlags:
       featureName: SerializationFeature.WRITE_DURATIONS_AS_TIMESTAMPS
       newDefaultValue: false
-  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+  - org.openrewrite.java.jackson.RemoveRedundantFeatureFlags:
       featureName: SerializationFeature.WRITE_DATES_AS_TIMESTAMPS
       newDefaultValue: false
 
@@ -253,7 +255,7 @@ name: org.openrewrite.java.jackson.UpgradeJackson_2_3_PackageChanges
 displayName: Update Jackson package names from 2.x to 3.x
 description: Update Jackson package imports from `com.fasterxml.jackson` to `tools.jackson`.
 tags:
-  - jackson
+  - jackson-3
 recipeList:
   - org.openrewrite.java.ChangePackage:
       oldPackageName: com.fasterxml.jackson.core

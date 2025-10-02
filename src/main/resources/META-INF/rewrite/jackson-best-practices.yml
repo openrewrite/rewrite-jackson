@@ -20,7 +20,7 @@ name: org.openrewrite.java.jackson.JacksonBestPractices
 displayName: Jackson best practices
 description: Apply best practices for using Jackson library, including upgrade to Jackson 2.x and removing redundant annotations.
 tags:
-  - jackson
+  - jackson-2
   - best practices
 recipeList:
   # Remove redundant @JsonProperty annotations

@@ -29,7 +29,9 @@ import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
 
 import java.util.List;
+import java.util.Set;
 
+import static java.util.Collections.singleton;
 import static java.util.Objects.requireNonNull;
 
 public class RemoveRedundantJsonPropertyValue extends Recipe {
@@ -45,6 +47,11 @@ public class RemoveRedundantJsonPropertyValue extends Recipe {
     @Override
     public String getDescription() {
         return "Remove `@JsonProperty` annotation or value attribute when the value matches the argument name.";
+    }
+
+    @Override
+    public Set<String> getTags() {
+        return singleton("jackson-2");
     }
 
     @Override

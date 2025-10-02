@@ -40,22 +40,21 @@ examples:
     language: java
 ---
 type: specs.openrewrite.org/v1beta/example
-recipeName: org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags
+recipeName: org.openrewrite.java.jackson.RemoveBuiltInModuleRegistrations
 examples:
 - description: ''
   sources:
   - before: |
-      import com.fasterxml.jackson.databind.MapperFeature;
       import com.fasterxml.jackson.databind.ObjectMapper;
+      import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
       class Test {
           void configure() {
               ObjectMapper mapper = new ObjectMapper();
-              mapper.enable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY);
+              mapper.registerModule(new JavaTimeModule());
           }
       }
     after: |
-      import com.fasterxml.jackson.databind.MapperFeature;
       import com.fasterxml.jackson.databind.ObjectMapper;
 
       class Test {
@@ -96,6 +95,72 @@ examples:
 type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.UpgradeJackson_2_3
 examples:
+- description: ''
+  sources:
+  - before: |
+      import com.fasterxml.jackson.core.JsonGenerator;
+
+      class Test {
+          void test(JsonGenerator gen, Object value) throws Exception {
+              gen.writeObject(value);
+          }
+      }
+    after: |
+      import tools.jackson.core.JsonGenerator;
+
+      class Test {
+          void test(JsonGenerator gen, Object value) throws Exception {
+              gen.writePOJO(value);
+          }
+      }
+    language: java
+- description: ''
+  sources:
+  - before: |
+      <project>
+          <modelVersion>4.0.0</modelVersion>
+          <groupId>org.example</groupId>
+          <artifactId>example</artifactId>
+          <version>1.0.0</version>
+          <dependencies>
+              <dependency>
+                  <groupId>com.fasterxml.jackson.core</groupId>
+                  <artifactId>jackson-annotations</artifactId>
+                  <version>2.19.0</version>
+              </dependency>
+          </dependencies>
+      </project>
+    after: |
+      <project>
+          <modelVersion>4.0.0</modelVersion>
+          <groupId>org.example</groupId>
+          <artifactId>example</artifactId>
+          <version>1.0.0</version>
+          <dependencies>
+              <dependency>
+                  <groupId>com.fasterxml.jackson.core</groupId>
+                  <artifactId>jackson-annotations</artifactId>
+                  <version>2.20</version>
+              </dependency>
+          </dependencies>
+      </project>
+    path: pom.xml
+    language: xml
+- description: ''
+  sources:
+  - before: |
+      import com.fasterxml.jackson.core.JsonFactory;
+
+      class Test {
+          JsonFactory factory = new JsonFactory();
+      }
+    after: |
+      import tools.jackson.core.TokenStreamFactory;
+
+      class Test {
+          TokenStreamFactory factory = new TokenStreamFactory();
+      }
+    language: java
 - description: ''
   sources:
   - before: |
@@ -174,51 +239,49 @@ examples:
     language: xml
 ---
 type: specs.openrewrite.org/v1beta/example
-recipeName: org.openrewrite.java.jackson.UpgradeJackson_2_And_3_Base_Exceptions
+recipeName: org.openrewrite.java.jackson.UpgradeJackson_2_3_RemoveRedundantFeatureFlags
 examples:
 - description: ''
   sources:
   - before: |
-      import com.fasterxml.jackson.core.JsonProcessingException;
-      import com.fasterxml.jackson.databind.JsonMappingException;
+      import com.fasterxml.jackson.databind.MapperFeature;
       import com.fasterxml.jackson.databind.ObjectMapper;
 
       class Test {
-          static void helloJackson() {
-              ObjectMapper objectMapper = new ObjectMapper();
-              Object object = new Object();
-              try {
-                  String json = objectMapper.writeValueAsString(object);
-                  try {
-                      objectMapper.readValue(json, Object.class);
-                  } catch (JsonMappingException e) {
-                      throw new RuntimeException(e);
-                  }
-              } catch (JsonProcessingException e) {
-                  throw new RuntimeException(e);
-              }
+          void configure() {
+              ObjectMapper mapper = new ObjectMapper();
+              mapper.enable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY);
           }
       }
     after: |
-      import com.fasterxml.jackson.core.JacksonException;
-      import com.fasterxml.jackson.databind.DatabindException;
+      import com.fasterxml.jackson.databind.MapperFeature;
       import com.fasterxml.jackson.databind.ObjectMapper;
 
       class Test {
-          static void helloJackson() {
-              ObjectMapper objectMapper = new ObjectMapper();
-              Object object = new Object();
-              try {
-                  String json = objectMapper.writeValueAsString(object);
-                  try {
-                      objectMapper.readValue(json, Object.class);
-                  } catch (DatabindException e) {
-                      throw new RuntimeException(e);
-                  }
-              } catch (JacksonException e) {
-                  throw new RuntimeException(e);
-              }
+          void configure() {
+              ObjectMapper mapper = new ObjectMapper();
           }
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.jackson.UseModernDateTimeSerialization
+examples:
+- description: ''
+  sources:
+  - before: |
+      import com.fasterxml.jackson.annotation.JsonFormat;
+      import java.time.LocalDateTime;
+
+      class Event {
+          @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
+          private LocalDateTime timestamp;
+      }
+    after: |
+      import java.time.LocalDateTime;
+
+      class Event {
+          private LocalDateTime timestamp;
       }
     language: java
 ---

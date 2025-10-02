@@ -19,17 +19,20 @@ import lombok.EqualsAndHashCode;
 import lombok.Value;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.*;
-import org.openrewrite.java.JavaIsoVisitor;
+import org.openrewrite.java.JavaVisitor;
 import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.search.UsesMethod;
 import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JavaType.FullyQualified;
-import org.openrewrite.java.tree.Statement;
+
+import java.util.Set;
+
+import static java.util.Collections.singleton;
 
 @Value
 @EqualsAndHashCode(callSuper = false)
-public class RemoveRedundantJackson3FeatureFlags extends Recipe {
+public class RemoveRedundantFeatureFlags extends Recipe {
 
     private static final String OBJECT_MAPPER_TYPE = "com.fasterxml.jackson.databind.ObjectMapper";
     private static final MethodMatcher ENABLE_MATCHER = new MethodMatcher(OBJECT_MAPPER_TYPE + " enable(..)");
@@ -62,6 +65,11 @@ public class RemoveRedundantJackson3FeatureFlags extends Recipe {
     }
 
     @Override
+    public Set<String> getTags() {
+        return singleton("jackson-3");
+    }
+
+    @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
         return Preconditions.check(
                 Preconditions.or(
@@ -69,24 +77,15 @@ public class RemoveRedundantJackson3FeatureFlags extends Recipe {
                         new UsesMethod<>(DISABLE_MATCHER),
                         new UsesMethod<>(CONFIGURE_MATCHER)
                 ),
-                new JavaIsoVisitor<ExecutionContext>() {
+                new JavaVisitor<ExecutionContext>() {
+
                     @Override
-                    public @Nullable Statement visitStatement(Statement statement, ExecutionContext ctx) {
-                        Statement s = super.visitStatement(statement, ctx);
-
-                        // Check if this statement is a method invocation we want to remove
-                        if (s instanceof J.MethodInvocation) {
-                            J.MethodInvocation mi = (J.MethodInvocation) s;
-                            if (shouldRemove(mi)) {
-                                // If it's part of a chain, return the select; otherwise remove the statement
-                                if (mi.getSelect() instanceof J.MethodInvocation) {
-                                    return (Statement) mi.getSelect();
-                                }
-                                return null;
-                            }
+                    public @Nullable J visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
+                        if (shouldRemove(method)) {
+                            // If it's part of a chain, return the select; otherwise remove the statement
+                            return method.getSelect() instanceof J.MethodInvocation ? method.getSelect() : null;
                         }
-
-                        return s;
+                        return super.visitMethodInvocation(method, ctx);
                     }
 
                     private boolean shouldRemove(J.MethodInvocation mi) {
