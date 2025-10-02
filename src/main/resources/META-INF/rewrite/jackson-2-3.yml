@@ -27,11 +27,15 @@ description: >-
   `JsonParser.getCurrentValue()` -> `currentValue()`).
 tags:
   - jackson
+  - jackson-3
 recipeList:
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_Dependencies
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_TypeChanges
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_MethodRenames
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_RemoveRedundantFeatureFlags
+  - org.openrewrite.java.jackson.RemoveBuiltInModuleRegistrations
+  - org.openrewrite.java.jackson.RemoveRedundantJsonPropertyOnRecords
+  - org.openrewrite.java.jackson.UseModernDateTimeSerialization
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_PackageChanges
 
 ---
@@ -41,6 +45,7 @@ displayName: Upgrade Jackson 2.x dependencies to 3.x
 description: Upgrade Jackson Maven dependencies from 2.x to 3.x versions and update group IDs.
 tags:
   - jackson
+  - jackson-3
 recipeList:
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
       groupId: com.fasterxml.jackson.core
@@ -90,6 +95,7 @@ displayName: Update Jackson 2.x types to 3.x
 description: Update Jackson type names including exception types and core class renames.
 tags:
   - jackson
+  - jackson-3
 recipeList:
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: com.fasterxml.jackson.core.JsonParseException
@@ -147,6 +153,7 @@ displayName: Rename Jackson 2.x methods to 3.x equivalents
 description: Rename Jackson methods that were renamed in 3.x (e.g., `writeObject()` to `writePOJO()`, `getCurrentValue()` to `currentValue()`).
 tags:
   - jackson
+  - jackson-3
 recipeList:
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: com.fasterxml.jackson.core.JsonGenerator writeObject(..)
@@ -183,6 +190,7 @@ displayName: Remove redundant Jackson 3 feature flag configurations
 description: Remove `ObjectMapper` feature flag configurations that are now defaults in Jackson 3.
 tags:
   - jackson
+  - jackson-3
 recipeList:
   # Features enabled by default in Jackson 3 (changed from false to true)
   - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
@@ -254,6 +262,7 @@ displayName: Update Jackson package names from 2.x to 3.x
 description: Update Jackson package imports from `com.fasterxml.jackson` to `tools.jackson`.
 tags:
   - jackson
+  - jackson-3
 recipeList:
   - org.openrewrite.java.ChangePackage:
       oldPackageName: com.fasterxml.jackson.core
