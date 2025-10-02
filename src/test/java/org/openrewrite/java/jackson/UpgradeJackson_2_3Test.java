@@ -468,4 +468,224 @@ class UpgradeJackson_2_3Test implements RewriteTest {
           )
         );
     }
+
+    @Test
+    void jacksonUpgradeToVersion3_JsonGeneratorWriteObject() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonGenerator;
+
+              class Test {
+                  void test(JsonGenerator gen, Object value) throws Exception {
+                      gen.writeObject(value);
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonGenerator;
+
+              class Test {
+                  void test(JsonGenerator gen, Object value) throws Exception {
+                      gen.writePOJO(value);
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void jacksonUpgradeToVersion3_JsonGeneratorGetCurrentValue() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonGenerator;
+
+              class Test {
+                  Object test(JsonGenerator gen) {
+                      return gen.getCurrentValue();
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonGenerator;
+
+              class Test {
+                  Object test(JsonGenerator gen) {
+                      return gen.currentValue();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void jacksonUpgradeToVersion3_JsonGeneratorSetCurrentValue() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonGenerator;
+
+              class Test {
+                  void test(JsonGenerator gen, Object value) {
+                      gen.setCurrentValue(value);
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonGenerator;
+
+              class Test {
+                  void test(JsonGenerator gen, Object value) {
+                      gen.assignCurrentValue(value);
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void jacksonUpgradeToVersion3_JsonParserGetTextCharacters() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonParser;
+
+              class Test {
+                  char[] test(JsonParser parser) {
+                      return parser.getTextCharacters();
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonParser;
+
+              class Test {
+                  char[] test(JsonParser parser) {
+                      return parser.getStringCharacters();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void jacksonUpgradeToVersion3_JsonParserGetCurrentLocation() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonParser;
+              import com.fasterxml.jackson.core.JsonLocation;
+
+              class Test {
+                  JsonLocation test(JsonParser parser) {
+                      return parser.getCurrentLocation();
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonParser;
+              import tools.jackson.core.TokenStreamLocation;
+
+              class Test {
+                  TokenStreamLocation test(JsonParser parser) {
+                      return parser.currentLocation();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void jacksonUpgradeToVersion3_JsonParserGetTokenLocation() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonParser;
+              import com.fasterxml.jackson.core.JsonLocation;
+
+              class Test {
+                  JsonLocation test(JsonParser parser) {
+                      return parser.getTokenLocation();
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonParser;
+              import tools.jackson.core.TokenStreamLocation;
+
+              class Test {
+                  TokenStreamLocation test(JsonParser parser) {
+                      return parser.currentTokenLocation();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void jacksonUpgradeToVersion3_JsonParserGetCurrentValue() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonParser;
+
+              class Test {
+                  Object test(JsonParser parser) {
+                      return parser.getCurrentValue();
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonParser;
+
+              class Test {
+                  Object test(JsonParser parser) {
+                      return parser.currentValue();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void jacksonUpgradeToVersion3_JsonParserSetCurrentValue() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonParser;
+
+              class Test {
+                  void test(JsonParser parser, Object value) {
+                      parser.setCurrentValue(value);
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonParser;
+
+              class Test {
+                  void test(JsonParser parser, Object value) {
+                      parser.assignCurrentValue(value);
+                  }
+              }
+              """
+          )
+        );
+    }
 }
