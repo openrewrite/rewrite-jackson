@@ -15,18 +15,17 @@
  */
 package org.openrewrite.java.jackson;
 
-import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
 import org.openrewrite.TreeVisitor;
-import org.openrewrite.java.JavaIsoVisitor;
+import org.openrewrite.java.JavaVisitor;
 import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.search.UsesMethod;
 import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
-import org.openrewrite.java.tree.JavaType;
 import org.openrewrite.java.tree.Statement;
+import org.openrewrite.java.tree.TypeUtils;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -35,8 +34,7 @@ import java.util.Set;
 public class RemoveBuiltInModuleRegistrations extends Recipe {
 
     private static final String OBJECT_MAPPER_TYPE = "com.fasterxml.jackson.databind.ObjectMapper";
-    private static final MethodMatcher REGISTER_MODULE = new MethodMatcher(OBJECT_MAPPER_TYPE + " registerModule(com.fasterxml.jackson.databind.Module)");
-    private static final MethodMatcher REGISTER_MODULES = new MethodMatcher(OBJECT_MAPPER_TYPE + " registerModules(..)");
+    private static final MethodMatcher REGISTER_MODULE = new MethodMatcher(OBJECT_MAPPER_TYPE + " registerModule*(..)");
 
     private static final Set<String> BUILT_IN_MODULES = new HashSet<>(Arrays.asList(
             "com.fasterxml.jackson.module.paramnames.ParameterNamesModule",
@@ -58,58 +56,28 @@ public class RemoveBuiltInModuleRegistrations extends Recipe {
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
-        return Preconditions.check(
-                Preconditions.or(
-                        new UsesMethod<>(REGISTER_MODULE),
-                        new UsesMethod<>(REGISTER_MODULES)
-                ),
-                new JavaIsoVisitor<ExecutionContext>() {
+        return Preconditions.check(new UsesMethod<>(REGISTER_MODULE), new JavaVisitor<ExecutionContext>() {
                     @Override
-                    public @Nullable Statement visitStatement(Statement statement, ExecutionContext ctx) {
-                        Statement s = super.visitStatement(statement, ctx);
-
-                        // Check if this statement is a registerModule call we want to remove
-                        if (s instanceof J.MethodInvocation) {
-                            J.MethodInvocation mi = (J.MethodInvocation) s;
-                            if (shouldRemove(mi)) {
-                                maybeRemoveImports();
-                                // If it's part of a chain, return the select; otherwise remove the statement
-                                if (mi.getSelect() instanceof J.MethodInvocation) {
-                                    return (Statement) mi.getSelect();
-                                }
-                                return null;
+                    public J visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
+                        if (REGISTER_MODULE.matches(method) &&
+                                method.getArguments().stream().anyMatch(this::isBuiltInModuleInstantiation)) {
+                            for (String module : BUILT_IN_MODULES) {
+                                maybeRemoveImport(module);
                             }
+                            // If it's part of a chain, return the select; otherwise remove the statement
+                            return method.getSelect() instanceof J.MethodInvocation ? (Statement) method.getSelect() : null;
                         }
-
-                        return s;
-                    }
-
-                    private boolean shouldRemove(J.MethodInvocation mi) {
-                        if (REGISTER_MODULE.matches(mi) && mi.getArguments().size() == 1) {
-                            Expression arg = mi.getArguments().get(0);
-                            return isBuiltInModuleInstantiation(arg);
-                        }
-                        return false;
+                        return super.visitMethodInvocation(method, ctx);
                     }
 
                     private boolean isBuiltInModuleInstantiation(Expression expr) {
                         if (expr instanceof J.NewClass) {
                             J.NewClass newClass = (J.NewClass) expr;
                             if (newClass.getClazz() != null) {
-                                JavaType type = newClass.getClazz().getType();
-                                if (type instanceof JavaType.FullyQualified) {
-                                    String fqn = ((JavaType.FullyQualified) type).getFullyQualifiedName();
-                                    return BUILT_IN_MODULES.contains(fqn);
-                                }
+                                return BUILT_IN_MODULES.contains(TypeUtils.toString(newClass.getClazz().getType()));
                             }
                         }
                         return false;
-                    }
-
-                    private void maybeRemoveImports() {
-                        for (String module : BUILT_IN_MODULES) {
-                            maybeRemoveImport(module);
-                        }
                     }
                 }
         );
