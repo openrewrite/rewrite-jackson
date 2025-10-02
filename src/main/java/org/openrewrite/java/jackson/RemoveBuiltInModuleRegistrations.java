@@ -28,6 +28,7 @@ import org.openrewrite.java.tree.Statement;
 import org.openrewrite.java.tree.TypeUtils;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -52,6 +53,11 @@ public class RemoveBuiltInModuleRegistrations extends Recipe {
         return "In Jackson 3, `ParameterNamesModule`, `Jdk8Module`, and `JavaTimeModule` are built into `jackson-databind` " +
                 "and no longer need to be registered manually. This recipe removes `ObjectMapper.registerModule()` calls " +
                 "for these modules.";
+    }
+
+    @Override
+    public Set<String> getTags() {
+        return Collections.singleton("jackson-3");
     }
 
     @Override

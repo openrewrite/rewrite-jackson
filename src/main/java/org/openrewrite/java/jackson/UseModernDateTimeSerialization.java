@@ -27,10 +27,7 @@ import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JavaType;
 
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class UseModernDateTimeSerialization extends Recipe {
 
@@ -65,6 +62,11 @@ public class UseModernDateTimeSerialization extends Recipe {
     public String getDescription() {
         return "Remove redundant `@JsonFormat` annotations on `java.time` types that specify ISO-8601 patterns, " +
                 "as Jackson 3 uses ISO-8601 as the default format (with `WRITE_DATES_AS_TIMESTAMPS` now disabled by default).";
+    }
+
+    @Override
+    public Set<String> getTags() {
+        return Collections.singleton("jackson-3");
     }
 
     @Override

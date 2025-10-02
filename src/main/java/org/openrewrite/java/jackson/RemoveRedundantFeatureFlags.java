@@ -19,18 +19,19 @@ import lombok.EqualsAndHashCode;
 import lombok.Value;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.*;
-import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.JavaVisitor;
 import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.search.UsesMethod;
 import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JavaType.FullyQualified;
-import org.openrewrite.java.tree.Statement;
+
+import java.util.Collections;
+import java.util.Set;
 
 @Value
 @EqualsAndHashCode(callSuper = false)
-public class RemoveRedundantJackson3FeatureFlags extends Recipe {
+public class RemoveRedundantFeatureFlags extends Recipe {
 
     private static final String OBJECT_MAPPER_TYPE = "com.fasterxml.jackson.databind.ObjectMapper";
     private static final MethodMatcher ENABLE_MATCHER = new MethodMatcher(OBJECT_MAPPER_TYPE + " enable(..)");
@@ -60,6 +61,11 @@ public class RemoveRedundantJackson3FeatureFlags extends Recipe {
                 "For example, `disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)` and " +
                 "`configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)` are redundant since this is " +
                 "now disabled by default in Jackson 3.";
+    }
+
+    @Override
+    public Set<String> getTags() {
+        return Collections.singleton("jackson-3");
     }
 
     @Override

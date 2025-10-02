@@ -27,7 +27,7 @@ import java.util.List;
 
 import static org.openrewrite.java.Assertions.java;
 
-class RemoveRedundantJackson3FeatureFlagsTest implements RewriteTest {
+class RemoveRedundantFeatureFlagsTest implements RewriteTest {
 
     @Override
     public void defaults(RecipeSpec spec) {
