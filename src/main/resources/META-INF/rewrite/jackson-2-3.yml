@@ -31,7 +31,7 @@ recipeList:
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_Dependencies
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_TypeChanges
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_MethodRenames
-  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags
+  - org.openrewrite.java.jackson.UpgradeJackson_2_3_RemoveRedundantFeatureFlags
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_PackageChanges
 
 ---
@@ -175,6 +175,38 @@ recipeList:
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: com.fasterxml.jackson.databind.JsonNode elements()
       newMethodName: values
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.jackson.UpgradeJackson_2_3_RemoveRedundantFeatureFlags
+displayName: Remove redundant Jackson 3 feature flag configurations
+description: Remove `ObjectMapper` feature flag configurations that are now defaults in Jackson 3.
+tags:
+  - jackson
+recipeList:
+  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+      enabledByDefaultInV3:
+        - MapperFeature.SORT_PROPERTIES_ALPHABETICALLY
+        - DeserializationFeature.READ_ENUMS_USING_TO_STRING
+        - DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES
+        - DeserializationFeature.FAIL_ON_TRAILING_TOKENS
+        - SerializationFeature.WRITE_ENUMS_USING_TO_STRING
+        - CBORReadFeature.DECODE_USING_STANDARD_NEGATIVE_BIGINT_ENCODING
+        - CBORReadFeature.READ_UNDEFINED_AS_EMBEDDED_OBJECT
+        - CBORReadFeature.READ_SIMPLE_VALUE_AS_EMBEDDED_OBJECT
+        - CBORWriteFeature.ENCODE_USING_STANDARD_NEGATIVE_BIGINT_ENCODING
+        - XmlWriterFeature.UNWRAP_ROOT_OBJECT_NODE
+        - XmlWriterFeature.WRITE_NULLS_AS_XSI_NIL
+        - XmlWriterFeature.AUTO_DETECT_XSI_TYPE
+        - XmlWriterFeature.WRITE_XML_SCHEMA_CONFORMING_FLOATS
+      disabledByDefaultInV3:
+        - MapperFeature.ALLOW_FINAL_FIELDS_AS_MUTATORS
+        - MapperFeature.DEFAULT_VIEW_INCLUSION
+        - MapperFeature.USE_GETTERS_AS_SETTERS
+        - DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES
+        - SerializationFeature.FAIL_ON_EMPTY_BEANS
+        - SerializationFeature.WRITE_DURATIONS_AS_TIMESTAMPS
+        - SerializationFeature.WRITE_DATES_AS_TIMESTAMPS
 
 ---
 type: specs.openrewrite.org/v1beta/recipe

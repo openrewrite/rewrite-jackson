@@ -15,8 +15,11 @@
  */
 package org.openrewrite.java.jackson;
 
+import lombok.EqualsAndHashCode;
+import lombok.Value;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
+import org.openrewrite.Option;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
 import org.openrewrite.TreeVisitor;
@@ -25,14 +28,15 @@ import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.search.UsesMethod;
 import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
+import org.openrewrite.java.tree.JavaType.FullyQualified;
 import org.openrewrite.java.tree.Statement;
 
-import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
-import static java.util.Collections.unmodifiableSet;
-
+@Value
+@EqualsAndHashCode(callSuper = false)
 public class RemoveRedundantJackson3FeatureFlags extends Recipe {
 
     private static final String OBJECT_MAPPER_TYPE = "com.fasterxml.jackson.databind.ObjectMapper";
@@ -40,36 +44,17 @@ public class RemoveRedundantJackson3FeatureFlags extends Recipe {
     private static final MethodMatcher DISABLE_MATCHER = new MethodMatcher(OBJECT_MAPPER_TYPE + " disable(..)");
     private static final MethodMatcher CONFIGURE_MATCHER = new MethodMatcher(OBJECT_MAPPER_TYPE + " configure(..)");
 
-    // Features that changed from false to true (should remove enable() or configure(..., true) calls)
-    private static final Set<String> ENABLED_BY_DEFAULT_IN_V3 = unmodifiableSet(new HashSet<>(Arrays.asList(
-            "MapperFeature.SORT_PROPERTIES_ALPHABETICALLY",
-            "DeserializationFeature.READ_ENUMS_USING_TO_STRING",
-            "DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES",
-            "DeserializationFeature.FAIL_ON_TRAILING_TOKENS",
-            "SerializationFeature.WRITE_ENUMS_USING_TO_STRING",
-            // CBOR read features
-            "CBORReadFeature.DECODE_USING_STANDARD_NEGATIVE_BIGINT_ENCODING",
-            "CBORReadFeature.READ_UNDEFINED_AS_EMBEDDED_OBJECT",
-            "CBORReadFeature.READ_SIMPLE_VALUE_AS_EMBEDDED_OBJECT",
-            // CBOR write features
-            "CBORWriteFeature.ENCODE_USING_STANDARD_NEGATIVE_BIGINT_ENCODING",
-            // XML write features
-            "XmlWriterFeature.UNWRAP_ROOT_OBJECT_NODE",
-            "XmlWriterFeature.WRITE_NULLS_AS_XSI_NIL",
-            "XmlWriterFeature.AUTO_DETECT_XSI_TYPE",
-            "XmlWriterFeature.WRITE_XML_SCHEMA_CONFORMING_FLOATS"
-    )));
+    @Option(displayName = "Features enabled by default in Jackson 3",
+            description = "List of feature flags that changed from false (Jackson 2) to true (Jackson 3). " +
+                    "Format: `ClassName.FEATURE_NAME` (e.g., `MapperFeature.SORT_PROPERTIES_ALPHABETICALLY`).",
+            example = "[\"MapperFeature.SORT_PROPERTIES_ALPHABETICALLY\", \"DeserializationFeature.READ_ENUMS_USING_TO_STRING\"]")
+    List<String> enabledByDefaultInV3;
 
-    // Features that changed from true to false (should remove disable() calls)
-    private static final Set<String> DISABLED_BY_DEFAULT_IN_V3 = unmodifiableSet(new HashSet<>(Arrays.asList(
-            "MapperFeature.ALLOW_FINAL_FIELDS_AS_MUTATORS",
-            "MapperFeature.DEFAULT_VIEW_INCLUSION",
-            "MapperFeature.USE_GETTERS_AS_SETTERS",
-            "DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES",
-            "SerializationFeature.FAIL_ON_EMPTY_BEANS",
-            "SerializationFeature.WRITE_DURATIONS_AS_TIMESTAMPS",
-            "SerializationFeature.WRITE_DATES_AS_TIMESTAMPS"
-    )));
+    @Option(displayName = "Features disabled by default in Jackson 3",
+            description = "List of feature flags that changed from true (Jackson 2) to false (Jackson 3). " +
+                    "Format: `ClassName.FEATURE_NAME` (e.g., `DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES`).",
+            example = "[\"DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES\", \"SerializationFeature.FAIL_ON_EMPTY_BEANS\"]")
+    List<String> disabledByDefaultInV3;
 
     @Override
     public String getDisplayName() {
@@ -78,6 +63,7 @@ public class RemoveRedundantJackson3FeatureFlags extends Recipe {
 
     @Override
     public String getDescription() {
+        //language=markdown
         return "Remove `ObjectMapper` feature flag configurations that set values to their new Jackson 3 defaults. " +
                 "For example, `disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)` and " +
                 "`configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)` are redundant since this is " +
@@ -87,6 +73,9 @@ public class RemoveRedundantJackson3FeatureFlags extends Recipe {
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
+        Set<String> enabledSet = new HashSet<>(enabledByDefaultInV3);
+        Set<String> disabledSet = new HashSet<>(disabledByDefaultInV3);
+
         return Preconditions.check(
                 Preconditions.or(
                         new UsesMethod<>(ENABLE_MATCHER),
@@ -115,10 +104,10 @@ public class RemoveRedundantJackson3FeatureFlags extends Recipe {
 
                     private boolean shouldRemove(J.MethodInvocation mi) {
                         if (ENABLE_MATCHER.matches(mi)) {
-                            return isFeatureInSet(mi.getArguments().get(0), ENABLED_BY_DEFAULT_IN_V3);
+                            return isFeatureInSet(mi.getArguments().get(0), enabledSet);
                         }
                         if (DISABLE_MATCHER.matches(mi)) {
-                            return isFeatureInSet(mi.getArguments().get(0), DISABLED_BY_DEFAULT_IN_V3);
+                            return isFeatureInSet(mi.getArguments().get(0), disabledSet);
                         }
                         if (CONFIGURE_MATCHER.matches(mi)) {
                             return shouldRemoveConfigureCall(mi);
@@ -137,13 +126,13 @@ public class RemoveRedundantJackson3FeatureFlags extends Recipe {
 
                         // Check if it's configure(feature, true) for features enabled by default
                         if (J.Literal.isLiteralValue(booleanArg, true) &&
-                                isFeatureInSet(featureArg, ENABLED_BY_DEFAULT_IN_V3)) {
+                                isFeatureInSet(featureArg, enabledSet)) {
                             return true;
                         }
 
                         // Check if it's configure(feature, false) for features disabled by default
                         return J.Literal.isLiteralValue(booleanArg, false) &&
-                                isFeatureInSet(featureArg, DISABLED_BY_DEFAULT_IN_V3);
+                                isFeatureInSet(featureArg, disabledSet);
                     }
 
                     private boolean isFeatureInSet(Expression arg, Set<String> featureSet) {
@@ -162,9 +151,8 @@ public class RemoveRedundantJackson3FeatureFlags extends Recipe {
                         } else if (arg instanceof J.Identifier) {
                             // Handle static imports
                             J.Identifier identifier = (J.Identifier) arg;
-                            if (identifier.getFieldType() != null && identifier.getFieldType().getOwner() instanceof org.openrewrite.java.tree.JavaType.FullyQualified) {
-                                org.openrewrite.java.tree.JavaType.FullyQualified owner =
-                                        (org.openrewrite.java.tree.JavaType.FullyQualified) identifier.getFieldType().getOwner();
+                            if (identifier.getFieldType() != null && identifier.getFieldType().getOwner() instanceof FullyQualified) {
+                                FullyQualified owner = (FullyQualified) identifier.getFieldType().getOwner();
                                 // Extract the simple class name from the fully qualified name
                                 String fullyQualifiedName = owner.getFullyQualifiedName();
                                 String className = fullyQualifiedName.substring(fullyQualifiedName.lastIndexOf('.') + 1);

@@ -21,13 +21,39 @@ import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
+import java.util.Arrays;
+
 import static org.openrewrite.java.Assertions.java;
 
 class RemoveRedundantJackson3FeatureFlagsTest implements RewriteTest {
 
     @Override
     public void defaults(RecipeSpec spec) {
-        spec.recipe(new RemoveRedundantJackson3FeatureFlags())
+        spec.recipe(new RemoveRedundantJackson3FeatureFlags(
+                Arrays.asList(
+                        "MapperFeature.SORT_PROPERTIES_ALPHABETICALLY",
+                        "DeserializationFeature.READ_ENUMS_USING_TO_STRING",
+                        "DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES",
+                        "DeserializationFeature.FAIL_ON_TRAILING_TOKENS",
+                        "SerializationFeature.WRITE_ENUMS_USING_TO_STRING",
+                        "CBORReadFeature.DECODE_USING_STANDARD_NEGATIVE_BIGINT_ENCODING",
+                        "CBORReadFeature.READ_UNDEFINED_AS_EMBEDDED_OBJECT",
+                        "CBORReadFeature.READ_SIMPLE_VALUE_AS_EMBEDDED_OBJECT",
+                        "CBORWriteFeature.ENCODE_USING_STANDARD_NEGATIVE_BIGINT_ENCODING",
+                        "XmlWriterFeature.UNWRAP_ROOT_OBJECT_NODE",
+                        "XmlWriterFeature.WRITE_NULLS_AS_XSI_NIL",
+                        "XmlWriterFeature.AUTO_DETECT_XSI_TYPE",
+                        "XmlWriterFeature.WRITE_XML_SCHEMA_CONFORMING_FLOATS"
+                ),
+                Arrays.asList(
+                        "MapperFeature.ALLOW_FINAL_FIELDS_AS_MUTATORS",
+                        "MapperFeature.DEFAULT_VIEW_INCLUSION",
+                        "MapperFeature.USE_GETTERS_AS_SETTERS",
+                        "DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES",
+                        "SerializationFeature.FAIL_ON_EMPTY_BEANS",
+                        "SerializationFeature.WRITE_DURATIONS_AS_TIMESTAMPS",
+                        "SerializationFeature.WRITE_DATES_AS_TIMESTAMPS"
+                )))
           .parser(JavaParser.fromJavaVersion().classpath(
             "jackson-annotations", "jackson-core", "jackson-databind"));
     }
