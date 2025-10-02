@@ -20,7 +20,12 @@
 type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.java.jackson.UpgradeJackson_2_3
 displayName: Migrates from Jackson 2.x to Jackson 3.x
-description: Migrate applications to the latest Jackson 3.x release.
+description: >
+  Migrate applications to the latest Jackson 3.x release. This recipe handles package changes
+  (com.fasterxml.jackson -> tools.jackson), dependency updates, and core class renames including
+  JsonFactory -> TokenStreamFactory, JsonDeserializer -> ValueDeserializer, JsonSerializer ->
+  ValueSerializer, and various exception renames. Note: Manual review may be needed for ObjectMapper
+  configuration changes as Jackson 3 has different defaults for MapperFeature and DeserializationFeature.
 tags:
   - jackson
 recipeList:
@@ -71,6 +76,45 @@ recipeList:
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: com.fasterxml.jackson.core.JsonGenerationException
       newFullyQualifiedTypeName: tools.jackson.core.StreamWriteException
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.core.JsonProcessingException
+      newFullyQualifiedTypeName: tools.jackson.core.JacksonException
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.core.JsonEOFException
+      newFullyQualifiedTypeName: tools.jackson.core.exc.UnexpectedEndOfInputException
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.JsonMappingException
+      newFullyQualifiedTypeName: tools.jackson.databind.DatabindException
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.core.JsonFactory
+      newFullyQualifiedTypeName: tools.jackson.core.TokenStreamFactory
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.core.JsonStreamContext
+      newFullyQualifiedTypeName: tools.jackson.core.TokenStreamContext
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.core.JsonLocation
+      newFullyQualifiedTypeName: tools.jackson.core.TokenStreamLocation
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.BeanDeserializerModifier
+      newFullyQualifiedTypeName: tools.jackson.databind.deser.ValueDeserializerModifier
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.BeanSerializerModifier
+      newFullyQualifiedTypeName: tools.jackson.databind.ser.ValueSerializerModifier
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.JsonDeserializer
+      newFullyQualifiedTypeName: tools.jackson.databind.ValueDeserializer
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.JsonSerializer
+      newFullyQualifiedTypeName: tools.jackson.databind.ValueSerializer
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.JsonSerializable
+      newFullyQualifiedTypeName: tools.jackson.databind.JacksonSerializable
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.SerializerProvider
+      newFullyQualifiedTypeName: tools.jackson.databind.SerializationContext
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.node.TextNode
+      newFullyQualifiedTypeName: tools.jackson.databind.node.StringNode
   - org.openrewrite.java.ChangePackage:
       oldPackageName: com.fasterxml.jackson.core
       newPackageName: tools.jackson.core
