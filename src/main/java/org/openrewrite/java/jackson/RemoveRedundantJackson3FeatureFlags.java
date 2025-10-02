@@ -45,7 +45,18 @@ public class RemoveRedundantJackson3FeatureFlags extends Recipe {
             "DeserializationFeature.READ_ENUMS_USING_TO_STRING",
             "DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES",
             "DeserializationFeature.FAIL_ON_TRAILING_TOKENS",
-            "SerializationFeature.WRITE_ENUMS_USING_TO_STRING"
+            "SerializationFeature.WRITE_ENUMS_USING_TO_STRING",
+            // CBOR read features
+            "CBORReadFeature.DECODE_USING_STANDARD_NEGATIVE_BIGINT_ENCODING",
+            "CBORReadFeature.READ_UNDEFINED_AS_EMBEDDED_OBJECT",
+            "CBORReadFeature.READ_SIMPLE_VALUE_AS_EMBEDDED_OBJECT",
+            // CBOR write features
+            "CBORWriteFeature.ENCODE_USING_STANDARD_NEGATIVE_BIGINT_ENCODING",
+            // XML write features
+            "XmlWriterFeature.UNWRAP_ROOT_OBJECT_NODE",
+            "XmlWriterFeature.WRITE_NULLS_AS_XSI_NIL",
+            "XmlWriterFeature.AUTO_DETECT_XSI_TYPE",
+            "XmlWriterFeature.WRITE_XML_SCHEMA_CONFORMING_FLOATS"
     )));
 
     // Features that changed from true to false (should remove disable() calls)
@@ -69,7 +80,8 @@ public class RemoveRedundantJackson3FeatureFlags extends Recipe {
         return "Remove `ObjectMapper` feature flag configurations that set values to their new Jackson 3 defaults. " +
                 "For example, `disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)` and " +
                 "`configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)` are redundant since this is " +
-                "now disabled by default in Jackson 3.";
+                "now disabled by default in Jackson 3. Handles `MapperFeature`, `DeserializationFeature`, " +
+                "`SerializationFeature`, `CBORReadFeature`, `CBORWriteFeature`, and `XmlWriterFeature`.";
     }
 
     @Override
@@ -134,21 +146,32 @@ public class RemoveRedundantJackson3FeatureFlags extends Recipe {
                     }
 
                     private boolean isFeatureInSet(Expression arg, Set<String> featureSet) {
-                        if (arg instanceof J.FieldAccess) {
-                            J.FieldAccess fieldAccess = (J.FieldAccess) arg;
-                            String featureName = getFeatureName(fieldAccess);
-                            return featureSet.contains(featureName);
-                        }
-                        return false;
+                        String featureName = getFeatureName(arg);
+                        return featureName != null && featureSet.contains(featureName);
                     }
 
-                    private String getFeatureName(J.FieldAccess fieldAccess) {
-                        if (fieldAccess.getTarget() instanceof J.Identifier) {
-                            String className = ((J.Identifier) fieldAccess.getTarget()).getSimpleName();
-                            String fieldName = fieldAccess.getName().getSimpleName();
-                            return className + "." + fieldName;
+                    private @Nullable String getFeatureName(Expression arg) {
+                        if (arg instanceof J.FieldAccess) {
+                            J.FieldAccess fieldAccess = (J.FieldAccess) arg;
+                            if (fieldAccess.getTarget() instanceof J.Identifier) {
+                                String className = ((J.Identifier) fieldAccess.getTarget()).getSimpleName();
+                                String fieldName = fieldAccess.getName().getSimpleName();
+                                return className + "." + fieldName;
+                            }
+                        } else if (arg instanceof J.Identifier) {
+                            // Handle static imports
+                            J.Identifier identifier = (J.Identifier) arg;
+                            if (identifier.getFieldType() != null && identifier.getFieldType().getOwner() instanceof org.openrewrite.java.tree.JavaType.FullyQualified) {
+                                org.openrewrite.java.tree.JavaType.FullyQualified owner =
+                                    (org.openrewrite.java.tree.JavaType.FullyQualified) identifier.getFieldType().getOwner();
+                                // Extract the simple class name from the fully qualified name
+                                String fullyQualifiedName = owner.getFullyQualifiedName();
+                                String className = fullyQualifiedName.substring(fullyQualifiedName.lastIndexOf('.') + 1);
+                                String fieldName = identifier.getSimpleName();
+                                return className + "." + fieldName;
+                            }
                         }
-                        return "";
+                        return null;
                     }
                 }
         );
