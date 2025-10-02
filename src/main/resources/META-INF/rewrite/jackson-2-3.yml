@@ -22,9 +22,9 @@ name: org.openrewrite.java.jackson.UpgradeJackson_2_3
 displayName: Migrates from Jackson 2.x to Jackson 3.x
 description: >-
   Migrate applications to the latest Jackson 3.x release. This recipe handles package changes
-  (com.fasterxml.jackson -> tools.jackson), dependency updates, core class renames, exception
-  renames, and method renames (e.g., JsonGenerator.writeObject() -> writePOJO(),
-  JsonParser.getCurrentValue() -> currentValue()).
+  (`com.fasterxml.jackson` -> `tools.jackson`), dependency updates, core class renames, exception
+  renames, and method renames (e.g., `JsonGenerator.writeObject()` -> `writePOJO()`,
+  `JsonParser.getCurrentValue()` -> `currentValue()`).
 tags:
   - jackson
 recipeList:
@@ -144,7 +144,7 @@ recipeList:
 type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.java.jackson.UpgradeJackson_2_3_MethodRenames
 displayName: Rename Jackson 2.x methods to 3.x equivalents
-description: Rename Jackson methods that were renamed in 3.x (e.g., writeObject() to writePOJO(), getCurrentValue() to currentValue()).
+description: Rename Jackson methods that were renamed in 3.x (e.g., `writeObject()` to `writePOJO()`, `getCurrentValue()` to `currentValue()`).
 tags:
   - jackson
 recipeList:
@@ -180,7 +180,7 @@ recipeList:
 type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.java.jackson.UpgradeJackson_2_3_PackageChanges
 displayName: Update Jackson package names from 2.x to 3.x
-description: Update Jackson package imports from com.fasterxml.jackson to tools.jackson.
+description: Update Jackson package imports from `com.fasterxml.jackson` to `tools.jackson`.
 tags:
   - jackson
 recipeList:
