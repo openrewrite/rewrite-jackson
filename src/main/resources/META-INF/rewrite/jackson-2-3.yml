@@ -34,7 +34,6 @@ recipeList:
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_MethodRenames
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_RemoveRedundantFeatureFlags
   - org.openrewrite.java.jackson.RemoveBuiltInModuleRegistrations
-  - org.openrewrite.java.jackson.RemoveRedundantJsonPropertyOnRecords
   - org.openrewrite.java.jackson.UseModernDateTimeSerialization
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_PackageChanges
 
