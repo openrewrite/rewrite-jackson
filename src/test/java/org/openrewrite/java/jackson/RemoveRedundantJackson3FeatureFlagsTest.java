@@ -174,4 +174,145 @@ class RemoveRedundantJackson3FeatureFlagsTest implements RewriteTest {
         );
     }
 
+    @Test
+    void removeConfigureWithTrueForEnabledByDefault() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.MapperFeature;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void configure() {
+                      ObjectMapper mapper = new ObjectMapper();
+                      mapper.configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true);
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.MapperFeature;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void configure() {
+                      ObjectMapper mapper = new ObjectMapper();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void removeConfigureWithFalseForDisabledByDefault() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.DeserializationFeature;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void configure() {
+                      ObjectMapper mapper = new ObjectMapper();
+                      mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.DeserializationFeature;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void configure() {
+                      ObjectMapper mapper = new ObjectMapper();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void keepConfigureWithNonDefaultValue() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.MapperFeature;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void configure() {
+                      ObjectMapper mapper = new ObjectMapper();
+                      // This disables a feature that is enabled by default in v3, so keep it
+                      mapper.configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, false);
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void removeConfigureReadEnumsUsingToString() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.DeserializationFeature;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void configure() {
+                      ObjectMapper mapper = new ObjectMapper();
+                      mapper.configure(DeserializationFeature.READ_ENUMS_USING_TO_STRING, true);
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.DeserializationFeature;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void configure() {
+                      ObjectMapper mapper = new ObjectMapper();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void removeConfigureWriteDatesAsTimestamps() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.SerializationFeature;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void configure() {
+                      ObjectMapper mapper = new ObjectMapper();
+                      mapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.SerializationFeature;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void configure() {
+                      ObjectMapper mapper = new ObjectMapper();
+                  }
+              }
+              """
+          )
+        );
+    }
+
 }
