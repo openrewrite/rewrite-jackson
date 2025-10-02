@@ -90,7 +90,7 @@ examples:
       }
     after: |
       import com.fasterxml.jackson.annotation.JsonProperty;
-      import tools.jackson.core.TokenStreamFactory;
+      import tools.jackson.core.JsonFactory;
       import tools.jackson.core.JsonFactoryBuilder;
       import tools.jackson.databind.ObjectMapper;
 
@@ -101,7 +101,7 @@ examples:
 
           static void helloJackson() {
               Object[] input = new Object[] { "one", "two" };
-              TokenStreamFactory factory = new JsonFactoryBuilder().build();
+              JsonFactory factory = new JsonFactoryBuilder().build();
           }
       }
     language: java
