@@ -15,7 +15,6 @@
  */
 package org.openrewrite.java.jackson;
 
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.java.JavaParser;

@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.jackson;
 
+import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
@@ -64,8 +65,9 @@ public class RemoveBuiltInModuleRegistrations extends Recipe {
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
         return Preconditions.check(new UsesMethod<>(REGISTER_MODULE), new JavaVisitor<ExecutionContext>() {
-                    @Override
-                    public J visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
+
+            @Override
+            public @Nullable J visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
                         if (REGISTER_MODULE.matches(method) &&
                                 method.getArguments().stream().anyMatch(this::isBuiltInModuleInstantiation)) {
                             for (String module : BUILT_IN_MODULES) {

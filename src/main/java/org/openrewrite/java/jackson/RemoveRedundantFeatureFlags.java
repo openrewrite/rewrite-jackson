@@ -78,8 +78,9 @@ public class RemoveRedundantFeatureFlags extends Recipe {
                         new UsesMethod<>(CONFIGURE_MATCHER)
                 ),
                 new JavaVisitor<ExecutionContext>() {
+
                     @Override
-                    public J visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
+                    public @Nullable J visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
                         if (shouldRemove(method)) {
                             // If it's part of a chain, return the select; otherwise remove the statement
                             return method.getSelect() instanceof J.MethodInvocation ? method.getSelect() : null;
