@@ -68,7 +68,7 @@ public class RemoveRedundantJackson3FeatureFlags extends Recipe {
                 "For example, `disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)` and " +
                 "`configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)` are redundant since this is " +
                 "now disabled by default in Jackson 3. Handles `MapperFeature`, `DeserializationFeature`, " +
-                "`SerializationFeature`, `CBORReadFeature`, `CBORWriteFeature`, and `XmlWriterFeature`.";
+                "`SerializationFeature`, `CBORReadFeature`, `CBORWriteFeature`, and `XmlWriteFeature`.";
     }
 
     @Override

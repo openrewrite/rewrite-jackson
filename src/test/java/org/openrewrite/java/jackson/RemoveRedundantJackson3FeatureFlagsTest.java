@@ -40,10 +40,10 @@ class RemoveRedundantJackson3FeatureFlagsTest implements RewriteTest {
                         "CBORReadFeature.READ_UNDEFINED_AS_EMBEDDED_OBJECT",
                         "CBORReadFeature.READ_SIMPLE_VALUE_AS_EMBEDDED_OBJECT",
                         "CBORWriteFeature.ENCODE_USING_STANDARD_NEGATIVE_BIGINT_ENCODING",
-                        "XmlWriterFeature.UNWRAP_ROOT_OBJECT_NODE",
-                        "XmlWriterFeature.WRITE_NULLS_AS_XSI_NIL",
-                        "XmlWriterFeature.AUTO_DETECT_XSI_TYPE",
-                        "XmlWriterFeature.WRITE_XML_SCHEMA_CONFORMING_FLOATS"
+                        "XmlWriteFeature.UNWRAP_ROOT_OBJECT_NODE",
+                        "XmlWriteFeature.WRITE_NULLS_AS_XSI_NIL",
+                        "XmlWriteFeature.AUTO_DETECT_XSI_TYPE",
+                        "XmlWriteFeature.WRITE_XML_SCHEMA_CONFORMING_FLOATS"
                 ),
                 Arrays.asList(
                         "MapperFeature.ALLOW_FINAL_FIELDS_AS_MUTATORS",
