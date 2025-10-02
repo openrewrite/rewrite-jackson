@@ -136,6 +136,9 @@ recipeList:
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.node.TextNode
       newFullyQualifiedTypeName: tools.jackson.databind.node.StringNode
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.Module
+      newFullyQualifiedTypeName: tools.jackson.databind.JacksonModule
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
@@ -169,6 +172,9 @@ recipeList:
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: com.fasterxml.jackson.core.JsonParser setCurrentValue(..)
       newMethodName: assignCurrentValue
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.databind.JsonNode elements()
+      newMethodName: values
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
