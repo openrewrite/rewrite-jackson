@@ -31,9 +31,7 @@ import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JavaType.FullyQualified;
 import org.openrewrite.java.tree.Statement;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 @Value
 @EqualsAndHashCode(callSuper = false)
@@ -44,17 +42,16 @@ public class RemoveRedundantJackson3FeatureFlags extends Recipe {
     private static final MethodMatcher DISABLE_MATCHER = new MethodMatcher(OBJECT_MAPPER_TYPE + " disable(..)");
     private static final MethodMatcher CONFIGURE_MATCHER = new MethodMatcher(OBJECT_MAPPER_TYPE + " configure(..)");
 
-    @Option(displayName = "Features enabled by default in Jackson 3",
-            description = "List of feature flags that changed from false (Jackson 2) to true (Jackson 3). " +
+    @Option(displayName = "Feature name",
+            description = "The fully qualified feature flag name that has a new default in Jackson 3. " +
                     "Format: `ClassName.FEATURE_NAME` (e.g., `MapperFeature.SORT_PROPERTIES_ALPHABETICALLY`).",
-            example = "[\"MapperFeature.SORT_PROPERTIES_ALPHABETICALLY\", \"DeserializationFeature.READ_ENUMS_USING_TO_STRING\"]")
-    List<String> enabledByDefaultInV3;
+            example = "MapperFeature.SORT_PROPERTIES_ALPHABETICALLY")
+    String featureName;
 
-    @Option(displayName = "Features disabled by default in Jackson 3",
-            description = "List of feature flags that changed from true (Jackson 2) to false (Jackson 3). " +
-                    "Format: `ClassName.FEATURE_NAME` (e.g., `DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES`).",
-            example = "[\"DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES\", \"SerializationFeature.FAIL_ON_EMPTY_BEANS\"]")
-    List<String> disabledByDefaultInV3;
+    @Option(displayName = "New default value",
+            description = "The new default boolean value for this feature flag in Jackson 3.",
+            example = "true")
+    Boolean newDefaultValue;
 
     @Override
     public String getDisplayName() {
@@ -73,9 +70,6 @@ public class RemoveRedundantJackson3FeatureFlags extends Recipe {
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
-        Set<String> enabledSet = new HashSet<>(enabledByDefaultInV3);
-        Set<String> disabledSet = new HashSet<>(disabledByDefaultInV3);
-
         return Preconditions.check(
                 Preconditions.or(
                         new UsesMethod<>(ENABLE_MATCHER),
@@ -104,10 +98,14 @@ public class RemoveRedundantJackson3FeatureFlags extends Recipe {
 
                     private boolean shouldRemove(J.MethodInvocation mi) {
                         if (ENABLE_MATCHER.matches(mi)) {
-                            return isFeatureInSet(mi.getArguments().get(0), enabledSet);
+                            // Remove enable() if the new default is true
+                            return Boolean.TRUE.equals(newDefaultValue) &&
+                                   featureName.equals(getFeatureNameFromArg(mi.getArguments().get(0)));
                         }
                         if (DISABLE_MATCHER.matches(mi)) {
-                            return isFeatureInSet(mi.getArguments().get(0), disabledSet);
+                            // Remove disable() if the new default is false
+                            return Boolean.FALSE.equals(newDefaultValue) &&
+                                   featureName.equals(getFeatureNameFromArg(mi.getArguments().get(0)));
                         }
                         if (CONFIGURE_MATCHER.matches(mi)) {
                             return shouldRemoveConfigureCall(mi);
@@ -124,23 +122,12 @@ public class RemoveRedundantJackson3FeatureFlags extends Recipe {
                         Expression featureArg = mi.getArguments().get(0);
                         Expression booleanArg = mi.getArguments().get(1);
 
-                        // Check if it's configure(feature, true) for features enabled by default
-                        if (J.Literal.isLiteralValue(booleanArg, true) &&
-                                isFeatureInSet(featureArg, enabledSet)) {
-                            return true;
-                        }
-
-                        // Check if it's configure(feature, false) for features disabled by default
-                        return J.Literal.isLiteralValue(booleanArg, false) &&
-                                isFeatureInSet(featureArg, disabledSet);
+                        // Remove configure(feature, value) if feature matches and value equals the new default
+                        return featureName.equals(getFeatureNameFromArg(featureArg)) &&
+                               J.Literal.isLiteralValue(booleanArg, newDefaultValue);
                     }
 
-                    private boolean isFeatureInSet(Expression arg, Set<String> featureSet) {
-                        String featureName = getFeatureName(arg);
-                        return featureName != null && featureSet.contains(featureName);
-                    }
-
-                    private @Nullable String getFeatureName(Expression arg) {
+                    private @Nullable String getFeatureNameFromArg(Expression arg) {
                         if (arg instanceof J.FieldAccess) {
                             J.FieldAccess fieldAccess = (J.FieldAccess) arg;
                             if (fieldAccess.getTarget() instanceof J.Identifier) {

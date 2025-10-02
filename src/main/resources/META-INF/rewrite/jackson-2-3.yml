@@ -184,29 +184,68 @@ description: Remove `ObjectMapper` feature flag configurations that are now defa
 tags:
   - jackson
 recipeList:
+  # Features enabled by default in Jackson 3 (changed from false to true)
   - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
-      enabledByDefaultInV3:
-        - MapperFeature.SORT_PROPERTIES_ALPHABETICALLY
-        - DeserializationFeature.READ_ENUMS_USING_TO_STRING
-        - DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES
-        - DeserializationFeature.FAIL_ON_TRAILING_TOKENS
-        - SerializationFeature.WRITE_ENUMS_USING_TO_STRING
-        - CBORReadFeature.DECODE_USING_STANDARD_NEGATIVE_BIGINT_ENCODING
-        - CBORReadFeature.READ_UNDEFINED_AS_EMBEDDED_OBJECT
-        - CBORReadFeature.READ_SIMPLE_VALUE_AS_EMBEDDED_OBJECT
-        - CBORWriteFeature.ENCODE_USING_STANDARD_NEGATIVE_BIGINT_ENCODING
-        - XmlWriteFeature.UNWRAP_ROOT_OBJECT_NODE
-        - XmlWriteFeature.WRITE_NULLS_AS_XSI_NIL
-        - XmlWriteFeature.AUTO_DETECT_XSI_TYPE
-        - XmlWriteFeature.WRITE_XML_SCHEMA_CONFORMING_FLOATS
-      disabledByDefaultInV3:
-        - MapperFeature.ALLOW_FINAL_FIELDS_AS_MUTATORS
-        - MapperFeature.DEFAULT_VIEW_INCLUSION
-        - MapperFeature.USE_GETTERS_AS_SETTERS
-        - DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES
-        - SerializationFeature.FAIL_ON_EMPTY_BEANS
-        - SerializationFeature.WRITE_DURATIONS_AS_TIMESTAMPS
-        - SerializationFeature.WRITE_DATES_AS_TIMESTAMPS
+      featureName: MapperFeature.SORT_PROPERTIES_ALPHABETICALLY
+      newDefaultValue: true
+  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+      featureName: DeserializationFeature.READ_ENUMS_USING_TO_STRING
+      newDefaultValue: true
+  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+      featureName: DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES
+      newDefaultValue: true
+  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+      featureName: DeserializationFeature.FAIL_ON_TRAILING_TOKENS
+      newDefaultValue: true
+  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+      featureName: SerializationFeature.WRITE_ENUMS_USING_TO_STRING
+      newDefaultValue: true
+  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+      featureName: CBORReadFeature.DECODE_USING_STANDARD_NEGATIVE_BIGINT_ENCODING
+      newDefaultValue: true
+  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+      featureName: CBORReadFeature.READ_UNDEFINED_AS_EMBEDDED_OBJECT
+      newDefaultValue: true
+  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+      featureName: CBORReadFeature.READ_SIMPLE_VALUE_AS_EMBEDDED_OBJECT
+      newDefaultValue: true
+  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+      featureName: CBORWriteFeature.ENCODE_USING_STANDARD_NEGATIVE_BIGINT_ENCODING
+      newDefaultValue: true
+  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+      featureName: XmlWriteFeature.UNWRAP_ROOT_OBJECT_NODE
+      newDefaultValue: true
+  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+      featureName: XmlWriteFeature.WRITE_NULLS_AS_XSI_NIL
+      newDefaultValue: true
+  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+      featureName: XmlWriteFeature.AUTO_DETECT_XSI_TYPE
+      newDefaultValue: true
+  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+      featureName: XmlWriteFeature.WRITE_XML_SCHEMA_CONFORMING_FLOATS
+      newDefaultValue: true
+  # Features disabled by default in Jackson 3 (changed from true to false)
+  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+      featureName: MapperFeature.ALLOW_FINAL_FIELDS_AS_MUTATORS
+      newDefaultValue: false
+  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+      featureName: MapperFeature.DEFAULT_VIEW_INCLUSION
+      newDefaultValue: false
+  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+      featureName: MapperFeature.USE_GETTERS_AS_SETTERS
+      newDefaultValue: false
+  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+      featureName: DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES
+      newDefaultValue: false
+  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+      featureName: SerializationFeature.FAIL_ON_EMPTY_BEANS
+      newDefaultValue: false
+  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+      featureName: SerializationFeature.WRITE_DURATIONS_AS_TIMESTAMPS
+      newDefaultValue: false
+  - org.openrewrite.java.jackson.RemoveRedundantJackson3FeatureFlags:
+      featureName: SerializationFeature.WRITE_DATES_AS_TIMESTAMPS
+      newDefaultValue: false
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
