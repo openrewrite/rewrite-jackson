@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.jackson;
 
+import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
@@ -66,9 +67,9 @@ public class RemoveRedundantJackson3FeatureFlags extends Recipe {
     @Override
     public String getDescription() {
         return "Remove `ObjectMapper` feature flag configurations that set values to their new Jackson 3 defaults. " +
-               "For example, `disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)` and " +
-               "`configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)` are redundant since this is " +
-               "now disabled by default in Jackson 3.";
+                "For example, `disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)` and " +
+                "`configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)` are redundant since this is " +
+                "now disabled by default in Jackson 3.";
     }
 
     @Override
@@ -81,7 +82,7 @@ public class RemoveRedundantJackson3FeatureFlags extends Recipe {
                 ),
                 new JavaIsoVisitor<ExecutionContext>() {
                     @Override
-                    public Statement visitStatement(Statement statement, ExecutionContext ctx) {
+                    public @Nullable Statement visitStatement(Statement statement, ExecutionContext ctx) {
                         Statement s = super.visitStatement(statement, ctx);
 
                         // Check if this statement is a method invocation we want to remove
@@ -101,53 +102,35 @@ public class RemoveRedundantJackson3FeatureFlags extends Recipe {
 
                     private boolean shouldRemove(J.MethodInvocation mi) {
                         if (ENABLE_MATCHER.matches(mi)) {
-                            return shouldRemoveEnableCall(mi);
-                        } else if (DISABLE_MATCHER.matches(mi)) {
-                            return shouldRemoveDisableCall(mi);
-                        } else if (CONFIGURE_MATCHER.matches(mi)) {
+                            return isFeatureInSet(mi.getArguments().get(0), ENABLED_BY_DEFAULT_IN_V3);
+                        }
+                        if (DISABLE_MATCHER.matches(mi)) {
+                            return isFeatureInSet(mi.getArguments().get(0), DISABLED_BY_DEFAULT_IN_V3);
+                        }
+                        if (CONFIGURE_MATCHER.matches(mi)) {
                             return shouldRemoveConfigureCall(mi);
                         }
                         return false;
                     }
 
-                    private boolean shouldRemoveEnableCall(J.MethodInvocation mi) {
-                        return mi.getArguments().stream()
-                                .anyMatch(arg -> isFeatureInSet(arg, ENABLED_BY_DEFAULT_IN_V3));
-                    }
-
-                    private boolean shouldRemoveDisableCall(J.MethodInvocation mi) {
-                        return mi.getArguments().stream()
-                                .anyMatch(arg -> isFeatureInSet(arg, DISABLED_BY_DEFAULT_IN_V3));
-                    }
-
                     private boolean shouldRemoveConfigureCall(J.MethodInvocation mi) {
                         // configure() takes two arguments: feature and boolean value
-                        if (mi.getArguments().size() == 2) {
-                            Expression featureArg = mi.getArguments().get(0);
-                            Expression booleanArg = mi.getArguments().get(1);
-
-                            // Check if it's configure(feature, true) for features enabled by default
-                            if (isFeatureInSet(featureArg, ENABLED_BY_DEFAULT_IN_V3) &&
-                                isBooleanLiteral(booleanArg, true)) {
-                                return true;
-                            }
-
-                            // Check if it's configure(feature, false) for features disabled by default
-                            if (isFeatureInSet(featureArg, DISABLED_BY_DEFAULT_IN_V3) &&
-                                isBooleanLiteral(booleanArg, false)) {
-                                return true;
-                            }
+                        if (mi.getArguments().size() != 2) {
+                            return false;
                         }
-                        return false;
-                    }
 
-                    private boolean isBooleanLiteral(Expression expr, boolean expectedValue) {
-                        if (expr instanceof J.Literal) {
-                            J.Literal literal = (J.Literal) expr;
-                            return literal.getValue() instanceof Boolean &&
-                                   ((Boolean) literal.getValue()) == expectedValue;
+                        Expression featureArg = mi.getArguments().get(0);
+                        Expression booleanArg = mi.getArguments().get(1);
+
+                        // Check if it's configure(feature, true) for features enabled by default
+                        if (J.Literal.isLiteralValue(booleanArg, true) &&
+                                isFeatureInSet(featureArg, ENABLED_BY_DEFAULT_IN_V3)) {
+                            return true;
                         }
-                        return false;
+
+                        // Check if it's configure(feature, false) for features disabled by default
+                        return J.Literal.isLiteralValue(booleanArg, false) &&
+                                isFeatureInSet(featureArg, DISABLED_BY_DEFAULT_IN_V3);
                     }
 
                     private boolean isFeatureInSet(Expression arg, Set<String> featureSet) {
