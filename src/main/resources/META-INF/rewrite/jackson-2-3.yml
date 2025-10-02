@@ -20,11 +20,28 @@
 type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.java.jackson.UpgradeJackson_2_3
 displayName: Migrates from Jackson 2.x to Jackson 3.x
-description: Migrate applications to the latest Jackson 3.x release.
+description: >-
+  Migrate applications to the latest Jackson 3.x release. This recipe handles package changes
+  (`com.fasterxml.jackson` -> `tools.jackson`), dependency updates, core class renames, exception
+  renames, and method renames (e.g., `JsonGenerator.writeObject()` -> `writePOJO()`,
+  `JsonParser.getCurrentValue()` -> `currentValue()`).
 tags:
   - jackson
 recipeList:
-  - "org.openrewrite.java.jackson.UpgradeJackson_2_And_3_Base_Exceptions"
+  - org.openrewrite.java.jackson.UpgradeJackson_2_And_3_Base_Exceptions
+  - org.openrewrite.java.jackson.UpgradeJackson_2_3_Dependencies
+  - org.openrewrite.java.jackson.UpgradeJackson_2_3_TypeChanges
+  - org.openrewrite.java.jackson.UpgradeJackson_2_3_MethodRenames
+  - org.openrewrite.java.jackson.UpgradeJackson_2_3_PackageChanges
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.jackson.UpgradeJackson_2_3_Dependencies
+displayName: Upgrade Jackson 2.x dependencies to 3.x
+description: Upgrade Jackson Maven dependencies from 2.x to 3.x versions and update group IDs.
+tags:
+  - jackson
+recipeList:
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
       groupId: com.fasterxml.jackson.core
       artifactId: jackson-annotations
@@ -65,12 +82,108 @@ recipeList:
       newGroupId: tools.jackson.core
       newArtifactId: jackson-databind
       newVersion: 3.0.0-rc10
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.jackson.UpgradeJackson_2_3_TypeChanges
+displayName: Update Jackson 2.x types to 3.x
+description: Update Jackson type names including exception types and core class renames.
+tags:
+  - jackson
+recipeList:
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: com.fasterxml.jackson.core.JsonParseException
       newFullyQualifiedTypeName: tools.jackson.core.StreamReadException
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: com.fasterxml.jackson.core.JsonGenerationException
       newFullyQualifiedTypeName: tools.jackson.core.StreamWriteException
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.core.JsonProcessingException
+      newFullyQualifiedTypeName: tools.jackson.core.JacksonException
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.core.JsonEOFException
+      newFullyQualifiedTypeName: tools.jackson.core.exc.UnexpectedEndOfInputException
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.JsonMappingException
+      newFullyQualifiedTypeName: tools.jackson.databind.DatabindException
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.core.JsonFactory
+      newFullyQualifiedTypeName: tools.jackson.core.TokenStreamFactory
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.core.JsonStreamContext
+      newFullyQualifiedTypeName: tools.jackson.core.TokenStreamContext
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.core.JsonLocation
+      newFullyQualifiedTypeName: tools.jackson.core.TokenStreamLocation
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.BeanDeserializerModifier
+      newFullyQualifiedTypeName: tools.jackson.databind.deser.ValueDeserializerModifier
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.BeanSerializerModifier
+      newFullyQualifiedTypeName: tools.jackson.databind.ser.ValueSerializerModifier
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.JsonDeserializer
+      newFullyQualifiedTypeName: tools.jackson.databind.ValueDeserializer
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.JsonSerializer
+      newFullyQualifiedTypeName: tools.jackson.databind.ValueSerializer
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.JsonSerializable
+      newFullyQualifiedTypeName: tools.jackson.databind.JacksonSerializable
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.SerializerProvider
+      newFullyQualifiedTypeName: tools.jackson.databind.SerializationContext
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.node.TextNode
+      newFullyQualifiedTypeName: tools.jackson.databind.node.StringNode
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.Module
+      newFullyQualifiedTypeName: tools.jackson.databind.JacksonModule
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.jackson.UpgradeJackson_2_3_MethodRenames
+displayName: Rename Jackson 2.x methods to 3.x equivalents
+description: Rename Jackson methods that were renamed in 3.x (e.g., `writeObject()` to `writePOJO()`, `getCurrentValue()` to `currentValue()`).
+tags:
+  - jackson
+recipeList:
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonGenerator writeObject(..)
+      newMethodName: writePOJO
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonGenerator getCurrentValue()
+      newMethodName: currentValue
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonGenerator setCurrentValue(..)
+      newMethodName: assignCurrentValue
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonParser getTextCharacters()
+      newMethodName: getStringCharacters
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonParser getCurrentLocation()
+      newMethodName: currentLocation
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonParser getTokenLocation()
+      newMethodName: currentTokenLocation
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonParser getCurrentValue()
+      newMethodName: currentValue
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonParser setCurrentValue(..)
+      newMethodName: assignCurrentValue
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.databind.JsonNode elements()
+      newMethodName: values
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.jackson.UpgradeJackson_2_3_PackageChanges
+displayName: Update Jackson package names from 2.x to 3.x
+description: Update Jackson package imports from `com.fasterxml.jackson` to `tools.jackson`.
+tags:
+  - jackson
+recipeList:
   - org.openrewrite.java.ChangePackage:
       oldPackageName: com.fasterxml.jackson.core
       newPackageName: tools.jackson.core

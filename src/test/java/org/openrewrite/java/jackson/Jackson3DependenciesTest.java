@@ -16,9 +16,6 @@
 package org.openrewrite.java.jackson;
 
 import org.junit.jupiter.api.Test;
-import org.openrewrite.DocumentExample;
-import org.openrewrite.config.Environment;
-import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
@@ -26,25 +23,17 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.openrewrite.java.Assertions.java;
 import static org.openrewrite.maven.Assertions.pomXml;
 
-class UpgradeJackson_2_3Test implements RewriteTest {
+class Jackson3DependenciesTest implements RewriteTest {
+
     @Override
     public void defaults(RecipeSpec spec) {
-        spec
-          .parser(JavaParser.fromJavaVersion().classpath(
-            "jackson-annotations", "jackson-core", "jackson-databind"))
-          .recipe(Environment.builder()
-            .scanRuntimeClasspath("org.openrewrite")
-            .build()
-            .activateRecipes("org.openrewrite.java.jackson.UpgradeJackson_2_3")
-          );
+        spec.recipeFromResources("org.openrewrite.java.jackson.UpgradeJackson_2_3");
     }
 
-    @DocumentExample
     @Test
-    void jacksonUpgradeToVersion3() {
+    void jacksonAnnotations() {
         rewriteRun(
           //language=xml
           pomXml(
@@ -60,29 +49,43 @@ class UpgradeJackson_2_3Test implements RewriteTest {
                           <artifactId>jackson-annotations</artifactId>
                           <version>2.19.0</version>
                       </dependency>
+                  </dependencies>
+              </project>
+              """,
+            """
+              <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>org.example</groupId>
+                  <artifactId>example</artifactId>
+                  <version>1.0.0</version>
+                  <dependencies>
+                      <dependency>
+                          <groupId>com.fasterxml.jackson.core</groupId>
+                          <artifactId>jackson-annotations</artifactId>
+                          <version>2.20</version>
+                      </dependency>
+                  </dependencies>
+              </project>
+              """
+          )
+        );
+    }
+
+    @Test
+    void jacksonCore() {
+        rewriteRun(
+          //language=xml
+          pomXml(
+            """
+              <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>org.example</groupId>
+                  <artifactId>example</artifactId>
+                  <version>1.0.0</version>
+                  <dependencies>
                       <dependency>
                           <groupId>com.fasterxml.jackson.core</groupId>
                           <artifactId>jackson-core</artifactId>
-                          <version>2.19.0</version>
-                      </dependency>
-                      <dependency>
-                          <groupId>com.fasterxml.jackson.core</groupId>
-                          <artifactId>jackson-databind</artifactId>
-                          <version>2.19.0</version>
-                      </dependency>
-                      <dependency>
-                          <groupId>com.fasterxml.jackson.module</groupId>
-                          <artifactId>jackson-module-parameter-names</artifactId>
-                          <version>2.19.0</version>
-                      </dependency>
-                      <dependency>
-                          <groupId>com.fasterxml.jackson.datatype</groupId>
-                          <artifactId>jackson-datatype-jdk8</artifactId>
-                          <version>2.19.0</version>
-                      </dependency>
-                      <dependency>
-                          <groupId>com.fasterxml.jackson.datatype</groupId>
-                          <artifactId>jackson-datatype-jsr310</artifactId>
                           <version>2.19.0</version>
                       </dependency>
                   </dependencies>
@@ -92,7 +95,6 @@ class UpgradeJackson_2_3Test implements RewriteTest {
                 Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
                 assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
                 String jacksonVersion = versionMatcher.group(0);
-
                 return """
                          <project>
                              <modelVersion>4.0.0</modelVersion>
@@ -101,15 +103,49 @@ class UpgradeJackson_2_3Test implements RewriteTest {
                              <version>1.0.0</version>
                              <dependencies>
                                  <dependency>
-                                     <groupId>com.fasterxml.jackson.core</groupId>
-                                     <artifactId>jackson-annotations</artifactId>
-                                     <version>2.20</version>
-                                 </dependency>
-                                 <dependency>
                                      <groupId>tools.jackson.core</groupId>
                                      <artifactId>jackson-core</artifactId>
                                      <version>%s</version>
                                  </dependency>
+                             </dependencies>
+                         </project>
+                  """.formatted(jacksonVersion);
+            })
+          )
+        );
+    }
+
+    @Test
+    void jacksonDatabind() {
+        rewriteRun(
+          //language=xml
+          pomXml(
+            """
+              <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>org.example</groupId>
+                  <artifactId>example</artifactId>
+                  <version>1.0.0</version>
+                  <dependencies>
+                      <dependency>
+                          <groupId>com.fasterxml.jackson.core</groupId>
+                          <artifactId>jackson-databind</artifactId>
+                          <version>2.19.0</version>
+                      </dependency>
+                  </dependencies>
+              </project>
+              """,
+            spec -> spec.after(pom -> {
+                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
+                assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
+                String jacksonVersion = versionMatcher.group(0);
+                return """
+                         <project>
+                             <modelVersion>4.0.0</modelVersion>
+                             <groupId>org.example</groupId>
+                             <artifactId>example</artifactId>
+                             <version>1.0.0</version>
+                             <dependencies>
                                  <dependency>
                                      <groupId>tools.jackson.core</groupId>
                                      <artifactId>jackson-databind</artifactId>
@@ -117,50 +153,14 @@ class UpgradeJackson_2_3Test implements RewriteTest {
                                  </dependency>
                              </dependencies>
                          </project>
-                  """.formatted(jacksonVersion, jacksonVersion);
-            })),
-          //language=java
-          java(
-            """
-              import com.fasterxml.jackson.annotation.JsonProperty;
-              import com.fasterxml.jackson.core.JsonFactory;
-              import com.fasterxml.jackson.core.JsonFactoryBuilder;
-              import com.fasterxml.jackson.databind.ObjectMapper;
-
-              class Test {
-                  public String foo(@JsonProperty("foo") String foo) {
-                      return foo;
-                  }
-
-                  static void helloJackson() {
-                      Object[] input = new Object[] { "one", "two" };
-                      JsonFactory factory = new JsonFactoryBuilder().build();
-                  }
-              }
-              """,
-            """
-              import com.fasterxml.jackson.annotation.JsonProperty;
-              import tools.jackson.core.JsonFactoryBuilder;
-              import tools.jackson.databind.ObjectMapper;
-              import tools.jackson.core.TokenStreamFactory;
-
-              class Test {
-                  public String foo(@JsonProperty("foo") String foo) {
-                      return foo;
-                  }
-
-                  static void helloJackson() {
-                      Object[] input = new Object[] { "one", "two" };
-                      TokenStreamFactory factory = new JsonFactoryBuilder().build();
-                  }
-              }
-              """
+                  """.formatted(jacksonVersion);
+            })
           )
         );
     }
 
     @Test
-    void jacksonUpgradeToVersion3_jacksonBomOnly() {
+    void jacksonBom() {
         rewriteRun(
           //language=xml
           pomXml(
@@ -176,8 +176,8 @@ class UpgradeJackson_2_3Test implements RewriteTest {
                           <groupId>com.fasterxml.jackson</groupId>
                           <artifactId>jackson-bom</artifactId>
                           <version>2.19.0</version>
-                          <scope>pom</scope>
-                          <type>import</type>
+                          <scope>import</scope>
+                          <type>pom</type>
                       </dependency>
                     </dependencies>
                   </dependencyManagement>
@@ -199,56 +199,20 @@ class UpgradeJackson_2_3Test implements RewriteTest {
                                      <groupId>tools.jackson</groupId>
                                      <artifactId>jackson-bom</artifactId>
                                      <version>%s</version>
-                                     <scope>pom</scope>
-                                     <type>import</type>
+                                     <scope>import</scope>
+                                     <type>pom</type>
                                  </dependency>
                                </dependencies>
                              </dependencyManagement>
                          </project>
                   """.formatted(jacksonVersion);
-            })),
-          //language=java
-          java(
-            """
-              import com.fasterxml.jackson.annotation.JsonProperty;
-              import com.fasterxml.jackson.core.JsonFactory;
-              import com.fasterxml.jackson.core.JsonFactoryBuilder;
-              import com.fasterxml.jackson.databind.ObjectMapper;
-
-              class Test {
-                  public String foo(@JsonProperty("foo") String foo) {
-                      return foo;
-                  }
-
-                  static void helloJackson() {
-                      Object[] input = new Object[] { "one", "two" };
-                      JsonFactory factory = new JsonFactoryBuilder().build();
-                  }
-              }
-              """,
-            """
-              import com.fasterxml.jackson.annotation.JsonProperty;
-              import tools.jackson.core.JsonFactoryBuilder;
-              import tools.jackson.databind.ObjectMapper;
-              import tools.jackson.core.TokenStreamFactory;
-
-              class Test {
-                  public String foo(@JsonProperty("foo") String foo) {
-                      return foo;
-                  }
-
-                  static void helloJackson() {
-                      Object[] input = new Object[] { "one", "two" };
-                      TokenStreamFactory factory = new JsonFactoryBuilder().build();
-                  }
-              }
-              """
+            })
           )
         );
     }
 
     @Test
-    void jacksonUpgradeToVersion3_java8Only() {
+    void jacksonModuleParameterNames() {
         rewriteRun(
           //language=xml
           pomXml(
@@ -264,16 +228,6 @@ class UpgradeJackson_2_3Test implements RewriteTest {
                           <artifactId>jackson-module-parameter-names</artifactId>
                           <version>2.19.0</version>
                       </dependency>
-                      <dependency>
-                          <groupId>com.fasterxml.jackson.datatype</groupId>
-                          <artifactId>jackson-datatype-jdk8</artifactId>
-                          <version>2.19.0</version>
-                      </dependency>
-                      <dependency>
-                          <groupId>com.fasterxml.jackson.datatype</groupId>
-                          <artifactId>jackson-datatype-jsr310</artifactId>
-                          <version>2.19.0</version>
-                      </dependency>
                   </dependencies>
               </project>
               """,
@@ -281,11 +235,6 @@ class UpgradeJackson_2_3Test implements RewriteTest {
                 Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
                 assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
                 String jacksonVersion = versionMatcher.group(0);
-
-                Matcher annotationsVersionMatcher = Pattern.compile("3\\.\\d+(\\.\\d+)*(-rc[\\d]*)?").matcher(pom);
-                assertThat(annotationsVersionMatcher.find()).describedAs("Expected 3.x in %s", pom).isTrue();
-                String annotationsVersion = annotationsVersionMatcher.group(0);
-
                 return """
                          <project>
                              <modelVersion>4.0.0</modelVersion>
@@ -300,9 +249,97 @@ class UpgradeJackson_2_3Test implements RewriteTest {
                                  </dependency>
                              </dependencies>
                          </project>
-                  """.formatted(annotationsVersion, jacksonVersion, jacksonVersion);
-            }))
+                  """.formatted(jacksonVersion);
+            })
+          )
         );
     }
 
+    @Test
+    void jacksonDatatypeJdk8() {
+        rewriteRun(
+          //language=xml
+          pomXml(
+            """
+              <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>org.example</groupId>
+                  <artifactId>example</artifactId>
+                  <version>1.0.0</version>
+                  <dependencies>
+                      <dependency>
+                          <groupId>com.fasterxml.jackson.datatype</groupId>
+                          <artifactId>jackson-datatype-jdk8</artifactId>
+                          <version>2.19.0</version>
+                      </dependency>
+                  </dependencies>
+              </project>
+              """,
+            spec -> spec.after(pom -> {
+                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
+                assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
+                String jacksonVersion = versionMatcher.group(0);
+                return """
+                         <project>
+                             <modelVersion>4.0.0</modelVersion>
+                             <groupId>org.example</groupId>
+                             <artifactId>example</artifactId>
+                             <version>1.0.0</version>
+                             <dependencies>
+                                 <dependency>
+                                     <groupId>tools.jackson.core</groupId>
+                                     <artifactId>jackson-databind</artifactId>
+                                     <version>%s</version>
+                                 </dependency>
+                             </dependencies>
+                         </project>
+                  """.formatted(jacksonVersion);
+            })
+          )
+        );
+    }
+
+    @Test
+    void jacksonDatatypeJsr310() {
+        rewriteRun(
+          //language=xml
+          pomXml(
+            """
+              <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>org.example</groupId>
+                  <artifactId>example</artifactId>
+                  <version>1.0.0</version>
+                  <dependencies>
+                      <dependency>
+                          <groupId>com.fasterxml.jackson.datatype</groupId>
+                          <artifactId>jackson-datatype-jsr310</artifactId>
+                          <version>2.19.0</version>
+                      </dependency>
+                  </dependencies>
+              </project>
+              """,
+            spec -> spec.after(pom -> {
+                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
+                assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
+                String jacksonVersion = versionMatcher.group(0);
+                return """
+                         <project>
+                             <modelVersion>4.0.0</modelVersion>
+                             <groupId>org.example</groupId>
+                             <artifactId>example</artifactId>
+                             <version>1.0.0</version>
+                             <dependencies>
+                                 <dependency>
+                                     <groupId>tools.jackson.core</groupId>
+                                     <artifactId>jackson-databind</artifactId>
+                                     <version>%s</version>
+                                 </dependency>
+                             </dependencies>
+                         </project>
+                  """.formatted(jacksonVersion);
+            })
+          )
+        );
+    }
 }
