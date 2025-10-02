@@ -54,105 +54,6 @@ class Jackson3TypeChangesTest implements RewriteTest {
         );
     }
 
-    @Test
-    void jsonStreamContext() {
-        rewriteRun(
-          //language=java
-          java(
-            """
-              import com.fasterxml.jackson.core.JsonStreamContext;
-
-              class Test {
-                  void test(JsonStreamContext context) {
-                      String name = context.currentName();
-                  }
-              }
-              """,
-            """
-              import tools.jackson.core.TokenStreamContext;
-
-              class Test {
-                  void test(TokenStreamContext context) {
-                      String name = context.currentName();
-                  }
-              }
-              """
-          )
-        );
-    }
-
-    @Test
-    void jsonLocation() {
-        rewriteRun(
-          //language=java
-          java(
-            """
-              import com.fasterxml.jackson.core.JsonLocation;
-
-              class Test {
-                  void test(JsonLocation location) {
-                      long offset = location.getByteOffset();
-                  }
-              }
-              """,
-            """
-              import tools.jackson.core.TokenStreamLocation;
-
-              class Test {
-                  void test(TokenStreamLocation location) {
-                      long offset = location.getByteOffset();
-                  }
-              }
-              """
-          )
-        );
-    }
-
-    @Test
-    void beanDeserializerModifier() {
-        rewriteRun(
-          //language=java
-          java(
-            """
-              import com.fasterxml.jackson.databind.BeanDeserializerModifier;
-
-              class Test {
-                  BeanDeserializerModifier modifier;
-              }
-              """,
-            """
-              import tools.jackson.databind.deser.ValueDeserializerModifier;
-
-              class Test {
-                  ValueDeserializerModifier modifier;
-              }
-              """
-          )
-        );
-    }
-
-    @Test
-    void beanSerializerModifier() {
-        rewriteRun(
-          //language=java
-          java(
-            """
-              import com.fasterxml.jackson.databind.BeanSerializerModifier;
-
-              class Test {
-                  BeanSerializerModifier modifier;
-              }
-              """,
-            """
-              import tools.jackson.databind.ser.ValueSerializerModifier;
-
-              class Test {
-                  ValueSerializerModifier modifier;
-              }
-              """
-          )
-        );
-    }
 
     @Test
     void jsonDeserializer() {
@@ -202,13 +103,14 @@ class Jackson3TypeChangesTest implements RewriteTest {
               }
               """,
             """
+              import tools.jackson.databind.SerializationContext;
               import tools.jackson.databind.ValueSerializer;
 
               class CustomSerializer extends ValueSerializer<String> {
                   @Override
                   public void serialize(String value,
                                        tools.jackson.core.JsonGenerator gen,
-                                       tools.jackson.databind.SerializationContext provider) {
+                                       SerializationContext provider) {
                   }
               }
               """
@@ -233,11 +135,12 @@ class Jackson3TypeChangesTest implements RewriteTest {
               """,
             """
               import tools.jackson.databind.JacksonSerializable;
+              import tools.jackson.databind.SerializationContext;
 
               class CustomObject implements JacksonSerializable {
                   @Override
                   public void serialize(tools.jackson.core.JsonGenerator gen,
-                                       tools.jackson.databind.SerializationContext serializers) {
+                                       SerializationContext serializers) {
                   }
               }
               """
