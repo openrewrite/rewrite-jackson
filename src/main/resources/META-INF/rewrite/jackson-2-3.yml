@@ -20,7 +20,7 @@
 type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.java.jackson.UpgradeJackson_2_3
 displayName: Migrates from Jackson 2.x to Jackson 3.x
-description: >
+description: >-
   Migrate applications to the latest Jackson 3.x release. This recipe handles package changes
   (com.fasterxml.jackson -> tools.jackson), dependency updates, and core class renames including
   JsonFactory -> TokenStreamFactory, JsonDeserializer -> ValueDeserializer, JsonSerializer ->

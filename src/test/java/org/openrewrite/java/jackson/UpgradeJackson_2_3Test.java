@@ -140,9 +140,9 @@ class UpgradeJackson_2_3Test implements RewriteTest {
               """,
             """
               import com.fasterxml.jackson.annotation.JsonProperty;
-              import tools.jackson.core.JsonFactory;
               import tools.jackson.core.JsonFactoryBuilder;
               import tools.jackson.databind.ObjectMapper;
+              import tools.jackson.core.TokenStreamFactory;
 
               class Test {
                   public String foo(@JsonProperty("foo") String foo) {
@@ -151,7 +151,7 @@ class UpgradeJackson_2_3Test implements RewriteTest {
 
                   static void helloJackson() {
                       Object[] input = new Object[] { "one", "two" };
-                      JsonFactory factory = new JsonFactoryBuilder().build();
+                      TokenStreamFactory factory = new JsonFactoryBuilder().build();
                   }
               }
               """
@@ -228,9 +228,9 @@ class UpgradeJackson_2_3Test implements RewriteTest {
               """,
             """
               import com.fasterxml.jackson.annotation.JsonProperty;
-              import tools.jackson.core.JsonFactory;
               import tools.jackson.core.JsonFactoryBuilder;
               import tools.jackson.databind.ObjectMapper;
+              import tools.jackson.core.TokenStreamFactory;
 
               class Test {
                   public String foo(@JsonProperty("foo") String foo) {
@@ -239,7 +239,7 @@ class UpgradeJackson_2_3Test implements RewriteTest {
 
                   static void helloJackson() {
                       Object[] input = new Object[] { "one", "two" };
-                      JsonFactory factory = new JsonFactoryBuilder().build();
+                      TokenStreamFactory factory = new JsonFactoryBuilder().build();
                   }
               }
               """
@@ -328,15 +328,15 @@ class UpgradeJackson_2_3Test implements RewriteTest {
             """,
           """
             import tools.jackson.core.JacksonException;
-            import tools.jackson.core.JsonFactory;
             import tools.jackson.core.JsonFactoryBuilder;
             import tools.jackson.databind.ObjectMapper;
+            import tools.jackson.core.TokenStreamFactory;
 
             class Test {
                 static void helloJackson() {
                     try {
                         Object[] input = new Object[] { "one", "two" };
-                        JsonFactory factory = new JsonFactoryBuilder().build();
+                        TokenStreamFactory factory = new JsonFactoryBuilder().build();
                     } catch (JacksonException e) {
                     }
                 }
@@ -368,16 +368,16 @@ class UpgradeJackson_2_3Test implements RewriteTest {
               }
               """,
             """
-              import tools.jackson.core.JsonFactory;
               import tools.jackson.core.JsonFactoryBuilder;
               import tools.jackson.databind.ObjectMapper;
               import tools.jackson.core.StreamReadException;
+              import tools.jackson.core.TokenStreamFactory;
 
               class Test {
                   static void helloJackson() {
                       try {
                           Object[] input = new Object[] { "one", "two" };
-                          JsonFactory factory = new JsonFactoryBuilder().build();
+                          TokenStreamFactory factory = new JsonFactoryBuilder().build();
                       } catch (StreamReadException e) {
                       }
                   }
@@ -409,16 +409,16 @@ class UpgradeJackson_2_3Test implements RewriteTest {
               }
               """,
             """
-              import tools.jackson.core.JsonFactory;
               import tools.jackson.core.JsonFactoryBuilder;
               import tools.jackson.databind.ObjectMapper;
               import tools.jackson.core.StreamWriteException;
+              import tools.jackson.core.TokenStreamFactory;
 
               class Test {
                   static void helloJackson() {
                       try {
                           Object[] input = new Object[] { "one", "two" };
-                          JsonFactory factory = new JsonFactoryBuilder().build();
+                          TokenStreamFactory factory = new JsonFactoryBuilder().build();
                       } catch (StreamWriteException e) {
                       }
                   }
@@ -450,16 +450,16 @@ class UpgradeJackson_2_3Test implements RewriteTest {
               }
               """,
             """
-              import tools.jackson.core.JsonFactory;
               import tools.jackson.core.JsonFactoryBuilder;
               import tools.jackson.databind.DatabindException;
               import tools.jackson.databind.ObjectMapper;
+              import tools.jackson.core.TokenStreamFactory;
 
               class Test {
                   static void helloJackson() {
                       try {
                           Object[] input = new Object[] { "one", "two" };
-                          JsonFactory factory = new JsonFactoryBuilder().build();
+                          TokenStreamFactory factory = new JsonFactoryBuilder().build();
                       } catch (DatabindException e) {
                       }
                   }
