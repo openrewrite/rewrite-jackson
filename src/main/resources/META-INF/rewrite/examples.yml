@@ -15,7 +15,7 @@
 type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.CodehausToFasterXML
 examples:
-- description: ''
+- description: '`CodehausToFasterXMLTest#onlyJsonSerializeInclusion`'
   sources:
   - before: |
       import org.codehaus.jackson.map.ObjectMapper;
@@ -42,7 +42,7 @@ examples:
 type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.RemoveBuiltInModuleRegistrations
 examples:
-- description: ''
+- description: '`RemoveBuiltInModuleRegistrationsTest#removeJavaTimeModuleRegistration`'
   sources:
   - before: |
       import com.fasterxml.jackson.databind.ObjectMapper;
@@ -67,7 +67,7 @@ examples:
 type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.RemoveRedundantJsonPropertyValue
 examples:
-- description: ''
+- description: '`RemoveRedundantJsonPropertyValueTest#removeRedundantJsonPropertyFromClass`'
   sources:
   - before: |
       import com.fasterxml.jackson.annotation.JsonProperty;
@@ -95,26 +95,7 @@ examples:
 type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.UpgradeJackson_2_3
 examples:
-- description: ''
-  sources:
-  - before: |
-      import com.fasterxml.jackson.core.JsonGenerator;
-
-      class Test {
-          void test(JsonGenerator gen, Object value) throws Exception {
-              gen.writeObject(value);
-          }
-      }
-    after: |
-      import tools.jackson.core.JsonGenerator;
-
-      class Test {
-          void test(JsonGenerator gen, Object value) throws Exception {
-              gen.writePOJO(value);
-          }
-      }
-    language: java
-- description: ''
+- description: '`Jackson3DependenciesTest#jacksonAnnotations`'
   sources:
   - before: |
       <project>
@@ -146,7 +127,26 @@ examples:
       </project>
     path: pom.xml
     language: xml
-- description: ''
+- description: '`Jackson3MethodRenamesTest#jsonGeneratorWriteObject`'
+  sources:
+  - before: |
+      import com.fasterxml.jackson.core.JsonGenerator;
+
+      class Test {
+          void test(JsonGenerator gen, Object value) throws Exception {
+              gen.writeObject(value);
+          }
+      }
+    after: |
+      import tools.jackson.core.JsonGenerator;
+
+      class Test {
+          void test(JsonGenerator gen, Object value) throws Exception {
+              gen.writePOJO(value);
+          }
+      }
+    language: java
+- description: '`Jackson3TypeChangesTest#jsonFactory`'
   sources:
   - before: |
       import com.fasterxml.jackson.core.JsonFactory;
@@ -161,7 +161,7 @@ examples:
           TokenStreamFactory factory = new TokenStreamFactory();
       }
     language: java
-- description: ''
+- description: '`UpgradeJackson_2_3Test#jacksonUpgradeToVersion3`'
   sources:
   - before: |
       import com.fasterxml.jackson.annotation.JsonProperty;
@@ -241,7 +241,7 @@ examples:
 type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.UpgradeJackson_2_3_RemoveRedundantFeatureFlags
 examples:
-- description: ''
+- description: '`RemoveRedundantFeatureFlagsTest#removeEnableSortPropertiesAlphabetically`'
   sources:
   - before: |
       import com.fasterxml.jackson.databind.MapperFeature;
@@ -267,7 +267,7 @@ examples:
 type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.UseModernDateTimeSerialization
 examples:
-- description: ''
+- description: '`UseModernDateTimeSerializationTest#removeIso8601FormatOnLocalDateTime`'
   sources:
   - before: |
       import com.fasterxml.jackson.annotation.JsonFormat;
@@ -288,7 +288,7 @@ examples:
 type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.codehaus.CodehausDependencyToFasterXML
 examples:
-- description: ''
+- description: '`CodehausDependencyToFasterXMLTest#changeDependencyWithoutExplicitVersion`'
   parameters:
   - 'null'
   sources:
@@ -317,7 +317,7 @@ examples:
 type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.codehaus.JsonIncludeAnnotation
 examples:
-- description: ''
+- description: '`JsonIncludeAnnotationTest#retainOriginalAnnotation`'
   sources:
   - before: |
       import org.codehaus.jackson.map.annotate.JsonSerialize;
@@ -341,7 +341,7 @@ examples:
 type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.codehaus.RemoveDoublyAnnotatedCodehausAnnotations
 examples:
-- description: ''
+- description: '`RemoveDoublyAnnotatedCodehausAnnotationsTest#removeCodehausAnnotationsIfDoublyAnnotated`'
   sources:
   - before: |
       import org.codehaus.jackson.map.annotate.JsonSerialize;
