@@ -73,6 +73,12 @@ recipeList:
       newArtifactId: jackson-databind
       newVersion: 3.0.x
   - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: com.fasterxml.jackson.dataformat
+      oldArtifactId: jackson-dataformat-yaml
+      newGroupId: tools.jackson.dataformat
+      newArtifactId: jackson-dataformat-yaml
+      newVersion: 3.0.x
+  - org.openrewrite.java.dependencies.ChangeDependency:
       oldGroupId: com.fasterxml.jackson.datatype
       oldArtifactId: jackson-datatype-jdk8
       newGroupId: tools.jackson.core
@@ -94,6 +100,12 @@ description: Update Jackson type names including exception types and core class 
 tags:
   - jackson-3
 recipeList:
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.dataformat.yaml.YAMLParser$Feature
+      newFullyQualifiedTypeName: tools.jackson.dataformat.yaml.YAMLReadFeature
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.dataformat.yaml.YAMLGenerator$Feature
+      newFullyQualifiedTypeName: tools.jackson.dataformat.yaml.YAMLWriteFeature
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: com.fasterxml.jackson.core.JsonParseException
       newFullyQualifiedTypeName: tools.jackson.core.StreamReadException

@@ -28,6 +28,7 @@ dependencies {
     testRuntimeOnly("org.codehaus.jackson:jackson-core-asl:latest.release")
     testRuntimeOnly("org.codehaus.jackson:jackson-mapper-asl:latest.release")
     testRuntimeOnly("org.codehaus.jackson:jackson-xc:latest.release")
+    testRuntimeOnly("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:latest.release")
 }
 
 recipeDependencies {

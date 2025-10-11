@@ -29,7 +29,7 @@ class Jackson3TypeChangesTest implements RewriteTest {
     public void defaults(RecipeSpec spec) {
         spec.recipeFromResources("org.openrewrite.java.jackson.UpgradeJackson_2_3")
           .parser(JavaParser.fromJavaVersion().classpath(
-            "jackson-annotations", "jackson-core", "jackson-databind"));
+            "jackson-annotations", "jackson-core", "jackson-databind", "jackson-dataformat-yaml"));
     }
 
     @DocumentExample
@@ -223,6 +223,33 @@ class Jackson3TypeChangesTest implements RewriteTest {
                   public String getModuleName() {
                       return "custom";
                   }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void yaml() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.dataformat.yaml.YAMLParser.Feature;
+              import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator.Feature;
+
+              class YamlThings {
+                  public final YAMLParser.Feature readFeature = YAMLParser.Feature.EMPTY_STRING_AS_NULL;
+                  public final YAMLGenerator.Feature writeFeature = YAMLGenerator.Feature.MINIMIZE_QUOTES;
+              }
+              """,
+            """
+              import tools.jackson.dataformat.yaml.YAMLReadFeature;
+              import tools.jackson.dataformat.yaml.YAMLWriteFeature;
+
+              class YamlThings {
+                  public final YAMLReadFeature readFeature = YAMLReadFeature.EMPTY_STRING_AS_NULL;
+                  public final YAMLWriteFeature writeFeature = YAMLWriteFeature.MINIMIZE_QUOTES;
               }
               """
           )
