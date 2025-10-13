@@ -344,4 +344,48 @@ class Jackson3DependenciesTest implements RewriteTest {
           )
         );
     }
+
+    @Test
+    void jacksonDataformatYaml() {
+        rewriteRun(
+          //language=xml
+          pomXml(
+            """
+              <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>org.example</groupId>
+                  <artifactId>example</artifactId>
+                  <version>1.0.0</version>
+                  <dependencies>
+                      <dependency>
+                          <groupId>com.fasterxml.jackson.dataformat</groupId>
+                          <artifactId>jackson-dataformat-yaml</artifactId>
+                          <version>2.19.0</version>
+                      </dependency>
+                  </dependencies>
+              </project>
+              """,
+            spec -> spec.after(pom -> {
+                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
+                assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
+                String jacksonVersion = versionMatcher.group(0);
+                return """
+                         <project>
+                             <modelVersion>4.0.0</modelVersion>
+                             <groupId>org.example</groupId>
+                             <artifactId>example</artifactId>
+                             <version>1.0.0</version>
+                             <dependencies>
+                                 <dependency>
+                                     <groupId>tools.jackson.dataformat</groupId>
+                                     <artifactId>jackson-dataformat-yaml</artifactId>
+                                     <version>%s</version>
+                                 </dependency>
+                             </dependencies>
+                         </project>
+                  """.formatted(jacksonVersion);
+            })
+          )
+        );
+    }
 }

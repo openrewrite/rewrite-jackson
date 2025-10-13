@@ -94,29 +94,29 @@ class UpgradeJackson_2_3Test implements RewriteTest {
                 String jacksonVersion = versionMatcher.group(0);
 
                 return """
-                         <project>
-                             <modelVersion>4.0.0</modelVersion>
-                             <groupId>org.example</groupId>
-                             <artifactId>example</artifactId>
-                             <version>1.0.0</version>
-                             <dependencies>
-                                 <dependency>
-                                     <groupId>com.fasterxml.jackson.core</groupId>
-                                     <artifactId>jackson-annotations</artifactId>
-                                     <version>2.20</version>
-                                 </dependency>
-                                 <dependency>
-                                     <groupId>tools.jackson.core</groupId>
-                                     <artifactId>jackson-core</artifactId>
-                                     <version>%s</version>
-                                 </dependency>
-                                 <dependency>
-                                     <groupId>tools.jackson.core</groupId>
-                                     <artifactId>jackson-databind</artifactId>
-                                     <version>%s</version>
-                                 </dependency>
-                             </dependencies>
-                         </project>
+                  <project>
+                      <modelVersion>4.0.0</modelVersion>
+                      <groupId>org.example</groupId>
+                      <artifactId>example</artifactId>
+                      <version>1.0.0</version>
+                      <dependencies>
+                          <dependency>
+                              <groupId>com.fasterxml.jackson.core</groupId>
+                              <artifactId>jackson-annotations</artifactId>
+                              <version>2.20</version>
+                          </dependency>
+                          <dependency>
+                              <groupId>tools.jackson.core</groupId>
+                              <artifactId>jackson-core</artifactId>
+                              <version>%s</version>
+                          </dependency>
+                          <dependency>
+                              <groupId>tools.jackson.core</groupId>
+                              <artifactId>jackson-databind</artifactId>
+                              <version>%s</version>
+                          </dependency>
+                      </dependencies>
+                  </project>
                   """.formatted(jacksonVersion, jacksonVersion);
             })),
           //language=java
