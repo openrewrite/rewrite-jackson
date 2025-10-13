@@ -29,7 +29,10 @@ class Jackson3TypeChangesTest implements RewriteTest {
     public void defaults(RecipeSpec spec) {
         spec.recipeFromResources("org.openrewrite.java.jackson.UpgradeJackson_2_3")
           .parser(JavaParser.fromJavaVersion().classpath(
-            "jackson-annotations", "jackson-core", "jackson-databind", "jackson-dataformat-yaml"));
+            "jackson-annotations",
+            "jackson-core",
+            "jackson-databind",
+            "jackson-dataformat-yaml"));
     }
 
     @DocumentExample
