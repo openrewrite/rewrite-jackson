@@ -79,6 +79,42 @@ recipeList:
       newArtifactId: jackson-dataformat-yaml
       newVersion: 3.0.x
   - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: com.fasterxml.jackson.dataformat
+      oldArtifactId: jackson-dataformat-xml
+      newGroupId: tools.jackson.dataformat
+      newArtifactId: jackson-dataformat-xml
+      newVersion: 3.0.x
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: com.fasterxml.jackson.dataformat
+      oldArtifactId: jackson-dataformat-csv
+      newGroupId: tools.jackson.dataformat
+      newArtifactId: jackson-dataformat-csv
+      newVersion: 3.0.x
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: com.fasterxml.jackson.dataformat
+      oldArtifactId: jackson-dataformat-cbor
+      newGroupId: tools.jackson.dataformat
+      newArtifactId: jackson-dataformat-cbor
+      newVersion: 3.0.x
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: com.fasterxml.jackson.dataformat
+      oldArtifactId: jackson-dataformat-avro
+      newGroupId: tools.jackson.dataformat
+      newArtifactId: jackson-dataformat-avro
+      newVersion: 3.0.x
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: com.fasterxml.jackson.dataformat
+      oldArtifactId: jackson-dataformat-smile
+      newGroupId: tools.jackson.dataformat
+      newArtifactId: jackson-dataformat-smile
+      newVersion: 3.0.x
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: com.fasterxml.jackson.dataformat
+      oldArtifactId: jackson-dataformat-ion
+      newGroupId: tools.jackson.dataformat
+      newArtifactId: jackson-dataformat-ion
+      newVersion: 3.0.x
+  - org.openrewrite.java.dependencies.ChangeDependency:
       oldGroupId: com.fasterxml.jackson.datatype
       oldArtifactId: jackson-datatype-jdk8
       newGroupId: tools.jackson.core
@@ -106,6 +142,39 @@ recipeList:
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: com.fasterxml.jackson.dataformat.yaml.YAMLGenerator$Feature
       newFullyQualifiedTypeName: tools.jackson.dataformat.yaml.YAMLWriteFeature
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.dataformat.xml.deser.FromXmlParser$Feature
+      newFullyQualifiedTypeName: tools.jackson.dataformat.xml.XmlReadFeature
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator$Feature
+      newFullyQualifiedTypeName: tools.jackson.dataformat.xml.XmlWriteFeature
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.dataformat.csv.CsvParser$Feature
+      newFullyQualifiedTypeName: tools.jackson.dataformat.csv.CsvReadFeature
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.dataformat.csv.CsvGenerator$Feature
+      newFullyQualifiedTypeName: tools.jackson.dataformat.csv.CsvWriteFeature
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.dataformat.cbor.CBORGenerator$Feature
+      newFullyQualifiedTypeName: tools.jackson.dataformat.cbor.CBORWriteFeature
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.dataformat.avro.AvroParser$Feature
+      newFullyQualifiedTypeName: tools.jackson.dataformat.avro.AvroReadFeature
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.dataformat.avro.AvroGenerator$Feature
+      newFullyQualifiedTypeName: tools.jackson.dataformat.avro.AvroWriteFeature
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.dataformat.smile.SmileParser$Feature
+      newFullyQualifiedTypeName: tools.jackson.dataformat.smile.SmileReadFeature
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.dataformat.smile.SmileGenerator$Feature
+      newFullyQualifiedTypeName: tools.jackson.dataformat.smile.SmileWriteFeature
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.dataformat.ion.IonParser$Feature
+      newFullyQualifiedTypeName: tools.jackson.dataformat.ion.IonReadFeature
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.dataformat.ion.IonGenerator$Feature
+      newFullyQualifiedTypeName: tools.jackson.dataformat.ion.IonWriteFeature
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: com.fasterxml.jackson.core.JsonParseException
       newFullyQualifiedTypeName: tools.jackson.core.StreamReadException

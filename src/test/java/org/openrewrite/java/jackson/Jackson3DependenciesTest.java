@@ -16,6 +16,8 @@
 package org.openrewrite.java.jackson;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
@@ -345,8 +347,9 @@ class Jackson3DependenciesTest implements RewriteTest {
         );
     }
 
-    @Test
-    void jacksonDataformatYaml() {
+    @ParameterizedTest
+    @ValueSource(strings = {"yaml", "xml", "csv", "cbor", "avro", "smile", "ion"})
+    void jacksonDataformats(String format) {
         rewriteRun(
           //language=xml
           pomXml(
@@ -359,12 +362,12 @@ class Jackson3DependenciesTest implements RewriteTest {
                   <dependencies>
                       <dependency>
                           <groupId>com.fasterxml.jackson.dataformat</groupId>
-                          <artifactId>jackson-dataformat-yaml</artifactId>
+                          <artifactId>jackson-dataformat-%s</artifactId>
                           <version>2.19.0</version>
                       </dependency>
                   </dependencies>
               </project>
-              """,
+              """.formatted(format),
             spec -> spec.after(pom -> {
                 Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
                 assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
@@ -378,12 +381,12 @@ class Jackson3DependenciesTest implements RewriteTest {
                              <dependencies>
                                  <dependency>
                                      <groupId>tools.jackson.dataformat</groupId>
-                                     <artifactId>jackson-dataformat-yaml</artifactId>
+                                     <artifactId>jackson-dataformat-%s</artifactId>
                                      <version>%s</version>
                                  </dependency>
                              </dependencies>
                          </project>
-                  """.formatted(jacksonVersion);
+                  """.formatted(format, jacksonVersion);
             })
           )
         );
