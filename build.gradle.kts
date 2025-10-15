@@ -29,6 +29,12 @@ dependencies {
     testRuntimeOnly("org.codehaus.jackson:jackson-mapper-asl:latest.release")
     testRuntimeOnly("org.codehaus.jackson:jackson-xc:latest.release")
     testRuntimeOnly("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.17.3")
+    testRuntimeOnly("com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.17.3")
+    testRuntimeOnly("com.fasterxml.jackson.dataformat:jackson-dataformat-csv:2.17.3")
+    testRuntimeOnly("com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:2.17.3")
+    testRuntimeOnly("com.fasterxml.jackson.dataformat:jackson-dataformat-avro:2.17.3")
+    testRuntimeOnly("com.fasterxml.jackson.dataformat:jackson-dataformat-smile:2.17.3")
+    testRuntimeOnly("com.fasterxml.jackson.dataformat:jackson-dataformat-ion:2.17.3")
 }
 
 recipeDependencies {
