@@ -16,6 +16,8 @@
 package org.openrewrite.java.jackson;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
@@ -345,8 +347,9 @@ class Jackson3DependenciesTest implements RewriteTest {
         );
     }
 
-    @Test
-    void jacksonDataformatYaml() {
+    @ParameterizedTest
+    @ValueSource(strings = {"yaml", "xml", "csv", "cbor", "avro", "smile", "ion"})
+    void jacksonDataformats(String format) {
         rewriteRun(
           //language=xml
           pomXml(
@@ -359,12 +362,12 @@ class Jackson3DependenciesTest implements RewriteTest {
                   <dependencies>
                       <dependency>
                           <groupId>com.fasterxml.jackson.dataformat</groupId>
-                          <artifactId>jackson-dataformat-yaml</artifactId>
+                          <artifactId>jackson-dataformat-%s</artifactId>
                           <version>2.19.0</version>
                       </dependency>
                   </dependencies>
               </project>
-              """,
+              """.formatted(format),
             spec -> spec.after(pom -> {
                 Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
                 assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
@@ -378,276 +381,12 @@ class Jackson3DependenciesTest implements RewriteTest {
                              <dependencies>
                                  <dependency>
                                      <groupId>tools.jackson.dataformat</groupId>
-                                     <artifactId>jackson-dataformat-yaml</artifactId>
+                                     <artifactId>jackson-dataformat-%s</artifactId>
                                      <version>%s</version>
                                  </dependency>
                              </dependencies>
                          </project>
-                  """.formatted(jacksonVersion);
-            })
-          )
-        );
-    }
-
-    @Test
-    void jacksonDataformatXml() {
-        rewriteRun(
-          //language=xml
-          pomXml(
-            """
-              <project>
-                  <modelVersion>4.0.0</modelVersion>
-                  <groupId>org.example</groupId>
-                  <artifactId>example</artifactId>
-                  <version>1.0.0</version>
-                  <dependencies>
-                      <dependency>
-                          <groupId>com.fasterxml.jackson.dataformat</groupId>
-                          <artifactId>jackson-dataformat-xml</artifactId>
-                          <version>2.19.0</version>
-                      </dependency>
-                  </dependencies>
-              </project>
-              """,
-            spec -> spec.after(pom -> {
-                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
-                assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
-                String jacksonVersion = versionMatcher.group(0);
-                return """
-                         <project>
-                             <modelVersion>4.0.0</modelVersion>
-                             <groupId>org.example</groupId>
-                             <artifactId>example</artifactId>
-                             <version>1.0.0</version>
-                             <dependencies>
-                                 <dependency>
-                                     <groupId>tools.jackson.dataformat</groupId>
-                                     <artifactId>jackson-dataformat-xml</artifactId>
-                                     <version>%s</version>
-                                 </dependency>
-                             </dependencies>
-                         </project>
-                  """.formatted(jacksonVersion);
-            })
-          )
-        );
-    }
-
-    @Test
-    void jacksonDataformatCsv() {
-        rewriteRun(
-          //language=xml
-          pomXml(
-            """
-              <project>
-                  <modelVersion>4.0.0</modelVersion>
-                  <groupId>org.example</groupId>
-                  <artifactId>example</artifactId>
-                  <version>1.0.0</version>
-                  <dependencies>
-                      <dependency>
-                          <groupId>com.fasterxml.jackson.dataformat</groupId>
-                          <artifactId>jackson-dataformat-csv</artifactId>
-                          <version>2.19.0</version>
-                      </dependency>
-                  </dependencies>
-              </project>
-              """,
-            spec -> spec.after(pom -> {
-                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
-                assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
-                String jacksonVersion = versionMatcher.group(0);
-                return """
-                         <project>
-                             <modelVersion>4.0.0</modelVersion>
-                             <groupId>org.example</groupId>
-                             <artifactId>example</artifactId>
-                             <version>1.0.0</version>
-                             <dependencies>
-                                 <dependency>
-                                     <groupId>tools.jackson.dataformat</groupId>
-                                     <artifactId>jackson-dataformat-csv</artifactId>
-                                     <version>%s</version>
-                                 </dependency>
-                             </dependencies>
-                         </project>
-                  """.formatted(jacksonVersion);
-            })
-          )
-        );
-    }
-
-    @Test
-    void jacksonDataformatCbor() {
-        rewriteRun(
-          //language=xml
-          pomXml(
-            """
-              <project>
-                  <modelVersion>4.0.0</modelVersion>
-                  <groupId>org.example</groupId>
-                  <artifactId>example</artifactId>
-                  <version>1.0.0</version>
-                  <dependencies>
-                      <dependency>
-                          <groupId>com.fasterxml.jackson.dataformat</groupId>
-                          <artifactId>jackson-dataformat-cbor</artifactId>
-                          <version>2.19.0</version>
-                      </dependency>
-                  </dependencies>
-              </project>
-              """,
-            spec -> spec.after(pom -> {
-                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
-                assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
-                String jacksonVersion = versionMatcher.group(0);
-                return """
-                         <project>
-                             <modelVersion>4.0.0</modelVersion>
-                             <groupId>org.example</groupId>
-                             <artifactId>example</artifactId>
-                             <version>1.0.0</version>
-                             <dependencies>
-                                 <dependency>
-                                     <groupId>tools.jackson.dataformat</groupId>
-                                     <artifactId>jackson-dataformat-cbor</artifactId>
-                                     <version>%s</version>
-                                 </dependency>
-                             </dependencies>
-                         </project>
-                  """.formatted(jacksonVersion);
-            })
-          )
-        );
-    }
-
-    @Test
-    void jacksonDataformatAvro() {
-        rewriteRun(
-          //language=xml
-          pomXml(
-            """
-              <project>
-                  <modelVersion>4.0.0</modelVersion>
-                  <groupId>org.example</groupId>
-                  <artifactId>example</artifactId>
-                  <version>1.0.0</version>
-                  <dependencies>
-                      <dependency>
-                          <groupId>com.fasterxml.jackson.dataformat</groupId>
-                          <artifactId>jackson-dataformat-avro</artifactId>
-                          <version>2.19.0</version>
-                      </dependency>
-                  </dependencies>
-              </project>
-              """,
-            spec -> spec.after(pom -> {
-                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
-                assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
-                String jacksonVersion = versionMatcher.group(0);
-                return """
-                         <project>
-                             <modelVersion>4.0.0</modelVersion>
-                             <groupId>org.example</groupId>
-                             <artifactId>example</artifactId>
-                             <version>1.0.0</version>
-                             <dependencies>
-                                 <dependency>
-                                     <groupId>tools.jackson.dataformat</groupId>
-                                     <artifactId>jackson-dataformat-avro</artifactId>
-                                     <version>%s</version>
-                                 </dependency>
-                             </dependencies>
-                         </project>
-                  """.formatted(jacksonVersion);
-            })
-          )
-        );
-    }
-
-    @Test
-    void jacksonDataformatSmile() {
-        rewriteRun(
-          //language=xml
-          pomXml(
-            """
-              <project>
-                  <modelVersion>4.0.0</modelVersion>
-                  <groupId>org.example</groupId>
-                  <artifactId>example</artifactId>
-                  <version>1.0.0</version>
-                  <dependencies>
-                      <dependency>
-                          <groupId>com.fasterxml.jackson.dataformat</groupId>
-                          <artifactId>jackson-dataformat-smile</artifactId>
-                          <version>2.19.0</version>
-                      </dependency>
-                  </dependencies>
-              </project>
-              """,
-            spec -> spec.after(pom -> {
-                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
-                assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
-                String jacksonVersion = versionMatcher.group(0);
-                return """
-                         <project>
-                             <modelVersion>4.0.0</modelVersion>
-                             <groupId>org.example</groupId>
-                             <artifactId>example</artifactId>
-                             <version>1.0.0</version>
-                             <dependencies>
-                                 <dependency>
-                                     <groupId>tools.jackson.dataformat</groupId>
-                                     <artifactId>jackson-dataformat-smile</artifactId>
-                                     <version>%s</version>
-                                 </dependency>
-                             </dependencies>
-                         </project>
-                  """.formatted(jacksonVersion);
-            })
-          )
-        );
-    }
-
-    @Test
-    void jacksonDataformatIon() {
-        rewriteRun(
-          //language=xml
-          pomXml(
-            """
-              <project>
-                  <modelVersion>4.0.0</modelVersion>
-                  <groupId>org.example</groupId>
-                  <artifactId>example</artifactId>
-                  <version>1.0.0</version>
-                  <dependencies>
-                      <dependency>
-                          <groupId>com.fasterxml.jackson.dataformat</groupId>
-                          <artifactId>jackson-dataformat-ion</artifactId>
-                          <version>2.19.0</version>
-                      </dependency>
-                  </dependencies>
-              </project>
-              """,
-            spec -> spec.after(pom -> {
-                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
-                assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
-                String jacksonVersion = versionMatcher.group(0);
-                return """
-                         <project>
-                             <modelVersion>4.0.0</modelVersion>
-                             <groupId>org.example</groupId>
-                             <artifactId>example</artifactId>
-                             <version>1.0.0</version>
-                             <dependencies>
-                                 <dependency>
-                                     <groupId>tools.jackson.dataformat</groupId>
-                                     <artifactId>jackson-dataformat-ion</artifactId>
-                                     <version>%s</version>
-                                 </dependency>
-                             </dependencies>
-                         </project>
-                  """.formatted(jacksonVersion);
+                  """.formatted(format, jacksonVersion);
             })
           )
         );
