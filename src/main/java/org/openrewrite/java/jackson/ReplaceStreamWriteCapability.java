@@ -62,7 +62,7 @@ public class ReplaceStreamWriteCapability extends Recipe {
                 new JavaVisitor<ExecutionContext>() {
                     @Override
                     public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
-                        J.MethodInvocation mi = super.visitMethodInvocation(method, ctx);
+                        J.MethodInvocation mi = (J.MethodInvocation) super.visitMethodInvocation(method, ctx);
 
                         if (CAN_WRITE_BINARY_NATIVELY.matches(mi)) {
                             maybeAddImport("com.fasterxml.jackson.core.StreamWriteCapability");
