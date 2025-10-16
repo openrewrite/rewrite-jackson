@@ -67,7 +67,7 @@ public class ReplaceStreamWriteCapability extends Recipe {
                         if (CAN_WRITE_BINARY_NATIVELY.matches(mi)) {
                             maybeAddImport("com.fasterxml.jackson.core.StreamWriteCapability");
                             return JavaTemplate.builder("#{any(com.fasterxml.jackson.core.JsonGenerator)}.getWriteCapabilities().isEnabled(StreamWriteCapability.CAN_WRITE_BINARY_NATIVELY)")
-                                    .contextSensitive()
+                                    .imports("com.fasterxml.jackson.core.StreamWriteCapability")
                                     .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx, "jackson-core-2.+"))
                                     .build()
                                     .apply(getCursor(), mi.getCoordinates().replace(), mi.getSelect());
@@ -76,7 +76,7 @@ public class ReplaceStreamWriteCapability extends Recipe {
                         if (CAN_WRITE_FORMATTED_NUMBERS.matches(mi)) {
                             maybeAddImport("com.fasterxml.jackson.core.StreamWriteCapability");
                             return JavaTemplate.builder("#{any(com.fasterxml.jackson.core.JsonGenerator)}.getWriteCapabilities().isEnabled(StreamWriteCapability.CAN_WRITE_FORMATTED_NUMBERS)")
-                                    .contextSensitive()
+                                    .imports("com.fasterxml.jackson.core.StreamWriteCapability")
                                     .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx, "jackson-core-2.+"))
                                     .build()
                                     .apply(getCursor(), mi.getCoordinates().replace(), mi.getSelect());
