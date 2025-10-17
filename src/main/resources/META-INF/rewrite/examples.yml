@@ -93,6 +93,30 @@ examples:
     language: java
 ---
 type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.jackson.ReplaceStreamWriteCapability
+examples:
+- description: '`ReplaceStreamWriteCapabilityTest#replaceCanWriteBinaryNatively`'
+  sources:
+  - before: |
+      import com.fasterxml.jackson.core.JsonGenerator;
+
+      class Test {
+          boolean checkCapability(JsonGenerator generator) {
+              return generator.canWriteBinaryNatively();
+          }
+      }
+    after: |
+      import com.fasterxml.jackson.core.JsonGenerator;
+      import com.fasterxml.jackson.core.StreamWriteCapability;
+
+      class Test {
+          boolean checkCapability(JsonGenerator generator) {
+              return generator.getWriteCapabilities().isEnabled(StreamWriteCapability.CAN_WRITE_BINARY_NATIVELY);
+          }
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.UpgradeJackson_2_3
 examples:
 - description: '`Jackson3DependenciesTest#jacksonAnnotations`'
