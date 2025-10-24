@@ -300,7 +300,7 @@ class UpgradeJackson_2_3Test implements RewriteTest {
                                  </dependency>
                              </dependencies>
                          </project>
-                  """.formatted(annotationsVersion, jacksonVersion, jacksonVersion);
+                  """.formatted(annotationsVersion);
             }))
         );
     }
