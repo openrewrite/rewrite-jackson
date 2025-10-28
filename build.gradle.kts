@@ -12,7 +12,6 @@ dependencies {
     implementation("org.openrewrite:rewrite-java")
     implementation("org.openrewrite.recipe:rewrite-java-dependencies:$rewriteVersion")
     implementation("org.assertj:assertj-core:latest.release")
-    runtimeOnly("org.openrewrite:rewrite-java-17")
 
     annotationProcessor("org.openrewrite:rewrite-templating:$rewriteVersion")
     implementation("org.openrewrite:rewrite-templating:$rewriteVersion")
