@@ -12,7 +12,6 @@ dependencies {
     implementation("org.openrewrite:rewrite-java")
     implementation("org.openrewrite.recipe:rewrite-java-dependencies:$rewriteVersion")
     implementation("org.assertj:assertj-core:latest.release")
-    runtimeOnly("org.openrewrite:rewrite-java-17")
 
     annotationProcessor("org.openrewrite:rewrite-templating:$rewriteVersion")
     implementation("org.openrewrite:rewrite-templating:$rewriteVersion")
@@ -25,6 +24,7 @@ dependencies {
     testImplementation("org.openrewrite:rewrite-test")
     testImplementation("org.openrewrite:rewrite-maven")
 
+    testRuntimeOnly("org.openrewrite:rewrite-java-25")
     testRuntimeOnly("org.codehaus.jackson:jackson-core-asl:latest.release")
     testRuntimeOnly("org.codehaus.jackson:jackson-mapper-asl:latest.release")
     testRuntimeOnly("org.codehaus.jackson:jackson-xc:latest.release")
