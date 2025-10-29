@@ -24,7 +24,7 @@ dependencies {
     testImplementation("org.openrewrite:rewrite-test")
     testImplementation("org.openrewrite:rewrite-maven")
 
-    testRuntimeOnly("org.openrewrite:rewrite-java-25")
+    testRuntimeOnly("org.openrewrite:rewrite-java-21")
     testRuntimeOnly("org.codehaus.jackson:jackson-core-asl:latest.release")
     testRuntimeOnly("org.codehaus.jackson:jackson-mapper-asl:latest.release")
     testRuntimeOnly("org.codehaus.jackson:jackson-xc:latest.release")
