@@ -25,6 +25,8 @@ import org.openrewrite.java.search.UsesMethod;
 import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JavaType.FullyQualified;
+import org.openrewrite.properties.ChangePropertyValue;
+import org.openrewrite.properties.DeleteProperty;
 
 import java.util.Set;
 
@@ -71,6 +73,36 @@ public class RemoveRedundantFeatureFlags extends Recipe {
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
+        return new TreeVisitor<Tree, ExecutionContext>() {
+            @Override
+            public Tree preVisit(Tree tree, ExecutionContext ctx) {
+                stopAfterPreVisit();
+
+                if (tree instanceof SourceFile) {
+                    SourceFile sourceFile = (SourceFile) tree;
+
+                    TreeVisitor<?, ExecutionContext> javaVisitor = javaVisitor();
+                    if (javaVisitor.isAcceptable(sourceFile, ctx)) {
+                        return javaVisitor.visitNonNull(tree, ctx);
+                    }
+
+                    TreeVisitor<?, ExecutionContext> propertiesVisitor = propertiesVisitor();
+                    if (propertiesVisitor.isAcceptable(sourceFile, ctx)) {
+                        return propertiesVisitor.visitNonNull(tree, ctx);
+                    }
+
+                    TreeVisitor<?, ExecutionContext> yamlVisitor = yamlVisitor();
+                    if (yamlVisitor.isAcceptable(sourceFile, ctx)) {
+                        return yamlVisitor.visitNonNull(tree, ctx);
+                    }
+                }
+
+                return tree;
+            }
+        };
+    }
+
+    private TreeVisitor<?, ExecutionContext> javaVisitor() {
         return Preconditions.check(
                 Preconditions.or(
                         new UsesMethod<>(ENABLE_MATCHER),
@@ -78,7 +110,6 @@ public class RemoveRedundantFeatureFlags extends Recipe {
                         new UsesMethod<>(CONFIGURE_MATCHER)
                 ),
                 new JavaVisitor<ExecutionContext>() {
-
                     @Override
                     public @Nullable J visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
                         if (shouldRemove(method)) {
@@ -128,7 +159,22 @@ public class RemoveRedundantFeatureFlags extends Recipe {
                         }
                         return null;
                     }
-                }
-        );
+                });
+    }
+
+    private TreeVisitor<?, ExecutionContext> propertiesVisitor() {
+        String propertyKey = "spring.jackson.mapper." + featureName.split("\\.")[1];
+        return Preconditions.check(
+                // Only change if it does not already have the new default value
+                new org.openrewrite.properties.ChangePropertyValue(propertyKey, String.valueOf(!newDefaultValue), null, false, false),
+                new org.openrewrite.properties.DeleteProperty(propertyKey, false).getVisitor());
+    }
+
+    private TreeVisitor<?, ExecutionContext> yamlVisitor() {
+        String propertyKey = "spring.jackson.mapper." + featureName.split("\\.")[1];
+        return Preconditions.check(
+                // Only change if it does not already have the new default value
+                new org.openrewrite.yaml.ChangePropertyValue(propertyKey, String.valueOf(!newDefaultValue), null, false, false, null),
+                new org.openrewrite.yaml.DeleteProperty(propertyKey, false, null, null).getVisitor());
     }
 }

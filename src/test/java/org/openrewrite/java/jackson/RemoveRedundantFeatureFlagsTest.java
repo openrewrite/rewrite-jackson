@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.jackson;
 
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.java.JavaParser;
@@ -22,6 +23,8 @@ import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
 import static org.openrewrite.java.Assertions.java;
+import static org.openrewrite.properties.Assertions.properties;
+import static org.openrewrite.yaml.Assertions.yaml;
 
 class RemoveRedundantFeatureFlagsTest implements RewriteTest {
 
@@ -411,4 +414,41 @@ class RemoveRedundantFeatureFlagsTest implements RewriteTest {
         );
     }
 
+    @Nested
+    class RemoveConfigProperty {
+        @Test
+        void removeFromProperties() {
+            rewriteRun(
+              properties(
+                """
+                  spring.jackson.mapper.FAIL_ON_UNKNOWN_PROPERTIES=true
+                  spring.jackson.mapper.WRITE_DATES_AS_TIMESTAMPS=false
+                  """,
+                """
+                  spring.jackson.mapper.FAIL_ON_UNKNOWN_PROPERTIES=true
+                  """
+              )
+            );
+        }
+        @Test
+        void removeFromYaml() {
+            rewriteRun(
+              yaml(
+                """
+                  spring:
+                    jackson:
+                        mapper:
+                            FAIL_ON_UNKNOWN_PROPERTIES: true
+                            WRITE_DATES_AS_TIMESTAMPS: false
+                  """,
+                """
+                  spring:
+                    jackson:
+                        mapper:
+                            FAIL_ON_UNKNOWN_PROPERTIES: true
+                  """
+              )
+            );
+        }
+    }
 }
