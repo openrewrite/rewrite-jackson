@@ -16,3 +16,7 @@ Browse [a selection of recipes available through this module in the recipe catal
 ## Contributing
 
 We appreciate all types of contributions. See the [contributing guide](https://github.com/openrewrite/.github/blob/main/CONTRIBUTING.md) for detailed instructions on how to get started.
+
+## Jackson articles
+- [Why upgrade to Jackson 3.0?](https://cowtowncoder.medium.com/why-upgrade-to-jackson-3-0-94c30e797bf2)
+
