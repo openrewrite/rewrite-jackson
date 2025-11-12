@@ -25,7 +25,6 @@ import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.search.UsesMethod;
 import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
-import org.openrewrite.java.tree.Statement;
 import org.openrewrite.java.tree.TypeUtils;
 
 import java.util.Arrays;
@@ -65,16 +64,18 @@ public class RemoveBuiltInModuleRegistrations extends Recipe {
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
         return Preconditions.check(new UsesMethod<>(REGISTER_MODULE), new JavaVisitor<ExecutionContext>() {
-
-            @Override
-            public @Nullable J visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
+                    @Override
+                    public @Nullable J visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
                         if (REGISTER_MODULE.matches(method) &&
                                 method.getArguments().stream().anyMatch(this::isBuiltInModuleInstantiation)) {
                             for (String module : BUILT_IN_MODULES) {
                                 maybeRemoveImport(module);
                             }
                             // If it's part of a chain, return the select; otherwise remove the statement
-                            return method.getSelect() instanceof J.MethodInvocation ? (Statement) method.getSelect() : null;
+                            if (method.getSelect() instanceof J.MethodInvocation || method.getSelect() instanceof J.NewClass) {
+                                return method.getSelect().withPrefix(method.getPrefix());
+                            }
+                            return null;
                         }
                         return super.visitMethodInvocation(method, ctx);
                     }

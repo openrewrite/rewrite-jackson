@@ -17,6 +17,7 @@ package org.openrewrite.java.jackson;
 
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
+import org.openrewrite.Issue;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
@@ -245,6 +246,34 @@ class RemoveBuiltInModuleRegistrationsTest implements RewriteTest {
                   void configure() {
                       ObjectMapper mapper = new ObjectMapper();
                       mapper.registerModule(new CustomModule());
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Issue("https://github.com/openrewrite/rewrite-jackson/issues/38")
+    @Test
+    void assignmentWithChainedRegistration() {
+        rewriteRun(
+          java(
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
+              class Test {
+                  void configure() {
+                      ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void configure() {
+                      ObjectMapper mapper = new ObjectMapper();
                   }
               }
               """
