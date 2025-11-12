@@ -262,15 +262,7 @@ tags:
 recipeList:
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_JsonGeneratorMethodRenames
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_JsonParserMethodRenames
-  - org.openrewrite.java.ChangeMethodName:
-      methodPattern: com.fasterxml.jackson.databind.JsonNode elements()
-      newMethodName: values
-  - org.openrewrite.java.ChangeMethodName:
-      methodPattern: com.fasterxml.jackson.databind.JsonNode isContainerNode()
-      newMethodName: isContainer
-  - org.openrewrite.java.ChangeMethodName:
-      methodPattern: com.fasterxml.jackson.databind.JsonNode fields()
-      newMethodName: entries
+  - org.openrewrite.java.jackson.UpgradeJackson_2_3_JsonNodeMethodRenames
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
@@ -370,6 +362,44 @@ recipeList:
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: com.fasterxml.jackson.core.JsonParser nextTextValue()
       newMethodName: nextStringValue
+
+# Based on https://github.com/FasterXML/jackson-future-ideas/wiki/JSTEP-3
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.jackson.UpgradeJackson_2_3_JsonNodeMethodRenames
+displayName: Rename Jackson 2.x methods to 3.x equivalents for JsonNode
+description: Rename JsonNode methods that were renamed in 3.x (e.g., `elements()` to `values()`, `fields()` to `entries()`).
+tags:
+  - jackson-3
+recipeList:
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.databind.JsonNode asText(..)
+      newMethodName: asString
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.databind.JsonNode elements()
+      newMethodName: values
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.databind.JsonNode fields()
+      newMethodName: properties
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.databind.JsonNode fieldNames()
+      newMethodName: propertyNames
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.databind.JsonNode findValuesAsText(..)
+      newMethodName: findValuesAsString
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.databind.JsonNode isContainerNode()
+      newMethodName: isContainer
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.databind.JsonNode isTextual()
+      newMethodName: isString
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.databind.JsonNode textValue()
+      newMethodName: asString
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.databind.JsonNode with(..)
+      newMethodName: withObject
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
