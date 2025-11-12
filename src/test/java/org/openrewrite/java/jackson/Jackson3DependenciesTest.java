@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.openrewrite.DocumentExample;
+import org.openrewrite.Issue;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
@@ -192,23 +193,23 @@ class Jackson3DependenciesTest implements RewriteTest {
                 assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
                 String jacksonVersion = versionMatcher.group(0);
                 return """
-                         <project>
-                             <modelVersion>4.0.0</modelVersion>
-                             <groupId>org.example</groupId>
-                             <artifactId>example</artifactId>
-                             <version>1.0.0</version>
-                             <dependencyManagement>
-                               <dependencies>
-                                 <dependency>
-                                     <groupId>tools.jackson</groupId>
-                                     <artifactId>jackson-bom</artifactId>
-                                     <version>%s</version>
-                                     <scope>import</scope>
-                                     <type>pom</type>
-                                 </dependency>
-                               </dependencies>
-                             </dependencyManagement>
-                         </project>
+                  <project>
+                      <modelVersion>4.0.0</modelVersion>
+                      <groupId>org.example</groupId>
+                      <artifactId>example</artifactId>
+                      <version>1.0.0</version>
+                      <dependencyManagement>
+                        <dependencies>
+                          <dependency>
+                              <groupId>tools.jackson</groupId>
+                              <artifactId>jackson-bom</artifactId>
+                              <version>%s</version>
+                              <scope>import</scope>
+                              <type>pom</type>
+                          </dependency>
+                        </dependencies>
+                      </dependencyManagement>
+                  </project>
                   """.formatted(jacksonVersion);
             })
           )
@@ -240,19 +241,19 @@ class Jackson3DependenciesTest implements RewriteTest {
                 assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
                 String jacksonVersion = versionMatcher.group(0);
                 return """
-                         <project>
-                             <modelVersion>4.0.0</modelVersion>
-                             <groupId>org.example</groupId>
-                             <artifactId>example</artifactId>
-                             <version>1.0.0</version>
-                             <dependencies>
-                                 <dependency>
-                                     <groupId>tools.jackson.core</groupId>
-                                     <artifactId>jackson-databind</artifactId>
-                                     <version>%s</version>
-                                 </dependency>
-                             </dependencies>
-                         </project>
+                  <project>
+                      <modelVersion>4.0.0</modelVersion>
+                      <groupId>org.example</groupId>
+                      <artifactId>example</artifactId>
+                      <version>1.0.0</version>
+                      <dependencies>
+                          <dependency>
+                              <groupId>tools.jackson.core</groupId>
+                              <artifactId>jackson-databind</artifactId>
+                              <version>%s</version>
+                          </dependency>
+                      </dependencies>
+                  </project>
                   """.formatted(jacksonVersion);
             })
           )
@@ -284,6 +285,50 @@ class Jackson3DependenciesTest implements RewriteTest {
                 assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
                 String jacksonVersion = versionMatcher.group(0);
                 return """
+                  <project>
+                      <modelVersion>4.0.0</modelVersion>
+                      <groupId>org.example</groupId>
+                      <artifactId>example</artifactId>
+                      <version>1.0.0</version>
+                      <dependencies>
+                          <dependency>
+                              <groupId>tools.jackson.core</groupId>
+                              <artifactId>jackson-databind</artifactId>
+                              <version>%s</version>
+                          </dependency>
+                      </dependencies>
+                  </project>
+                  """.formatted(jacksonVersion);
+            })
+          )
+        );
+    }
+
+    @Test
+    void jacksonDatatypeJsr310() {
+        rewriteRun(
+          //language=xml
+          pomXml(
+            """
+              <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>org.example</groupId>
+                  <artifactId>example</artifactId>
+                  <version>1.0.0</version>
+                  <dependencies>
+                      <dependency>
+                          <groupId>com.fasterxml.jackson.datatype</groupId>
+                          <artifactId>jackson-datatype-jsr310</artifactId>
+                          <version>2.19.0</version>
+                      </dependency>
+                  </dependencies>
+              </project>
+              """,
+            spec -> spec.after(pom -> {
+                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
+                assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
+                String jacksonVersion = versionMatcher.group(0);
+                return """
                          <project>
                              <modelVersion>4.0.0</modelVersion>
                              <groupId>org.example</groupId>
@@ -303,8 +348,9 @@ class Jackson3DependenciesTest implements RewriteTest {
         );
     }
 
+    @Issue("https://github.com/openrewrite/rewrite-jackson/issues/37")
     @Test
-    void jacksonDatatypeJsr310() {
+    void noDuplicateJacksonDatabindDependencies() {
         rewriteRun(
           //language=xml
           pomXml(
@@ -315,6 +361,11 @@ class Jackson3DependenciesTest implements RewriteTest {
                   <artifactId>example</artifactId>
                   <version>1.0.0</version>
                   <dependencies>
+                      <dependency>
+                          <groupId>com.fasterxml.jackson.core</groupId>
+                          <artifactId>jackson-databind</artifactId>
+                          <version>2.19.0</version>
+                      </dependency>
                       <dependency>
                           <groupId>com.fasterxml.jackson.datatype</groupId>
                           <artifactId>jackson-datatype-jsr310</artifactId>

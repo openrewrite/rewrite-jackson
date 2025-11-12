@@ -188,23 +188,23 @@ class UpgradeJackson_2_3Test implements RewriteTest {
                 assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
                 String jacksonVersion = versionMatcher.group(0);
                 return """
-                         <project>
-                             <modelVersion>4.0.0</modelVersion>
-                             <groupId>org.example</groupId>
-                             <artifactId>example</artifactId>
-                             <version>1.0.0</version>
-                             <dependencyManagement>
-                               <dependencies>
-                                 <dependency>
-                                     <groupId>tools.jackson</groupId>
-                                     <artifactId>jackson-bom</artifactId>
-                                     <version>%s</version>
-                                     <scope>pom</scope>
-                                     <type>import</type>
-                                 </dependency>
-                               </dependencies>
-                             </dependencyManagement>
-                         </project>
+                  <project>
+                      <modelVersion>4.0.0</modelVersion>
+                      <groupId>org.example</groupId>
+                      <artifactId>example</artifactId>
+                      <version>1.0.0</version>
+                      <dependencyManagement>
+                        <dependencies>
+                          <dependency>
+                              <groupId>tools.jackson</groupId>
+                              <artifactId>jackson-bom</artifactId>
+                              <version>%s</version>
+                              <scope>pom</scope>
+                              <type>import</type>
+                          </dependency>
+                        </dependencies>
+                      </dependencyManagement>
+                  </project>
                   """.formatted(jacksonVersion);
             })),
           //language=java
@@ -287,19 +287,19 @@ class UpgradeJackson_2_3Test implements RewriteTest {
                 String annotationsVersion = annotationsVersionMatcher.group(0);
 
                 return """
-                         <project>
-                             <modelVersion>4.0.0</modelVersion>
-                             <groupId>org.example</groupId>
-                             <artifactId>example</artifactId>
-                             <version>1.0.0</version>
-                             <dependencies>
-                                 <dependency>
-                                     <groupId>tools.jackson.core</groupId>
-                                     <artifactId>jackson-databind</artifactId>
-                                     <version>%s</version>
-                                 </dependency>
-                             </dependencies>
-                         </project>
+                  <project>
+                      <modelVersion>4.0.0</modelVersion>
+                      <groupId>org.example</groupId>
+                      <artifactId>example</artifactId>
+                      <version>1.0.0</version>
+                      <dependencies>
+                          <dependency>
+                              <groupId>tools.jackson.core</groupId>
+                              <artifactId>jackson-databind</artifactId>
+                              <version>%s</version>
+                          </dependency>
+                      </dependencies>
+                  </project>
                   """.formatted(annotationsVersion);
             }))
         );
