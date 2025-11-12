@@ -366,4 +366,49 @@ class Jackson3MethodRenamesTest implements RewriteTest {
         );
     }
 
+    @Test
+    void jsonNodeMethods() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.JsonNode;
+              import java.util.List;
+
+              class Test {
+                  void test(JsonNode node) {
+                      String text = node.asText();
+                      var elements = node.elements();
+                      var fields = node.fields();
+                      var names = node.fieldNames();
+                      List<String> textValues = node.findValuesAsText("mango");
+                      boolean isContainer = node.isContainerNode();
+                      boolean isString = node.isTextual();
+                      boolean textValue = node.textValue();
+                      var modifiedNode = node.with("pineapple");
+                  }
+              }
+              """,
+            """
+              import tools.jackson.databind.JsonNode;
+              import java.util.List;
+
+              class Test {
+                  void test(JsonNode node) {
+                      String text = node.asString();
+                      var elements = node.values();
+                      var fields = node.properties();
+                      var names = node.propertyNames();
+                      List<String> textValues = node.findValuesAsString("mango");
+                      boolean isContainer = node.isContainer();
+                      boolean isString = node.isString();
+                      boolean textValue = node.asString();
+                      var modifiedNode = node.withObject("pineapple");
+                  }
+              }
+              """
+          )
+        );
+    }
+
 }
