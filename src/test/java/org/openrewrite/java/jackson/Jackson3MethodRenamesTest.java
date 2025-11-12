@@ -61,6 +61,33 @@ class Jackson3MethodRenamesTest implements RewriteTest {
     }
 
     @Test
+    void jsonGeneratorGetCodec() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonGenerator;
+
+              class Test {
+                  Object test(JsonGenerator gen) {
+                      return gen.getCodec();
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonGenerator;
+
+              class Test {
+                  Object test(JsonGenerator gen) {
+                      return gen.objectWriteContext();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void jsonGeneratorGetCurrentValue() {
         rewriteRun(
           //language=java
@@ -115,7 +142,56 @@ class Jackson3MethodRenamesTest implements RewriteTest {
     }
 
     @Test
-    void jsonParserGetTextCharacters() {
+    void jsonGeneratorFieldMethods() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonGenerator;
+
+              class Test {
+                  void test(JsonGenerator gen) {
+                      gen.writeArrayFieldStart("ananas");
+                      gen.writeBinaryField("banana", new byte[]{1,2,3});
+                      gen.writeBooleanField("carrot", true);
+                      gen.writeFieldId(1L);
+                      gen.writeFieldName("test");
+                      gen.writeNullField("kiwi");
+                      gen.writeNumberField("orange", 1.0);
+                      gen.writeObjectField("peach", "peach");
+                      gen.writeObjectFieldStart("pear");
+                      gen.writeOmittedField("plum");
+                      gen.writePOJOField("strawberry", "strawberry");
+                      gen.writeStringField("watermelon", "watermelon");
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonGenerator;
+
+              class Test {
+                  void test(JsonGenerator gen) {
+                      gen.writeArrayPropertyStart("ananas");
+                      gen.writeBinaryProperty("banana", new byte[]{1,2,3});
+                      gen.writeBooleanProperty("carrot", true);
+                      gen.writePropertyId(1L);
+                      gen.writeName("test");
+                      gen.writeNullProperty("kiwi");
+                      gen.writeNumberProperty("orange", 1.0);
+                      gen.writeObjectProperty("peach", "peach");
+                      gen.writeObjectPropertyStart("pear");
+                      gen.writeOmittedProperty("plum");
+                      gen.writePOJOProperty("strawberry", "strawberry");
+                      gen.writeStringProperty("watermelon", "watermelon");
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void jsonParserGetCodec() {
         rewriteRun(
           //language=java
           java(
@@ -124,7 +200,7 @@ class Jackson3MethodRenamesTest implements RewriteTest {
 
               class Test {
                   char[] test(JsonParser parser) {
-                      return parser.getTextCharacters();
+                      return parser.getCodec();
                   }
               }
               """,
@@ -133,7 +209,7 @@ class Jackson3MethodRenamesTest implements RewriteTest {
 
               class Test {
                   char[] test(JsonParser parser) {
-                      return parser.getStringCharacters();
+                      return parser.objectReadContext();
                   }
               }
               """
@@ -252,4 +328,42 @@ class Jackson3MethodRenamesTest implements RewriteTest {
           )
         );
     }
+
+    @Test
+    void jsonParserTextMethods() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonParser;
+
+              class Test {
+                  void test(JsonParser parser) {
+                      String text = parser.getText();
+                      char[] characters = parser.getTextCharacters();
+                      int length = parser.getTextLength();
+                      int offset = parser.getTextOffset();
+                      boolean hasText = parser.hasTextCharacters();
+                      String nextText = parser.nextTextValue();
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonParser;
+
+              class Test {
+                  void test(JsonParser parser) {
+                      String text = parser.getString();
+                      char[] characters = parser.getStringCharacters();
+                      int length = parser.getStringLength();
+                      int offset = parser.getStringOffset();
+                      boolean hasText = parser.hasStringCharacters();
+                      String nextText = parser.nextStringValue();
+                  }
+              }
+              """
+          )
+        );
+    }
+
 }

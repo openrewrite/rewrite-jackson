@@ -250,6 +250,8 @@ recipeList:
       oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.Module
       newFullyQualifiedTypeName: tools.jackson.databind.JacksonModule
 
+# Based on https://github.com/FasterXML/jackson/blob/main/jackson3/MIGRATING_TO_JACKSON_3.md
+
 ---
 type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.java.jackson.UpgradeJackson_2_3_MethodRenames
@@ -258,9 +260,29 @@ description: Rename Jackson methods that were renamed in 3.x (e.g., `writeObject
 tags:
   - jackson-3
 recipeList:
+  - org.openrewrite.java.jackson.UpgradeJackson_2_3_JsonGeneratorMethodRenames
+  - org.openrewrite.java.jackson.UpgradeJackson_2_3_JsonParserMethodRenames
   - org.openrewrite.java.ChangeMethodName:
-      methodPattern: com.fasterxml.jackson.core.JsonGenerator writeObject(..)
-      newMethodName: writePOJO
+      methodPattern: com.fasterxml.jackson.databind.JsonNode elements()
+      newMethodName: values
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.databind.JsonNode isContainerNode()
+      newMethodName: isContainer
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.databind.JsonNode fields()
+      newMethodName: entries
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.jackson.UpgradeJackson_2_3_JsonGeneratorMethodRenames
+displayName: Rename Jackson 2.x methods to 3.x equivalents for JsonGenerator
+description: Rename JsonGenerator methods that were renamed in 3.x (e.g., `writeObject()` to `writePOJO()`, `getCurrentValue()` to `currentValue()`).
+tags:
+  - jackson-3
+recipeList:
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonGenerator getCodec()
+      newMethodName: objectWriteContext
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: com.fasterxml.jackson.core.JsonGenerator getCurrentValue()
       newMethodName: currentValue
@@ -268,8 +290,56 @@ recipeList:
       methodPattern: com.fasterxml.jackson.core.JsonGenerator setCurrentValue(..)
       newMethodName: assignCurrentValue
   - org.openrewrite.java.ChangeMethodName:
-      methodPattern: com.fasterxml.jackson.core.JsonParser getTextCharacters()
-      newMethodName: getStringCharacters
+      methodPattern: com.fasterxml.jackson.core.JsonGenerator writeObject(..)
+      newMethodName: writePOJO
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonGenerator writeArrayFieldStart(..)
+      newMethodName: writeArrayPropertyStart
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonGenerator writeBinaryField(..)
+      newMethodName: writeBinaryProperty
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonGenerator writeBooleanField(..)
+      newMethodName: writeBooleanProperty
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonGenerator writeFieldId(..)
+      newMethodName: writePropertyId
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonGenerator writeFieldName(..)
+      newMethodName: writeName
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonGenerator writeNullField(..)
+      newMethodName: writeNullProperty
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonGenerator writeNumberField(..)
+      newMethodName: writeNumberProperty
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonGenerator writeObjectField(..)
+      newMethodName: writeObjectProperty
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonGenerator writeObjectFieldStart(..)
+      newMethodName: writeObjectPropertyStart
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonGenerator writeOmittedField(..)
+      newMethodName: writeOmittedProperty
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonGenerator writePOJOField(..)
+      newMethodName: writePOJOProperty
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonGenerator writeStringField(..)
+      newMethodName: writeStringProperty
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.jackson.UpgradeJackson_2_3_JsonParserMethodRenames
+displayName: Rename Jackson 2.x methods to 3.x equivalents for JsonParser
+description: Rename JsonParser methods that were renamed in 3.x (e.g., `getTextCharacters()` to `getStringCharacters()`, `getCurrentValue()` to `currentValue()`).
+tags:
+  - jackson-3
+recipeList:
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonParser getCodec()
+      newMethodName: objectReadContext
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: com.fasterxml.jackson.core.JsonParser getCurrentLocation()
       newMethodName: currentLocation
@@ -283,14 +353,23 @@ recipeList:
       methodPattern: com.fasterxml.jackson.core.JsonParser setCurrentValue(..)
       newMethodName: assignCurrentValue
   - org.openrewrite.java.ChangeMethodName:
-      methodPattern: com.fasterxml.jackson.databind.JsonNode elements()
-      newMethodName: values
+      methodPattern: com.fasterxml.jackson.core.JsonParser getText(..)
+      newMethodName: getString
   - org.openrewrite.java.ChangeMethodName:
-      methodPattern: com.fasterxml.jackson.databind.JsonNode isContainerNode()
-      newMethodName: isContainer
+      methodPattern: com.fasterxml.jackson.core.JsonParser getTextCharacters()
+      newMethodName: getStringCharacters
   - org.openrewrite.java.ChangeMethodName:
-      methodPattern: com.fasterxml.jackson.databind.JsonNode fields()
-      newMethodName: entries
+      methodPattern: com.fasterxml.jackson.core.JsonParser getTextLength()
+      newMethodName: getStringLength
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonParser getTextOffset()
+      newMethodName: getStringOffset
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonParser hasTextCharacters()
+      newMethodName: hasStringCharacters
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonParser nextTextValue()
+      newMethodName: nextStringValue
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
