@@ -99,23 +99,23 @@ class Jackson3DependenciesTest implements RewriteTest {
               </project>
               """,
             spec -> spec.after(pom -> {
-                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
+                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+").matcher(pom);
                 assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
                 String jacksonVersion = versionMatcher.group(0);
                 return """
-                         <project>
-                             <modelVersion>4.0.0</modelVersion>
-                             <groupId>org.example</groupId>
-                             <artifactId>example</artifactId>
-                             <version>1.0.0</version>
-                             <dependencies>
-                                 <dependency>
-                                     <groupId>tools.jackson.core</groupId>
-                                     <artifactId>jackson-core</artifactId>
-                                     <version>%s</version>
-                                 </dependency>
-                             </dependencies>
-                         </project>
+                  <project>
+                      <modelVersion>4.0.0</modelVersion>
+                      <groupId>org.example</groupId>
+                      <artifactId>example</artifactId>
+                      <version>1.0.0</version>
+                      <dependencies>
+                          <dependency>
+                              <groupId>tools.jackson.core</groupId>
+                              <artifactId>jackson-core</artifactId>
+                              <version>%s</version>
+                          </dependency>
+                      </dependencies>
+                  </project>
                   """.formatted(jacksonVersion);
             })
           )
@@ -143,23 +143,23 @@ class Jackson3DependenciesTest implements RewriteTest {
               </project>
               """,
             spec -> spec.after(pom -> {
-                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
+                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+").matcher(pom);
                 assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
                 String jacksonVersion = versionMatcher.group(0);
                 return """
-                         <project>
-                             <modelVersion>4.0.0</modelVersion>
-                             <groupId>org.example</groupId>
-                             <artifactId>example</artifactId>
-                             <version>1.0.0</version>
-                             <dependencies>
-                                 <dependency>
-                                     <groupId>tools.jackson.core</groupId>
-                                     <artifactId>jackson-databind</artifactId>
-                                     <version>%s</version>
-                                 </dependency>
-                             </dependencies>
-                         </project>
+                  <project>
+                      <modelVersion>4.0.0</modelVersion>
+                      <groupId>org.example</groupId>
+                      <artifactId>example</artifactId>
+                      <version>1.0.0</version>
+                      <dependencies>
+                          <dependency>
+                              <groupId>tools.jackson.core</groupId>
+                              <artifactId>jackson-databind</artifactId>
+                              <version>%s</version>
+                          </dependency>
+                      </dependencies>
+                  </project>
                   """.formatted(jacksonVersion);
             })
           )
@@ -187,25 +187,55 @@ class Jackson3DependenciesTest implements RewriteTest {
               </project>
               """,
             spec -> spec.after(pom -> {
-                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
+                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+").matcher(pom);
                 assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
                 String jacksonVersion = versionMatcher.group(0);
                 return """
-                         <project>
-                             <modelVersion>4.0.0</modelVersion>
-                             <groupId>org.example</groupId>
-                             <artifactId>example</artifactId>
-                             <version>1.0.0</version>
-                             <dependencies>
-                                 <dependency>
-                                     <groupId>tools.jackson.module</groupId>
-                                     <artifactId>jackson-module-kotlin</artifactId>
-                                     <version>%s</version>
-                                 </dependency>
-                             </dependencies>
-                         </project>
+                  <project>
+                      <modelVersion>4.0.0</modelVersion>
+                      <groupId>org.example</groupId>
+                      <artifactId>example</artifactId>
+                      <version>1.0.0</version>
+                      <dependencies>
+                          <dependency>
+                              <groupId>tools.jackson.module</groupId>
+                              <artifactId>jackson-module-kotlin</artifactId>
+                              <version>%s</version>
+                          </dependency>
+                      </dependencies>
+                  </project>
                   """.formatted(jacksonVersion);
             })
+          )
+        );
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"_2.12", "_2.13", "_3"})
+    void jacksonModuleScala(String artifactSuffix) {
+        rewriteRun(
+          //language=xml
+          pomXml(
+            """
+              <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>org.example</groupId>
+                  <artifactId>example</artifactId>
+                  <version>1.0.0</version>
+                  <dependencies>
+                      <dependency>
+                          <groupId>com.fasterxml.jackson.module</groupId>
+                          <artifactId>jackson-module-scala%s</artifactId>
+                          <version>2.19.0</version>
+                      </dependency>
+                  </dependencies>
+              </project>
+              """.formatted(artifactSuffix),
+            spec -> spec.after(pom -> assertThat(pom)
+              .doesNotContain(">com.fasterxml.jackson.module<")
+              .contains(">tools.jackson.module<")
+              .containsPattern("3\\.\\d+\\.\\d+")
+              .actual())
           )
         );
     }
@@ -235,7 +265,7 @@ class Jackson3DependenciesTest implements RewriteTest {
               </project>
               """,
             spec -> spec.after(pom -> {
-                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
+                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+").matcher(pom);
                 assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
                 String jacksonVersion = versionMatcher.group(0);
                 return """
@@ -283,7 +313,7 @@ class Jackson3DependenciesTest implements RewriteTest {
               </project>
               """,
             spec -> spec.after(pom -> {
-                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
+                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+").matcher(pom);
                 assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
                 String jacksonVersion = versionMatcher.group(0);
                 return """
@@ -327,7 +357,7 @@ class Jackson3DependenciesTest implements RewriteTest {
               </project>
               """,
             spec -> spec.after(pom -> {
-                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
+                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+").matcher(pom);
                 assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
                 String jacksonVersion = versionMatcher.group(0);
                 return """
@@ -371,23 +401,23 @@ class Jackson3DependenciesTest implements RewriteTest {
               </project>
               """,
             spec -> spec.after(pom -> {
-                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
+                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+").matcher(pom);
                 assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
                 String jacksonVersion = versionMatcher.group(0);
                 return """
-                         <project>
-                             <modelVersion>4.0.0</modelVersion>
-                             <groupId>org.example</groupId>
-                             <artifactId>example</artifactId>
-                             <version>1.0.0</version>
-                             <dependencies>
-                                 <dependency>
-                                     <groupId>tools.jackson.core</groupId>
-                                     <artifactId>jackson-databind</artifactId>
-                                     <version>%s</version>
-                                 </dependency>
-                             </dependencies>
-                         </project>
+                  <project>
+                      <modelVersion>4.0.0</modelVersion>
+                      <groupId>org.example</groupId>
+                      <artifactId>example</artifactId>
+                      <version>1.0.0</version>
+                      <dependencies>
+                          <dependency>
+                              <groupId>tools.jackson.core</groupId>
+                              <artifactId>jackson-databind</artifactId>
+                              <version>%s</version>
+                          </dependency>
+                      </dependencies>
+                  </project>
                   """.formatted(jacksonVersion);
             })
           )
@@ -421,23 +451,23 @@ class Jackson3DependenciesTest implements RewriteTest {
               </project>
               """,
             spec -> spec.after(pom -> {
-                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
+                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+").matcher(pom);
                 assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
                 String jacksonVersion = versionMatcher.group(0);
                 return """
-                         <project>
-                             <modelVersion>4.0.0</modelVersion>
-                             <groupId>org.example</groupId>
-                             <artifactId>example</artifactId>
-                             <version>1.0.0</version>
-                             <dependencies>
-                                 <dependency>
-                                     <groupId>tools.jackson.core</groupId>
-                                     <artifactId>jackson-databind</artifactId>
-                                     <version>%s</version>
-                                 </dependency>
-                             </dependencies>
-                         </project>
+                  <project>
+                      <modelVersion>4.0.0</modelVersion>
+                      <groupId>org.example</groupId>
+                      <artifactId>example</artifactId>
+                      <version>1.0.0</version>
+                      <dependencies>
+                          <dependency>
+                              <groupId>tools.jackson.core</groupId>
+                              <artifactId>jackson-databind</artifactId>
+                              <version>%s</version>
+                          </dependency>
+                      </dependencies>
+                  </project>
                   """.formatted(jacksonVersion);
             })
           )
@@ -465,7 +495,7 @@ class Jackson3DependenciesTest implements RewriteTest {
               }
               """,
             spec -> spec.after(pom -> {
-                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
+                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+").matcher(pom);
                 assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
                 String jacksonVersion = versionMatcher.group(0);
                 return """
@@ -508,23 +538,23 @@ class Jackson3DependenciesTest implements RewriteTest {
               </project>
               """.formatted(format),
             spec -> spec.after(pom -> {
-                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
+                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+").matcher(pom);
                 assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
                 String jacksonVersion = versionMatcher.group(0);
                 return """
-                         <project>
-                             <modelVersion>4.0.0</modelVersion>
-                             <groupId>org.example</groupId>
-                             <artifactId>example</artifactId>
-                             <version>1.0.0</version>
-                             <dependencies>
-                                 <dependency>
-                                     <groupId>tools.jackson.dataformat</groupId>
-                                     <artifactId>jackson-dataformat-%s</artifactId>
-                                     <version>%s</version>
-                                 </dependency>
-                             </dependencies>
-                         </project>
+                  <project>
+                      <modelVersion>4.0.0</modelVersion>
+                      <groupId>org.example</groupId>
+                      <artifactId>example</artifactId>
+                      <version>1.0.0</version>
+                      <dependencies>
+                          <dependency>
+                              <groupId>tools.jackson.dataformat</groupId>
+                              <artifactId>jackson-dataformat-%s</artifactId>
+                              <version>%s</version>
+                          </dependency>
+                      </dependencies>
+                  </project>
                   """.formatted(format, jacksonVersion);
             })
           )

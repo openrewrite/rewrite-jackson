@@ -76,51 +76,13 @@ recipeList:
       newVersion: 3.0.x
   - org.openrewrite.java.dependencies.ChangeDependency:
       oldGroupId: com.fasterxml.jackson.module
-      oldArtifactId: jackson-module-kotlin
+      oldArtifactId: "*"
       newGroupId: tools.jackson.module
-      newArtifactId: jackson-module-kotlin
       newVersion: 3.0.x
   - org.openrewrite.java.dependencies.ChangeDependency:
       oldGroupId: com.fasterxml.jackson.dataformat
-      oldArtifactId: jackson-dataformat-yaml
+      oldArtifactId: "*"
       newGroupId: tools.jackson.dataformat
-      newArtifactId: jackson-dataformat-yaml
-      newVersion: 3.0.x
-  - org.openrewrite.java.dependencies.ChangeDependency:
-      oldGroupId: com.fasterxml.jackson.dataformat
-      oldArtifactId: jackson-dataformat-xml
-      newGroupId: tools.jackson.dataformat
-      newArtifactId: jackson-dataformat-xml
-      newVersion: 3.0.x
-  - org.openrewrite.java.dependencies.ChangeDependency:
-      oldGroupId: com.fasterxml.jackson.dataformat
-      oldArtifactId: jackson-dataformat-csv
-      newGroupId: tools.jackson.dataformat
-      newArtifactId: jackson-dataformat-csv
-      newVersion: 3.0.x
-  - org.openrewrite.java.dependencies.ChangeDependency:
-      oldGroupId: com.fasterxml.jackson.dataformat
-      oldArtifactId: jackson-dataformat-cbor
-      newGroupId: tools.jackson.dataformat
-      newArtifactId: jackson-dataformat-cbor
-      newVersion: 3.0.x
-  - org.openrewrite.java.dependencies.ChangeDependency:
-      oldGroupId: com.fasterxml.jackson.dataformat
-      oldArtifactId: jackson-dataformat-avro
-      newGroupId: tools.jackson.dataformat
-      newArtifactId: jackson-dataformat-avro
-      newVersion: 3.0.x
-  - org.openrewrite.java.dependencies.ChangeDependency:
-      oldGroupId: com.fasterxml.jackson.dataformat
-      oldArtifactId: jackson-dataformat-smile
-      newGroupId: tools.jackson.dataformat
-      newArtifactId: jackson-dataformat-smile
-      newVersion: 3.0.x
-  - org.openrewrite.java.dependencies.ChangeDependency:
-      oldGroupId: com.fasterxml.jackson.dataformat
-      oldArtifactId: jackson-dataformat-ion
-      newGroupId: tools.jackson.dataformat
-      newArtifactId: jackson-dataformat-ion
       newVersion: 3.0.x
   - org.openrewrite.java.dependencies.ChangeDependency:
       oldGroupId: com.fasterxml.jackson.datatype
