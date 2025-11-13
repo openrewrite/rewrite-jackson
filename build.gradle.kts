@@ -23,9 +23,12 @@ dependencies {
         exclude("io.github.eisop","dataflow-errorprone")
     }
 
+    testImplementation("org.openrewrite:rewrite-gradle")
     testImplementation("org.openrewrite:rewrite-test")
     testImplementation("org.openrewrite:rewrite-maven")
+    testImplementation("org.openrewrite.gradle.tooling:model:${rewriteVersion}")
 
+    testRuntimeOnly(gradleApi())
     testRuntimeOnly("org.openrewrite:rewrite-java-21")
     testRuntimeOnly("org.codehaus.jackson:jackson-core-asl:latest.release")
     testRuntimeOnly("org.codehaus.jackson:jackson-mapper-asl:latest.release")
