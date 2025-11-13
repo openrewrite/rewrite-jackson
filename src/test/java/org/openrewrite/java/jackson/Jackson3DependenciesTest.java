@@ -208,6 +208,51 @@ class Jackson3DependenciesTest implements RewriteTest {
         );
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"_2.12", "_2.13", "_3"})
+    void jacksonModuleScala(String artifactSuffix) {
+        rewriteRun(
+          //language=xml
+          pomXml(
+            """
+              <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>org.example</groupId>
+                  <artifactId>example</artifactId>
+                  <version>1.0.0</version>
+                  <dependencies>
+                      <dependency>
+                          <groupId>com.fasterxml.jackson.module</groupId>
+                          <artifactId>jackson-module-scala%s</artifactId>
+                          <version>2.19.0</version>
+                      </dependency>
+                  </dependencies>
+              </project>
+              """.formatted(artifactSuffix),
+            spec -> spec.after(pom -> {
+                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
+                assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
+                String jacksonVersion = versionMatcher.group(0);
+                return """
+                         <project>
+                             <modelVersion>4.0.0</modelVersion>
+                             <groupId>org.example</groupId>
+                             <artifactId>example</artifactId>
+                             <version>1.0.0</version>
+                             <dependencies>
+                                 <dependency>
+                                     <groupId>tools.jackson.module</groupId>
+                                     <artifactId>jackson-module-scala%s</artifactId>
+                                     <version>%s</version>
+                                 </dependency>
+                             </dependencies>
+                         </project>
+                  """.formatted(artifactSuffix, jacksonVersion);
+            })
+          )
+        );
+    }
+
     @Test
     void jacksonBom() {
         rewriteRun(

@@ -81,6 +81,24 @@ recipeList:
       newArtifactId: jackson-module-kotlin
       newVersion: 3.0.x
   - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: com.fasterxml.jackson.module
+      oldArtifactId: jackson-module-scala_2.12
+      newGroupId: tools.jackson.module
+      newArtifactId: jackson-module-scala_2.12
+      newVersion: 3.0.x
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: com.fasterxml.jackson.module
+      oldArtifactId: jackson-module-scala_2.13
+      newGroupId: tools.jackson.module
+      newArtifactId: jackson-module-scala_2.13
+      newVersion: 3.0.x
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: com.fasterxml.jackson.module
+      oldArtifactId: jackson-module-scala_3
+      newGroupId: tools.jackson.module
+      newArtifactId: jackson-module-scala_3
+      newVersion: 3.0.x
+  - org.openrewrite.java.dependencies.ChangeDependency:
       oldGroupId: com.fasterxml.jackson.dataformat
       oldArtifactId: jackson-dataformat-yaml
       newGroupId: tools.jackson.dataformat
