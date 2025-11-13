@@ -27,6 +27,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.openrewrite.gradle.Assertions.buildGradle;
+import static org.openrewrite.gradle.toolingapi.Assertions.withToolingApi;
 import static org.openrewrite.maven.Assertions.pomXml;
 
 class Jackson3DependenciesTest implements RewriteTest {
@@ -436,6 +438,48 @@ class Jackson3DependenciesTest implements RewriteTest {
                                  </dependency>
                              </dependencies>
                          </project>
+                  """.formatted(jacksonVersion);
+            })
+          )
+        );
+    }
+
+    @Issue("https://github.com/openrewrite/rewrite-jackson/issues/45")
+    @Test
+    void noDuplicateJacksonDatabindDependenciesInGradle() {
+        rewriteRun(spec -> spec.beforeRecipe(withToolingApi()),
+          buildGradle(
+            //language=gradle
+            """
+              plugins {
+                  id("java-library")
+              }
+
+              repositories {
+                  mavenCentral()
+              }
+
+              dependencies {
+                  implementation("com.fasterxml.jackson.core:jackson-databind:2.19.0")
+                  implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.19.0")
+              }
+              """,
+            spec -> spec.after(pom -> {
+                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
+                assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
+                String jacksonVersion = versionMatcher.group(0);
+                return """
+                    plugins {
+                        id("java-library")
+                    }
+
+                    repositories {
+                        mavenCentral()
+                    }
+
+                    dependencies {
+                        implementation("tools.jackson.core:jackson-databind:%s")
+                    }
                   """.formatted(jacksonVersion);
             })
           )

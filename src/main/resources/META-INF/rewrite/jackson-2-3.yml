@@ -146,7 +146,7 @@ tags:
   - jackson-3
 preconditions:
   # When jackson-databind is present, we can remove these dependencies
-  - org.openrewrite.maven.search.FindDependency:
+  - org.openrewrite.java.dependencies.FindDependency:
       groupId: com.fasterxml.jackson.core
       artifactId: jackson-databind
 recipeList:
