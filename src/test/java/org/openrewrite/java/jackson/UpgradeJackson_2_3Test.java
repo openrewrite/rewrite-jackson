@@ -282,10 +282,6 @@ class UpgradeJackson_2_3Test implements RewriteTest {
                 assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
                 String jacksonVersion = versionMatcher.group(0);
 
-                Matcher annotationsVersionMatcher = Pattern.compile("3\\.\\d+(\\.\\d+)*(-rc[\\d]*)?").matcher(pom);
-                assertThat(annotationsVersionMatcher.find()).describedAs("Expected 3.x in %s", pom).isTrue();
-                String annotationsVersion = annotationsVersionMatcher.group(0);
-
                 return """
                   <project>
                       <modelVersion>4.0.0</modelVersion>
@@ -300,7 +296,7 @@ class UpgradeJackson_2_3Test implements RewriteTest {
                           </dependency>
                       </dependencies>
                   </project>
-                  """.formatted(annotationsVersion);
+                  """.formatted(jacksonVersion);
             }))
         );
     }
