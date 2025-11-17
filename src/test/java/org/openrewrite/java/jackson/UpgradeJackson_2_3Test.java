@@ -89,7 +89,7 @@ class UpgradeJackson_2_3Test implements RewriteTest {
               </project>
               """,
             spec -> spec.after(pom -> {
-                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
+                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+").matcher(pom);
                 assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
                 String jacksonVersion = versionMatcher.group(0);
 
@@ -184,7 +184,7 @@ class UpgradeJackson_2_3Test implements RewriteTest {
               </project>
               """,
             spec -> spec.after(pom -> {
-                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
+                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+").matcher(pom);
                 assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
                 String jacksonVersion = versionMatcher.group(0);
                 return """
@@ -250,8 +250,8 @@ class UpgradeJackson_2_3Test implements RewriteTest {
     @Test
     void jacksonUpgradeToVersion3_java8Only() {
         rewriteRun(
-          //language=xml
           pomXml(
+            //language=xml
             """
               <project>
                   <modelVersion>4.0.0</modelVersion>
@@ -277,27 +277,13 @@ class UpgradeJackson_2_3Test implements RewriteTest {
                   </dependencies>
               </project>
               """,
-            spec -> spec.after(pom -> {
-                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+(-rc[\\d]*)?").matcher(pom);
-                assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
-                String jacksonVersion = versionMatcher.group(0);
-
-                return """
-                  <project>
-                      <modelVersion>4.0.0</modelVersion>
-                      <groupId>org.example</groupId>
-                      <artifactId>example</artifactId>
-                      <version>1.0.0</version>
-                      <dependencies>
-                          <dependency>
-                              <groupId>tools.jackson.core</groupId>
-                              <artifactId>jackson-databind</artifactId>
-                              <version>%s</version>
-                          </dependency>
-                      </dependencies>
-                  </project>
-                  """.formatted(jacksonVersion);
-            }))
+            spec -> spec.after(pom -> assertThat(pom)
+              .containsOnlyOnce("<dependency>")
+              .contains(
+                "<groupId>tools.jackson.core</groupId>",
+                "<artifactId>jackson-databind</artifactId>")
+              .containsPattern("3\\.\\d+\\.\\d+")
+              .actual()))
         );
     }
 
