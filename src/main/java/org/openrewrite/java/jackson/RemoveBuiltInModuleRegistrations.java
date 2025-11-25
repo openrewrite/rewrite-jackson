@@ -80,6 +80,15 @@ public class RemoveBuiltInModuleRegistrations extends Recipe {
                         return super.visitMethodInvocation(method, ctx);
                     }
 
+                    @Override
+                    public @Nullable J visitVariableDeclarations(J.VariableDeclarations multiVariable, ExecutionContext ctx) {
+                        J.VariableDeclarations mv = (J.VariableDeclarations) super.visitVariableDeclarations(multiVariable, ctx);
+                        if (BUILT_IN_MODULES.contains(TypeUtils.toString(mv.getType()))) {
+                            return null;
+                        }
+                        return mv;
+                    }
+
                     private boolean isBuiltInModuleInstantiation(Expression expr) {
                         if (expr instanceof J.NewClass) {
                             J.NewClass newClass = (J.NewClass) expr;
@@ -87,7 +96,7 @@ public class RemoveBuiltInModuleRegistrations extends Recipe {
                                 return BUILT_IN_MODULES.contains(TypeUtils.toString(newClass.getClazz().getType()));
                             }
                         }
-                        return false;
+                        return BUILT_IN_MODULES.contains(TypeUtils.toString(expr.getType()));
                     }
                 }
         );
