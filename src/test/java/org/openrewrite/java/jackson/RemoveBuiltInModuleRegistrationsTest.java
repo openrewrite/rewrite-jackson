@@ -280,4 +280,34 @@ class RemoveBuiltInModuleRegistrationsTest implements RewriteTest {
           )
         );
     }
+
+    @Issue("https://github.com/openrewrite/rewrite-jackson/issues/52")
+    @Test
+    void removeVariableDeclarations() {
+        rewriteRun(
+          java(
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
+              class Test {
+                  void configure() {
+                      JavaTimeModule module = new JavaTimeModule();
+                      ObjectMapper mapper = new ObjectMapper();
+                      mapper.registerModule(module);
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void configure() {
+                      ObjectMapper mapper = new ObjectMapper();
+                  }
+              }
+              """
+          )
+        );
+    }
 }
