@@ -25,8 +25,6 @@ import org.openrewrite.java.search.UsesMethod;
 import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JavaType.FullyQualified;
-import org.openrewrite.properties.ChangePropertyValue;
-import org.openrewrite.properties.DeleteProperty;
 
 import java.util.Set;
 
@@ -40,6 +38,10 @@ public class RemoveRedundantFeatureFlags extends Recipe {
     private static final MethodMatcher ENABLE_MATCHER = new MethodMatcher(OBJECT_MAPPER_TYPE + " enable(..)");
     private static final MethodMatcher DISABLE_MATCHER = new MethodMatcher(OBJECT_MAPPER_TYPE + " disable(..)");
     private static final MethodMatcher CONFIGURE_MATCHER = new MethodMatcher(OBJECT_MAPPER_TYPE + " configure(..)");
+    private static final String OBJECT_MAPPER_BUILDER_TYPE = "com.fasterxml.jackson.databind.cfg.MapperBuilder";
+    private static final MethodMatcher BUILDER_ENABLE_MATCHER = new MethodMatcher(OBJECT_MAPPER_BUILDER_TYPE + " enable(..)");
+    private static final MethodMatcher BUILDER_DISABLE_MATCHER = new MethodMatcher(OBJECT_MAPPER_BUILDER_TYPE + " disable(..)");
+    private static final MethodMatcher BUILDER_CONFIGURE_MATCHER = new MethodMatcher(OBJECT_MAPPER_BUILDER_TYPE + " configure(..)");
 
     @Option(displayName = "Feature name",
             description = "The fully qualified feature flag name that has a new default in Jackson 3. " +
@@ -106,8 +108,11 @@ public class RemoveRedundantFeatureFlags extends Recipe {
         return Preconditions.check(
                 Preconditions.or(
                         new UsesMethod<>(ENABLE_MATCHER),
+                        new UsesMethod<>(BUILDER_ENABLE_MATCHER),
                         new UsesMethod<>(DISABLE_MATCHER),
-                        new UsesMethod<>(CONFIGURE_MATCHER)
+                        new UsesMethod<>(BUILDER_DISABLE_MATCHER),
+                        new UsesMethod<>(CONFIGURE_MATCHER),
+                        new UsesMethod<>(BUILDER_CONFIGURE_MATCHER)
                 ),
                 new JavaVisitor<ExecutionContext>() {
                     @Override
@@ -120,15 +125,15 @@ public class RemoveRedundantFeatureFlags extends Recipe {
                     }
 
                     private boolean shouldRemove(J.MethodInvocation mi) {
-                        if (ENABLE_MATCHER.matches(mi)) {
+                        if (ENABLE_MATCHER.matches(mi) || BUILDER_ENABLE_MATCHER.matches(mi)) {
                             // Remove enable() if the new default is true
                             return newDefaultValue && featureName.equals(getFeatureNameFromArg(mi.getArguments().get(0)));
                         }
-                        if (DISABLE_MATCHER.matches(mi)) {
+                        if (DISABLE_MATCHER.matches(mi) || BUILDER_DISABLE_MATCHER.matches(mi)) {
                             // Remove disable() if the new default is false
                             return !newDefaultValue && featureName.equals(getFeatureNameFromArg(mi.getArguments().get(0)));
                         }
-                        if (CONFIGURE_MATCHER.matches(mi)) {
+                        if (CONFIGURE_MATCHER.matches(mi)  || BUILDER_CONFIGURE_MATCHER.matches(mi)) {
                             // configure() takes two arguments: feature and boolean value
                             return mi.getArguments().size() == 2 &&
                                     J.Literal.isLiteralValue(mi.getArguments().get(1), newDefaultValue) &&
