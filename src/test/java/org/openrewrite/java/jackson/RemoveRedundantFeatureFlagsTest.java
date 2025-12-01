@@ -414,6 +414,99 @@ class RemoveRedundantFeatureFlagsTest implements RewriteTest {
         );
     }
 
+
+
+    @Nested
+    class MapperBuilder {
+
+        @Test
+        void removeEnableSortPropertiesAlphabetically() {
+            rewriteRun(
+              //language=java
+              java(
+                """
+                  import com.fasterxml.jackson.databind.MapperFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class Test {
+                      void configure() {
+                          JsonMapper.builder().enable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY).build();
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.MapperFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class Test {
+                      void configure() {
+                          JsonMapper.builder().build();
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void removeDisableFailOnUnknownProperties() {
+            rewriteRun(
+              //language=java
+              java(
+                """
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class Test {
+                      void configure() {
+                          JsonMapper.builder().disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build();
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class Test {
+                      void configure() {
+                          JsonMapper.builder().build();
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void removeConfigureWithTrueForEnabledByDefault() {
+            rewriteRun(
+              //language=java
+              java(
+                """
+                  import com.fasterxml.jackson.databind.MapperFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class Test {
+                      void configure() {
+                          JsonMapper.builder().configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true).build();
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.MapperFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class Test {
+                      void configure() {
+                          JsonMapper.builder().build();
+                      }
+                  }
+                  """
+              )
+            );
+        }
+    }
+
     @Nested
     class RemoveConfigProperty {
         @Test
