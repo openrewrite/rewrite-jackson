@@ -25,6 +25,7 @@ import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.search.UsesMethod;
 import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
+import org.openrewrite.java.tree.JavaType;
 import org.openrewrite.java.tree.TypeUtils;
 
 import java.util.Arrays;
@@ -83,7 +84,8 @@ public class RemoveBuiltInModuleRegistrations extends Recipe {
                     @Override
                     public @Nullable J visitVariableDeclarations(J.VariableDeclarations multiVariable, ExecutionContext ctx) {
                         J.VariableDeclarations mv = (J.VariableDeclarations) super.visitVariableDeclarations(multiVariable, ctx);
-                        if (BUILT_IN_MODULES.contains(TypeUtils.toString(mv.getType()))) {
+                        JavaType type = mv.getType();
+                        if (type != null && BUILT_IN_MODULES.contains(TypeUtils.toString(type))) {
                             return null;
                         }
                         return mv;
@@ -93,10 +95,12 @@ public class RemoveBuiltInModuleRegistrations extends Recipe {
                         if (expr instanceof J.NewClass) {
                             J.NewClass newClass = (J.NewClass) expr;
                             if (newClass.getClazz() != null) {
-                                return BUILT_IN_MODULES.contains(TypeUtils.toString(newClass.getClazz().getType()));
+                                JavaType type = newClass.getClazz().getType();
+                                return type != null && BUILT_IN_MODULES.contains(TypeUtils.toString(type));
                             }
                         }
-                        return BUILT_IN_MODULES.contains(TypeUtils.toString(expr.getType()));
+                        JavaType type = expr.getType();
+                        return type != null && BUILT_IN_MODULES.contains(TypeUtils.toString(type));
                     }
                 }
         );
