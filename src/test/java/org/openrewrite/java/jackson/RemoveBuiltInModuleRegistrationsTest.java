@@ -402,4 +402,35 @@ class RemoveBuiltInModuleRegistrationsTest implements RewriteTest {
             );
         }
     }
+
+    @Test
+    void removeMethodCallsOnRemovedModule() {
+        rewriteRun(
+          java(
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.databind.module.SimpleSerializers;
+              import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
+              class Test {
+                  void configure() {
+                      ObjectMapper mapper = new ObjectMapper();
+                      JavaTimeModule module = new JavaTimeModule();
+                      module.setSerializers(new SimpleSerializers());
+                      mapper.registerModule(module);
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void configure() {
+                      ObjectMapper mapper = new ObjectMapper();
+                  }
+              }
+              """
+          )
+        );
+    }
 }
