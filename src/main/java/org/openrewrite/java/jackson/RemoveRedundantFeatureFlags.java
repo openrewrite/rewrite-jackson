@@ -127,14 +127,12 @@ public class RemoveRedundantFeatureFlags extends Recipe {
                     }
 
                     private void maybeRemoveFeatureImport(Expression arg) {
-                        if (arg instanceof J.FieldAccess) {
-                            J.FieldAccess fieldAccess = (J.FieldAccess) arg;
-                            maybeRemoveImport(TypeUtils.toString(fieldAccess.getTarget().getType()));
+                        if (arg instanceof J.FieldAccess && ((J.FieldAccess) arg).getTarget().getType() instanceof FullyQualified) {
+                            maybeRemoveImport((FullyQualified) ((J.FieldAccess) arg).getTarget().getType());
                         } else if (arg instanceof J.Identifier) {
                             J.Identifier identifier = (J.Identifier) arg;
                             if (identifier.getFieldType() != null && identifier.getFieldType().getOwner() instanceof FullyQualified) {
-                                FullyQualified owner = (FullyQualified) identifier.getFieldType().getOwner();
-                                maybeRemoveImport(owner.getFullyQualifiedName());
+                                maybeRemoveImport((FullyQualified) identifier.getFieldType().getOwner());
                             }
                         }
                     }
