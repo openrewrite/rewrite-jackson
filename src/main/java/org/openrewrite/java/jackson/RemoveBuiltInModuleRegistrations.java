@@ -20,6 +20,7 @@ import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
 import org.openrewrite.TreeVisitor;
+import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.JavaVisitor;
 import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.search.UsesMethod;
@@ -80,6 +81,29 @@ public class RemoveBuiltInModuleRegistrations extends Recipe {
                             }
                             return null;
                         }
+
+                        // Remove methods called on built-in module instances
+                        if (method.getSelect() != null) {
+                            for (String module : BUILT_IN_MODULES) {
+                                if (TypeUtils.isAssignableTo(module, method.getSelect().getType())) {
+                                    // Remove any imports associated with the method arguments
+                                    for (JavaType.FullyQualified type : new JavaIsoVisitor<Set<JavaType.FullyQualified>>() {
+                                        @Override
+                                        public @Nullable JavaType visitType(@Nullable JavaType javaType, Set<JavaType.FullyQualified> types) {
+                                            if (javaType instanceof JavaType.FullyQualified) {
+                                                types.add((JavaType.FullyQualified) javaType);
+                                            }
+                                            return super.visitType(javaType, types);
+                                        }
+                                    }.reduce(method, new HashSet<>())) {
+                                        maybeRemoveImport(TypeUtils.toString(type));
+                                    }
+                                    // Remove the entire method invocation
+                                    return null;
+                                }
+                            }
+                        }
+
                         return super.visitMethodInvocation(method, ctx);
                     }
 
