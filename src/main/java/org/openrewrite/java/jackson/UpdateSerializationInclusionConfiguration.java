@@ -13,18 +13,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import org.jspecify.annotations.Nullable;
 package org.openrewrite.java.jackson;
 
 import org.openrewrite.ExecutionContext;
+import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
 import org.openrewrite.TreeVisitor;
+import org.openrewrite.java.JavaIsoVisitor;
+import org.openrewrite.java.JavaParser;
+import org.openrewrite.java.JavaTemplate;
+import org.openrewrite.java.MethodMatcher;
+import org.openrewrite.java.search.UsesMethod;
+import org.openrewrite.java.tree.J;
+import org.openrewrite.java.tree.JRightPadded;
 
 import java.util.Set;
 
 import static java.util.Collections.singleton;
 
 public class UpdateSerializationInclusionConfiguration extends Recipe {
+
+    private static final MethodMatcher MAPPER_BUILDER_SERIALIZATION_INCLUSION_MATCHER = new MethodMatcher("com.fasterxml.jackson.databind..MapperBuilder serializationInclusion(com.fasterxml.jackson.annotation.JsonInclude.Include)");
 
     @Override
     public String getDisplayName() {
@@ -44,6 +53,27 @@ public class UpdateSerializationInclusionConfiguration extends Recipe {
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
-        return null;
+        return Preconditions.check(new UsesMethod<>(MAPPER_BUILDER_SERIALIZATION_INCLUSION_MATCHER), new JavaIsoVisitor<ExecutionContext>() {
+            @Override
+            public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
+                J.MethodInvocation mi = super.visitMethodInvocation(method, ctx);
+                if (MAPPER_BUILDER_SERIALIZATION_INCLUSION_MATCHER.matches(mi)) {
+                    J.MethodInvocation result = JavaTemplate
+                            .builder("#{any(com.fasterxml.jackson.databind.json.JsonMapper$Builder)}.changeDefaultPropertyInclusion(incl -> incl" +
+                                    ".withContentInclusion(#{any(com.fasterxml.jackson.annotation.JsonInclude.Include)})" +
+                                    ".withValueInclusion(#{any(com.fasterxml.jackson.annotation.JsonInclude.Include)}))")
+                            .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx, "jackson-annotations", "jackson-core", "jackson-databind"))
+                            .build()
+                            .apply(
+                                    getCursor(),
+                                    mi.getCoordinates().replace(),
+                                    mi.getSelect(),
+                                    mi.getArguments().get(0),
+                                    mi.getArguments().get(0));
+                    return result.getPadding().withSelect(JRightPadded.build(result.getSelect()).withAfter(mi.getPadding().getSelect().getAfter()));
+                }
+                return mi;
+            }
+        });
     }
 }

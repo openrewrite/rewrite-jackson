@@ -29,6 +29,7 @@ class UpdateSerializationInclusionConfigurationTest implements RewriteTest {
     public void defaults(RecipeSpec spec) {
         spec.recipe(new UpdateSerializationInclusionConfiguration())
           .parser(JavaParser.fromJavaVersion().classpath(
+            "jackson-annotations",
             "jackson-core",
             "jackson-databind")
           );
@@ -54,13 +55,12 @@ class UpdateSerializationInclusionConfigurationTest implements RewriteTest {
               """,
             """
               import com.fasterxml.jackson.annotation.JsonInclude;
-              import tools.jackson.databind.json.JsonMapper;
+              import com.fasterxml.jackson.databind.json.JsonMapper;
 
               class Test {
                   void configure() {
                       JsonMapper.builder()
-                        .changeDefaultPropertyInclusion(incl -> incl.withValueInclusion(JsonInclude.Include.NON_NULL))
-                        .changeDefaultPropertyInclusion(incl -> incl.withContentInclusion(JsonInclude.Include.NON_NULL))
+                        .changeDefaultPropertyInclusion(incl -> incl.withContentInclusion(JsonInclude.Include.NON_NULL).withValueInclusion(JsonInclude.Include.NON_NULL))
                         .build();
                   }
               }
