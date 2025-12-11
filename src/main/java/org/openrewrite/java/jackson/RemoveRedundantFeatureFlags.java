@@ -118,10 +118,22 @@ public class RemoveRedundantFeatureFlags extends Recipe {
                     @Override
                     public @Nullable J visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
                         if (shouldRemove(method)) {
+                            maybeRemoveFeatureImport(method.getArguments().get(0));
                             // If it's part of a chain, return the select; otherwise remove the statement
                             return method.getSelect() instanceof J.MethodInvocation ? method.getSelect() : null;
                         }
                         return super.visitMethodInvocation(method, ctx);
+                    }
+
+                    private void maybeRemoveFeatureImport(Expression arg) {
+                        if (arg instanceof J.FieldAccess && ((J.FieldAccess) arg).getTarget().getType() instanceof FullyQualified) {
+                            maybeRemoveImport((FullyQualified) ((J.FieldAccess) arg).getTarget().getType());
+                        } else if (arg instanceof J.Identifier) {
+                            J.Identifier identifier = (J.Identifier) arg;
+                            if (identifier.getFieldType() != null && identifier.getFieldType().getOwner() instanceof FullyQualified) {
+                                maybeRemoveImport((FullyQualified) identifier.getFieldType().getOwner());
+                            }
+                        }
                     }
 
                     private boolean shouldRemove(J.MethodInvocation mi) {
@@ -133,7 +145,7 @@ public class RemoveRedundantFeatureFlags extends Recipe {
                             // Remove disable() if the new default is false
                             return !newDefaultValue && featureName.equals(getFeatureNameFromArg(mi.getArguments().get(0)));
                         }
-                        if (CONFIGURE_MATCHER.matches(mi)  || BUILDER_CONFIGURE_MATCHER.matches(mi)) {
+                        if (CONFIGURE_MATCHER.matches(mi) || BUILDER_CONFIGURE_MATCHER.matches(mi)) {
                             // configure() takes two arguments: feature and boolean value
                             return mi.getArguments().size() == 2 &&
                                     J.Literal.isLiteralValue(mi.getArguments().get(1), newDefaultValue) &&
