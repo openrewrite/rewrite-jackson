@@ -428,8 +428,8 @@ class Jackson3DependenciesTest implements RewriteTest {
     @Test
     void noDuplicateJacksonDatabindDependencies() {
         rewriteRun(
-          //language=xml
           pomXml(
+            //language=xml
             """
               <project>
                   <modelVersion>4.0.0</modelVersion>
@@ -450,26 +450,11 @@ class Jackson3DependenciesTest implements RewriteTest {
                   </dependencies>
               </project>
               """,
-            spec -> spec.after(pom -> {
-                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+").matcher(pom);
-                assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
-                String jacksonVersion = versionMatcher.group(0);
-                return """
-                  <project>
-                      <modelVersion>4.0.0</modelVersion>
-                      <groupId>org.example</groupId>
-                      <artifactId>example</artifactId>
-                      <version>1.0.0</version>
-                      <dependencies>
-                          <dependency>
-                              <groupId>tools.jackson.core</groupId>
-                              <artifactId>jackson-databind</artifactId>
-                              <version>%s</version>
-                          </dependency>
-                      </dependencies>
-                  </project>
-                  """.formatted(jacksonVersion);
-            })
+            spec -> spec.after(pom ->
+              assertThat(pom)
+                .doesNotContain("jackson-datatype")
+                .containsOnlyOnce("jackson-databind")
+                .actual())
           )
         );
     }
@@ -494,24 +479,11 @@ class Jackson3DependenciesTest implements RewriteTest {
                   implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.19.0")
               }
               """,
-            spec -> spec.after(pom -> {
-                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+").matcher(pom);
-                assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
-                String jacksonVersion = versionMatcher.group(0);
-                return """
-                    plugins {
-                        id("java-library")
-                    }
-
-                    repositories {
-                        mavenCentral()
-                    }
-
-                    dependencies {
-                        implementation("tools.jackson.core:jackson-databind:%s")
-                    }
-                  """.formatted(jacksonVersion);
-            })
+            spec -> spec.after(buildGradle ->
+              assertThat(buildGradle)
+                .doesNotContain("jackson-datatype")
+                .containsOnlyOnce("jackson-databind")
+                .actual())
           )
         );
     }
