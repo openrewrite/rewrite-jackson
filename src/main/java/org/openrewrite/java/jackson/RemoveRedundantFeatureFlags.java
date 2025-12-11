@@ -25,7 +25,6 @@ import org.openrewrite.java.search.UsesMethod;
 import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JavaType.FullyQualified;
-import org.openrewrite.java.tree.TypeUtils;
 
 import java.util.Set;
 
