@@ -1,10 +1,24 @@
+/*
+ * Copyright 2025 the original author or authors.
+ * <p>
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * https://www.apache.org/licenses/LICENSE-2.0
+ * <p>
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.openrewrite.java.jackson;
 
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Recipe;
 import org.openrewrite.TreeVisitor;
 import org.openrewrite.java.JavaIsoVisitor;
-import org.openrewrite.java.JavaParser;
 import org.openrewrite.java.JavaTemplate;
 import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.tree.J;
@@ -32,25 +46,25 @@ public class JsonNodeFieldIteratorMigration extends Recipe {
 
             @Override
             public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
-                J.MethodInvocation mi = super.visitMethodInvocation(method, ctx);
+                J.MethodInvocation mi = super.visitMethodInvocation( method, ctx );
 
-                String iteratorTemplate;
                 if (FIELDS.matches(mi)) {
-                    iteratorTemplate = "new HashMap<String, JsonNode>().iterator()";
-                } else if (FIELDS_NAMES.matches(mi)) {
-                    iteratorTemplate = "new HashSet<String>().iterator()";
-                } else if (ELEMENTS.matches(mi)) {
-                    iteratorTemplate = "new HashSet<JsonNode>().iterator()";
-                } else {
-                    return mi;
+                    return addCallToChain( "java.util.Collections.<String, JsonNode>emptyMap().entrySet().iterator()", mi );
+                }
+                if (FIELDS_NAMES.matches(mi)) {
+                    return addCallToChain( "java.util.Collections.<String>emptySet().iterator()", mi );
+                }
+                if (ELEMENTS.matches(mi)) {
+                    return addCallToChain( "java.util.Collections.<JsonNode>emptySet().iterator()", mi );
                 }
 
-                J.MethodInvocation iteratorCall = JavaTemplate.builder(iteratorTemplate)
-                        .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx, "jackson-databind-3", "jackson-core-3"))
-                        .imports("tools.jackson.databind.JsonNode", "java.util.Iterator", "java.lang.Iterable", "java.util.HashSet", "java.util.HashMap", "java.util.Map.Entry", "java.lang.String")
-                        .build()
-                        .apply(getCursor(), mi.getCoordinates().replaceMethod());
-                return autoFormat(iteratorCall.withSelect(mi), ctx);
+                return mi;
+            }
+
+            private J.MethodInvocation addCallToChain(String template, J.MethodInvocation mi) {
+                // because we use this as intermediate and overwrite all interesting types manually later, we need no CL here
+                J.MethodInvocation iteratorCall = JavaTemplate.apply(template, updateCursor(mi), mi.getCoordinates().replace());
+                return iteratorCall.withSelect(mi).withPrefix(Space.EMPTY);
             }
         };
     }
