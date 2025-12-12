@@ -59,7 +59,7 @@ public class UpdateSerializationInclusionConfiguration extends Recipe {
                 J.MethodInvocation mi = super.visitMethodInvocation(method, ctx);
                 if (MAPPER_BUILDER_SERIALIZATION_INCLUSION_MATCHER.matches(mi)) {
                     J.MethodInvocation result = JavaTemplate
-                            .builder("#{any(com.fasterxml.jackson.databind.json.JsonMapper$Builder)}.changeDefaultPropertyInclusion(incl -> incl" +
+                            .builder("#{any(tools.jackson.databind.json.JsonMapper$Builder)}.changeDefaultPropertyInclusion(incl -> incl" +
                                     ".withContentInclusion(#{any(com.fasterxml.jackson.annotation.JsonInclude.Include)})" +
                                     ".withValueInclusion(#{any(com.fasterxml.jackson.annotation.JsonInclude.Include)}))")
                             .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx,
