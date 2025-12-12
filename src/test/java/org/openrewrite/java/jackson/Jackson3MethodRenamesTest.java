@@ -17,6 +17,7 @@ package org.openrewrite.java.jackson;
 
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
+import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
@@ -408,6 +409,31 @@ class Jackson3MethodRenamesTest implements RewriteTest {
                       boolean isString = node.isString();
                       String textValue = node.asString();
                       var modifiedNode = node.withObject("pineapple");
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void json2() {
+        rewriteRun(
+          spec -> spec.parser(JavaParser.fromJavaVersion()
+            .classpathFromResources(new InMemoryExecutionContext(),"jackson-core-3", "jackson-databind-3")),
+          //language=java
+          java(
+            """
+              import tools.jackson.databind.JsonNode;
+              import java.util.Iterator;
+              import java.util.List;
+              import java.util.Map;
+
+              class Test {
+                  void test(JsonNode node) {
+                      Iterator<JsonNode> elements = node.values().iterator();
+                      Iterator<Map.Entry<String, JsonNode>> fields = node.properties().iterator();
+                      Iterator<String> names = node.propertyNames().iterator();
                   }
               }
               """
