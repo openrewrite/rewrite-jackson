@@ -431,15 +431,6 @@ recipeList:
       methodPattern: com.fasterxml.jackson.databind.JsonNode asText(..)
       newMethodName: asString
   - org.openrewrite.java.ChangeMethodName:
-      methodPattern: com.fasterxml.jackson.databind.JsonNode elements()
-      newMethodName: values
-  - org.openrewrite.java.ChangeMethodName:
-      methodPattern: com.fasterxml.jackson.databind.JsonNode fields()
-      newMethodName: properties
-  - org.openrewrite.java.ChangeMethodName:
-      methodPattern: com.fasterxml.jackson.databind.JsonNode fieldNames()
-      newMethodName: propertyNames
-  - org.openrewrite.java.ChangeMethodName:
       methodPattern: com.fasterxml.jackson.databind.JsonNode findValuesAsText(..)
       newMethodName: findValuesAsString
   - org.openrewrite.java.ChangeMethodName:
@@ -454,6 +445,7 @@ recipeList:
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: com.fasterxml.jackson.databind.JsonNode with(..)
       newMethodName: withObject
+  - org.openrewrite.java.jackson.Jackson3JsonNodeFieldIterators
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
