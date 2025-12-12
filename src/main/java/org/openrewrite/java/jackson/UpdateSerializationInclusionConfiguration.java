@@ -62,7 +62,8 @@ public class UpdateSerializationInclusionConfiguration extends Recipe {
                             .builder("#{any(com.fasterxml.jackson.databind.json.JsonMapper$Builder)}.changeDefaultPropertyInclusion(incl -> incl" +
                                     ".withContentInclusion(#{any(com.fasterxml.jackson.annotation.JsonInclude.Include)})" +
                                     ".withValueInclusion(#{any(com.fasterxml.jackson.annotation.JsonInclude.Include)}))")
-                            .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx, "jackson-annotations-3", "jackson-core-3", "jackson-databind-3"))
+                            .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx,
+                                    "jackson-annotations-2", "jackson-core-3", "jackson-databind-3"))
                             .build()
                             .apply(
                                     getCursor(),
