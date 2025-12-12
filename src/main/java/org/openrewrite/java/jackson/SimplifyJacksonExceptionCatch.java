@@ -62,18 +62,16 @@ public class SimplifyJacksonExceptionCatch extends Recipe {
                     @Override
                     public J.MultiCatch visitMultiCatch(J.MultiCatch multiCatch, ExecutionContext ctx) {
                         J.MultiCatch mc = super.visitMultiCatch(multiCatch, ctx);
-
-                        // Check if RuntimeException is in the multi-catch
                         if (mc.getAlternatives().stream().noneMatch(nt -> TypeUtils.isOfClassType(nt.getType(), RUNTIME_EXCEPTION))) {
                             return mc;
                         }
 
                         List<NameTree> filtered = ListUtils.filter(mc.getAlternatives(), nt -> {
-                            boolean isJacksonException = TypeUtils.isAssignableTo(JACKSON_RUNTIME_EXCEPTION, nt.getType());
-                            if (isJacksonException) {
+                            if (TypeUtils.isAssignableTo(JACKSON_RUNTIME_EXCEPTION, nt.getType())) {
                                 maybeRemoveImport(TypeUtils.asFullyQualified(nt.getType()));
+                                return false;
                             }
-                            return !isJacksonException;
+                            return true;
                         });
                         return mc.withAlternatives(ListUtils.mapFirst(filtered, first -> first.withPrefix(mc.getAlternatives().get(0).getPrefix())));
                     }
