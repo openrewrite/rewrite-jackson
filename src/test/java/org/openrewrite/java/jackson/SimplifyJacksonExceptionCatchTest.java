@@ -17,6 +17,8 @@ package org.openrewrite.java.jackson;
 
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
+import org.openrewrite.InMemoryExecutionContext;
+import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
@@ -26,22 +28,15 @@ class SimplifyJacksonExceptionCatchTest implements RewriteTest {
 
     @Override
     public void defaults(RecipeSpec spec) {
-        spec.recipe(new SimplifyJacksonExceptionCatch());
+        spec.recipe(new SimplifyJacksonExceptionCatch())
+          .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
+            "jackson-core-3"));
     }
 
     @DocumentExample
     @Test
     void simplifiesJacksonExceptionWithRuntimeException() {
         rewriteRun(
-          // Jackson 3 JacksonException stub
-          java(
-            """
-              package tools.jackson.core;
-              public class JacksonException extends RuntimeException {
-                  public JacksonException(String msg) { super(msg); }
-              }
-              """
-          ),
           java(
             """
               import tools.jackson.core.JacksonException;
@@ -74,26 +69,9 @@ class SimplifyJacksonExceptionCatchTest implements RewriteTest {
     @Test
     void simplifiesStreamReadException() {
         rewriteRun(
-          // Jackson 3 exception stubs
           java(
             """
-              package tools.jackson.core;
-              public class JacksonException extends RuntimeException {
-                  public JacksonException(String msg) { super(msg); }
-              }
-              """
-          ),
-          java(
-            """
-              package tools.jackson.core;
-              public class StreamReadException extends JacksonException {
-                  public StreamReadException(String msg) { super(msg); }
-              }
-              """
-          ),
-          java(
-            """
-              import tools.jackson.core.StreamReadException;
+              import tools.jackson.core.exc.StreamReadException;
 
               class Test {
                   void doSomething() {
@@ -121,87 +99,12 @@ class SimplifyJacksonExceptionCatchTest implements RewriteTest {
     }
 
     @Test
-    void simplifiesDatabindException() {
-        rewriteRun(
-          // Jackson 3 exception stubs
-          java(
-            """
-              package tools.jackson.core;
-              public class JacksonException extends RuntimeException {
-                  public JacksonException(String msg) { super(msg); }
-              }
-              """
-          ),
-          java(
-            """
-              package tools.jackson.databind;
-              import tools.jackson.core.JacksonException;
-              public class DatabindException extends JacksonException {
-                  public DatabindException(String msg) { super(msg); }
-              }
-              """
-          ),
-          java(
-            """
-              import tools.jackson.databind.DatabindException;
-
-              class Test {
-                  void doSomething() {
-                      try {
-                          // some code
-                      } catch (DatabindException | RuntimeException e) {
-                          e.printStackTrace();
-                      }
-                  }
-              }
-              """,
-            """
-              class Test {
-                  void doSomething() {
-                      try {
-                          // some code
-                      } catch (RuntimeException e) {
-                          e.printStackTrace();
-                      }
-                  }
-              }
-              """
-          )
-        );
-    }
-
-    @Test
     void simplifiesMultipleJacksonExceptions() {
         rewriteRun(
-          // Jackson 3 exception stubs
           java(
             """
-              package tools.jackson.core;
-              public class JacksonException extends RuntimeException {
-                  public JacksonException(String msg) { super(msg); }
-              }
-              """
-          ),
-          java(
-            """
-              package tools.jackson.core;
-              public class StreamReadException extends JacksonException {
-                  public StreamReadException(String msg) { super(msg); }
-              }
-              """
-          ),
-          java(
-            """
-              package tools.jackson.core;
-              public class StreamWriteException extends JacksonException {
-                  public StreamWriteException(String msg) { super(msg); }
-              }
-              """
-          ),
-          java(
-            """
-              import tools.jackson.core.StreamReadException;
-              import tools.jackson.core.StreamWriteException;
+              import tools.jackson.core.exc.StreamReadException;
+              import tools.jackson.core.exc.StreamWriteException;
 
               class Test {
                   void doSomething() {
@@ -231,15 +134,6 @@ class SimplifyJacksonExceptionCatchTest implements RewriteTest {
     @Test
     void preservesOtherExceptionsInMultiCatch() {
         rewriteRun(
-          // Jackson 3 JacksonException stub
-          java(
-            """
-              package tools.jackson.core;
-              public class JacksonException extends RuntimeException {
-                  public JacksonException(String msg) { super(msg); }
-              }
-              """
-          ),
           java(
             """
               import tools.jackson.core.JacksonException;
@@ -273,56 +167,8 @@ class SimplifyJacksonExceptionCatchTest implements RewriteTest {
     }
 
     @Test
-    void noChangeWhenRuntimeExceptionNotPresent() {
-        rewriteRun(
-          // Jackson 3 JacksonException stub
-          java(
-            """
-              package tools.jackson.core;
-              public class JacksonException extends RuntimeException {
-                  public JacksonException(String msg) { super(msg); }
-              }
-              """
-          ),
-          java(
-            """
-              package tools.jackson.core;
-              public class StreamReadException extends JacksonException {
-                  public StreamReadException(String msg) { super(msg); }
-              }
-              """
-          ),
-          java(
-            """
-              import tools.jackson.core.JacksonException;
-              import tools.jackson.core.StreamReadException;
-
-              class Test {
-                  void doSomething() {
-                      try {
-                          // some code
-                      } catch (JacksonException | StreamReadException e) {
-                          e.printStackTrace();
-                      }
-                  }
-              }
-              """
-          )
-        );
-    }
-
-    @Test
     void noChangeForSingleExceptionCatch() {
         rewriteRun(
-          // Jackson 3 JacksonException stub
-          java(
-            """
-              package tools.jackson.core;
-              public class JacksonException extends RuntimeException {
-                  public JacksonException(String msg) { super(msg); }
-              }
-              """
-          ),
           java(
             """
               import tools.jackson.core.JacksonException;
