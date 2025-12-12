@@ -37,7 +37,8 @@ public class JsonNodeFieldIteratorMigration extends Recipe {
 
     @Override
     public String getDescription() {
-        return "`JSONNode` field iterators now use `Collections` instead of `Iterator`.";
+        return "`JSONNode` field iterators now use `Collections` instead of `Iterator`. " +
+                "To mimic Jackson's old behavior an additional call to `Collection#iterator()`is needed.";
     }
 
     @Override
