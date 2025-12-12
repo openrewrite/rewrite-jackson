@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.jackson;
 
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.Issue;
@@ -294,6 +295,128 @@ class RemoveBuiltInModuleRegistrationsTest implements RewriteTest {
                   void configure() {
                       JavaTimeModule module = new JavaTimeModule();
                       ObjectMapper mapper = new ObjectMapper();
+                      mapper.registerModule(module);
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void configure() {
+                      ObjectMapper mapper = new ObjectMapper();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Nested
+    class MapperBuilder {
+
+        @Test
+        void removeJavaTimeModuleRegistration() {
+            rewriteRun(
+              java(
+                // language=java
+                """
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+                  import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
+                  class Test {
+                      void configure() {
+                          JsonMapper.builder().addModule(new JavaTimeModule()).build();
+                      }
+                  }
+                  """,
+                // language=java
+                """
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class Test {
+                      void configure() {
+                          JsonMapper.builder().build();
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void removeJdk8ModuleRegistration() {
+            rewriteRun(
+              java(
+                // language=java
+                """
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+                  import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+
+                  class Test {
+                      void configure() {
+                          JsonMapper.builder().addModule(new Jdk8Module()).build();
+                      }
+                  }
+                  """,
+                // language=java
+                """
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class Test {
+                      void configure() {
+                          JsonMapper.builder().build();
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void removeParameterNamesModuleRegistration() {
+            rewriteRun(
+              java(
+                // language=java
+                """
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+                  import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
+
+                  class Test {
+                      void configure() {
+                          JsonMapper.builder().addModule(new ParameterNamesModule()).build();
+                      }
+                  }
+                  """,
+                // language=java
+                """
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class Test {
+                      void configure() {
+                          JsonMapper.builder().build();
+                      }
+                  }
+                  """
+              )
+            );
+        }
+    }
+
+    @Test
+    void removeMethodCallsOnRemovedModule() {
+        rewriteRun(
+          java(
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.databind.module.SimpleSerializers;
+              import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
+              class Test {
+                  void configure() {
+                      ObjectMapper mapper = new ObjectMapper();
+                      JavaTimeModule module = new JavaTimeModule();
+                      module.setSerializers(new SimpleSerializers());
                       mapper.registerModule(module);
                   }
               }

@@ -53,7 +53,6 @@ class RemoveRedundantFeatureFlagsTest implements RewriteTest {
               }
               """,
             """
-              import com.fasterxml.jackson.databind.MapperFeature;
               import com.fasterxml.jackson.databind.ObjectMapper;
 
               class Test {
@@ -83,7 +82,6 @@ class RemoveRedundantFeatureFlagsTest implements RewriteTest {
               }
               """,
             """
-              import com.fasterxml.jackson.databind.DeserializationFeature;
               import com.fasterxml.jackson.databind.ObjectMapper;
 
               class Test {
@@ -113,7 +111,6 @@ class RemoveRedundantFeatureFlagsTest implements RewriteTest {
               }
               """,
             """
-              import com.fasterxml.jackson.databind.DeserializationFeature;
               import com.fasterxml.jackson.databind.ObjectMapper;
 
               class Test {
@@ -143,7 +140,6 @@ class RemoveRedundantFeatureFlagsTest implements RewriteTest {
               }
               """,
             """
-              import com.fasterxml.jackson.databind.SerializationFeature;
               import com.fasterxml.jackson.databind.ObjectMapper;
 
               class Test {
@@ -194,7 +190,6 @@ class RemoveRedundantFeatureFlagsTest implements RewriteTest {
               }
               """,
             """
-              import com.fasterxml.jackson.databind.MapperFeature;
               import com.fasterxml.jackson.databind.ObjectMapper;
 
               class Test {
@@ -224,7 +219,6 @@ class RemoveRedundantFeatureFlagsTest implements RewriteTest {
               }
               """,
             """
-              import com.fasterxml.jackson.databind.DeserializationFeature;
               import com.fasterxml.jackson.databind.ObjectMapper;
 
               class Test {
@@ -275,7 +269,6 @@ class RemoveRedundantFeatureFlagsTest implements RewriteTest {
               }
               """,
             """
-              import com.fasterxml.jackson.databind.DeserializationFeature;
               import com.fasterxml.jackson.databind.ObjectMapper;
 
               class Test {
@@ -305,7 +298,6 @@ class RemoveRedundantFeatureFlagsTest implements RewriteTest {
               }
               """,
             """
-              import com.fasterxml.jackson.databind.SerializationFeature;
               import com.fasterxml.jackson.databind.ObjectMapper;
 
               class Test {
@@ -338,8 +330,6 @@ class RemoveRedundantFeatureFlagsTest implements RewriteTest {
             """
               import com.fasterxml.jackson.databind.ObjectMapper;
 
-              import static com.fasterxml.jackson.databind.MapperFeature.SORT_PROPERTIES_ALPHABETICALLY;
-
               class Test {
                   void configure() {
                       ObjectMapper mapper = new ObjectMapper();
@@ -370,8 +360,6 @@ class RemoveRedundantFeatureFlagsTest implements RewriteTest {
             """
               import com.fasterxml.jackson.databind.ObjectMapper;
 
-              import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
-
               class Test {
                   void configure() {
                       ObjectMapper mapper = new ObjectMapper();
@@ -401,8 +389,6 @@ class RemoveRedundantFeatureFlagsTest implements RewriteTest {
               """,
             """
               import com.fasterxml.jackson.databind.ObjectMapper;
-
-              import static com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS;
 
               class Test {
                   void configure() {
@@ -435,7 +421,6 @@ class RemoveRedundantFeatureFlagsTest implements RewriteTest {
                   }
                   """,
                 """
-                  import com.fasterxml.jackson.databind.MapperFeature;
                   import com.fasterxml.jackson.databind.json.JsonMapper;
 
                   class Test {
@@ -464,7 +449,6 @@ class RemoveRedundantFeatureFlagsTest implements RewriteTest {
                   }
                   """,
                 """
-                  import com.fasterxml.jackson.databind.DeserializationFeature;
                   import com.fasterxml.jackson.databind.json.JsonMapper;
 
                   class Test {
@@ -493,7 +477,6 @@ class RemoveRedundantFeatureFlagsTest implements RewriteTest {
                   }
                   """,
                 """
-                  import com.fasterxml.jackson.databind.MapperFeature;
                   import com.fasterxml.jackson.databind.json.JsonMapper;
 
                   class Test {

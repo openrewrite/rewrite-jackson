@@ -20,6 +20,7 @@ import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
 import org.openrewrite.TreeVisitor;
+import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.JavaVisitor;
 import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.search.UsesMethod;
@@ -38,6 +39,8 @@ public class RemoveBuiltInModuleRegistrations extends Recipe {
 
     private static final String OBJECT_MAPPER_TYPE = "com.fasterxml.jackson.databind.ObjectMapper";
     private static final MethodMatcher REGISTER_MODULE = new MethodMatcher(OBJECT_MAPPER_TYPE + " registerModule*(..)");
+    private static final String OBJECT_MAPPER_BUILDER_TYPE = "com.fasterxml.jackson.databind.cfg.MapperBuilder";
+    private static final MethodMatcher ADD_MODULE = new MethodMatcher(OBJECT_MAPPER_BUILDER_TYPE + " addModule*(..)");
 
     private static final Set<String> BUILT_IN_MODULES = new HashSet<>(Arrays.asList(
             "com.fasterxml.jackson.module.paramnames.ParameterNamesModule",
@@ -53,7 +56,7 @@ public class RemoveBuiltInModuleRegistrations extends Recipe {
     @Override
     public String getDescription() {
         return "In Jackson 3, `ParameterNamesModule`, `Jdk8Module`, and `JavaTimeModule` are built into `jackson-databind` " +
-                "and no longer need to be registered manually. This recipe removes `ObjectMapper.registerModule()` calls " +
+                "and no longer need to be registered manually. This recipe removes `ObjectMapper.registerModule()` and `MapperBuilder.addModule()` calls " +
                 "for these modules.";
     }
 
@@ -64,10 +67,10 @@ public class RemoveBuiltInModuleRegistrations extends Recipe {
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
-        return Preconditions.check(new UsesMethod<>(REGISTER_MODULE), new JavaVisitor<ExecutionContext>() {
+        return Preconditions.check(Preconditions.or(new UsesMethod<>(REGISTER_MODULE), new UsesMethod<>(ADD_MODULE)), new JavaVisitor<ExecutionContext>() {
                     @Override
                     public @Nullable J visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
-                        if (REGISTER_MODULE.matches(method) &&
+                        if ((REGISTER_MODULE.matches(method) || ADD_MODULE.matches(method)) &&
                                 method.getArguments().stream().anyMatch(this::isBuiltInModuleInstantiation)) {
                             for (String module : BUILT_IN_MODULES) {
                                 maybeRemoveImport(module);
@@ -78,6 +81,29 @@ public class RemoveBuiltInModuleRegistrations extends Recipe {
                             }
                             return null;
                         }
+
+                        // Remove methods called on built-in module instances
+                        if (method.getSelect() != null) {
+                            for (String module : BUILT_IN_MODULES) {
+                                if (TypeUtils.isAssignableTo(module, method.getSelect().getType())) {
+                                    // Remove any imports associated with the method arguments
+                                    for (JavaType.FullyQualified type : new JavaIsoVisitor<Set<JavaType.FullyQualified>>() {
+                                        @Override
+                                        public @Nullable JavaType visitType(@Nullable JavaType javaType, Set<JavaType.FullyQualified> types) {
+                                            if (javaType instanceof JavaType.FullyQualified) {
+                                                types.add((JavaType.FullyQualified) javaType);
+                                            }
+                                            return super.visitType(javaType, types);
+                                        }
+                                    }.reduce(method, new HashSet<>())) {
+                                        maybeRemoveImport(TypeUtils.toString(type));
+                                    }
+                                    // Remove the entire method invocation
+                                    return null;
+                                }
+                            }
+                        }
+
                         return super.visitMethodInvocation(method, ctx);
                     }
 
