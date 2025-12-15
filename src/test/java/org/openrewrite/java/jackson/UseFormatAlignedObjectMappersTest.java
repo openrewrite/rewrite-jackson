@@ -35,42 +35,27 @@ class UseFormatAlignedObjectMappersTest implements RewriteTest {
               "jackson-core-2", "jackson-databind-2", "jackson-dataformat-yaml-2", "jackson-dataformat-xml-2"));
     }
 
-    @Test
-    void keepObjectMapper() {
-        rewriteRun(
-          java(
-            """
-            import com.fasterxml.jackson.databind.ObjectMapper;
-
-            class A {
-                ObjectMapper mapper = new ObjectMapper();
-            }
-            """
-          )
-        );
-    }
-
     @DocumentExample
     @Test
     void jsonMapper() {
         rewriteRun(
           java(
             """
-            import com.fasterxml.jackson.databind.ObjectMapper;
-            import com.fasterxml.jackson.core.JsonFactory;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.core.JsonFactory;
 
-            class A {
-                ObjectMapper mapper = new ObjectMapper(new JsonFactory());
-            }
-            """,
+              class A {
+                  ObjectMapper mapper = new ObjectMapper(new JsonFactory());
+              }
+              """,
             """
-            import com.fasterxml.jackson.databind.ObjectMapper;
-            import com.fasterxml.jackson.databind.json.JsonMapper;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.databind.json.JsonMapper;
 
-            class A {
-                ObjectMapper mapper = new JsonMapper();
-            }
-            """
+              class A {
+                  ObjectMapper mapper = new JsonMapper();
+              }
+              """
           )
         );
     }
@@ -80,21 +65,21 @@ class UseFormatAlignedObjectMappersTest implements RewriteTest {
         rewriteRun(
           java(
             """
-            import com.fasterxml.jackson.databind.ObjectMapper;
-            import com.fasterxml.jackson.dataformat.xml.XmlFactory;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.dataformat.xml.XmlFactory;
 
-            class A {
-                ObjectMapper mapper = new ObjectMapper(new XmlFactory());
-            }
-            """,
+              class A {
+                  ObjectMapper mapper = new ObjectMapper(new XmlFactory());
+              }
+              """,
             """
-            import com.fasterxml.jackson.databind.ObjectMapper;
-            import com.fasterxml.jackson.dataformat.xml.XmlMapper;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 
-            class A {
-                ObjectMapper mapper = new XmlMapper();
-            }
-            """
+              class A {
+                  ObjectMapper mapper = new XmlMapper();
+              }
+              """
           )
         );
     }
@@ -104,21 +89,36 @@ class UseFormatAlignedObjectMappersTest implements RewriteTest {
         rewriteRun(
           java(
             """
-            import com.fasterxml.jackson.databind.ObjectMapper;
-            import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 
-            class A {
-                ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
-            }
-            """,
+              class A {
+                  ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
+              }
+              """,
             """
-            import com.fasterxml.jackson.databind.ObjectMapper;
-            import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 
-            class A {
-                ObjectMapper mapper = new YAMLMapper();
-            }
+              class A {
+                  ObjectMapper mapper = new YAMLMapper();
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void keepObjectMapper() {
+        rewriteRun(
+          java(
             """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class A {
+                  ObjectMapper mapper = new ObjectMapper();
+              }
+              """
           )
         );
     }
