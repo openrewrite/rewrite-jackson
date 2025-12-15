@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.jackson;
 
+import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Recipe;
 import org.openrewrite.TreeVisitor;
@@ -29,7 +30,6 @@ import org.openrewrite.java.tree.TypeUtils;
 
 public class UseFormatAlignedObjectMappers extends Recipe {
 
-    private static final MethodMatcher OBJECT_MAPPER_DEFAULT = new MethodMatcher("com.fasterxml.jackson.databind.ObjectMapper <constructor>()");
     private static final MethodMatcher OBJECT_MAPPER_FACTORY = new MethodMatcher("com.fasterxml.jackson.databind.ObjectMapper <constructor>(com.fasterxml.jackson.core.JsonFactory)");
 
     @Override
@@ -49,24 +49,19 @@ public class UseFormatAlignedObjectMappers extends Recipe {
             public J.NewClass visitNewClass(J.NewClass newClass, ExecutionContext ctx) {
                 J.NewClass nc = super.visitNewClass(newClass, ctx);
 
-                if (OBJECT_MAPPER_DEFAULT.matches(nc)) {
-                    maybeAddImport("com.fasterxml.jackson.databind.json.JsonMapper");
-                    return JavaTemplate.builder("new JsonMapper()")
-                            .imports("com.fasterxml.jackson.databind.json.JsonMapper")
-                            .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx, "jackson-core-2", "jackson-databind-2"))
-                            .build()
-                            .apply(getCursor(), nc.getCoordinates().replace());
+                if (!OBJECT_MAPPER_FACTORY.matches(nc)) {
+                    return nc;
                 }
 
-                if (OBJECT_MAPPER_FACTORY.matches(nc)) {
-                    return createExplicitMapperTemplate(nc.getArguments().get(0), ctx)
-                            .apply(getCursor(), nc.getCoordinates().replace());
+                JavaTemplate explicitMapperTemplate = createExplicitMapperTemplate(nc.getArguments().get(0), ctx);
+                if (explicitMapperTemplate == null) { // unsupported migration
+                    return nc;
                 }
 
-                return nc;
+                return explicitMapperTemplate.apply(getCursor(), nc.getCoordinates().replace());
             }
 
-            private JavaTemplate createExplicitMapperTemplate(Expression factory, ExecutionContext ctx) {
+            private @Nullable JavaTemplate createExplicitMapperTemplate(Expression factory, ExecutionContext ctx) {
                 JavaType type = factory.getType();
 
                 if (TypeUtils.isAssignableTo("com.fasterxml.jackson.dataformat.yaml.YAMLFactory", type)) {
@@ -87,13 +82,17 @@ public class UseFormatAlignedObjectMappers extends Recipe {
                             .build();
                 }
 
-                // we default back to JSON as it's the Jackson default
-                maybeRemoveImport("com.fasterxml.jackson.core.JsonFactory");
-                maybeAddImport("com.fasterxml.jackson.databind.json.JsonMapper");
-                return JavaTemplate.builder("new JsonMapper()")
-                        .imports("com.fasterxml.jackson.databind.json.JsonMapper")
-                        .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx, "jackson-core-2", "jackson-databind-2"))
-                        .build();
+                if (TypeUtils.isAssignableTo("com.fasterxml.jackson.core.JsonFactory", type)) {
+                    // we default back to JSON as it's the Jackson default
+                    maybeRemoveImport("com.fasterxml.jackson.core.JsonFactory");
+                    maybeAddImport("com.fasterxml.jackson.databind.json.JsonMapper");
+                    return JavaTemplate.builder("new JsonMapper()")
+                            .imports("com.fasterxml.jackson.databind.json.JsonMapper")
+                            .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx, "jackson-core-2", "jackson-databind-2"))
+                            .build();
+                }
+
+                return null; // unsupported factory type
             }
         };
     }

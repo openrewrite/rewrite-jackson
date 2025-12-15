@@ -35,9 +35,8 @@ class UseFormatAlignedObjectMappersTest implements RewriteTest {
               "jackson-core-2", "jackson-databind-2", "jackson-dataformat-yaml-2", "jackson-dataformat-xml-2"));
     }
 
-    @DocumentExample
     @Test
-    void objectMapperDefaultsToJson() {
+    void keepObjectMapper() {
         rewriteRun(
           java(
             """
@@ -46,19 +45,12 @@ class UseFormatAlignedObjectMappersTest implements RewriteTest {
             class A {
                 ObjectMapper mapper = new ObjectMapper();
             }
-            """,
-            """
-            import com.fasterxml.jackson.databind.ObjectMapper;
-            import com.fasterxml.jackson.databind.json.JsonMapper;
-
-            class A {
-                ObjectMapper mapper = new JsonMapper();
-            }
             """
           )
         );
     }
 
+    @DocumentExample
     @Test
     void jsonMapper() {
         rewriteRun(
