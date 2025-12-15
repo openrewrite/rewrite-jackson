@@ -16,24 +16,84 @@
 package org.openrewrite.java.jackson;
 
 import org.openrewrite.ExecutionContext;
-import org.openrewrite.NlsRewrite;
 import org.openrewrite.Recipe;
 import org.openrewrite.TreeVisitor;
+import org.openrewrite.java.JavaIsoVisitor;
+import org.openrewrite.java.JavaParser;
+import org.openrewrite.java.JavaTemplate;
+import org.openrewrite.java.MethodMatcher;
+import org.openrewrite.java.tree.Expression;
+import org.openrewrite.java.tree.J;
+import org.openrewrite.java.tree.JavaType;
+import org.openrewrite.java.tree.TypeUtils;
 
 public class UseFormatAlignedObjectMappers extends Recipe {
+
+    private static final MethodMatcher OBJECT_MAPPER_DEFAULT = new MethodMatcher("com.fasterxml.jackson.databind.ObjectMapper <constructor>()");
+    private static final MethodMatcher OBJECT_MAPPER_FACTORY = new MethodMatcher("com.fasterxml.jackson.databind.ObjectMapper <constructor>(com.fasterxml.jackson.core.JsonFactory)");
+
     @Override
     public String getDisplayName() {
         return "Use format alignment `ObjectMappers`";
     }
 
     @Override
-    public @NlsRewrite.Description String getDescription() {
+    public String getDescription() {
         return "Replace wrapping `ObjectMapper` calls with their format aligned implementation.";
     }
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
+        return new JavaIsoVisitor<ExecutionContext>() {
+            @Override
+            public J.NewClass visitNewClass(J.NewClass newClass, ExecutionContext ctx) {
+                J.NewClass nc = super.visitNewClass(newClass, ctx);
 
-        return super.getVisitor();
+                if (OBJECT_MAPPER_DEFAULT.matches(nc)) {
+                    maybeAddImport("com.fasterxml.jackson.databind.json.JsonMapper");
+                    return JavaTemplate.builder("new JsonMapper()")
+                            .imports("com.fasterxml.jackson.databind.json.JsonMapper")
+                            .javaParser(JavaParser.fromJavaVersion()
+                                    .classpathFromResources(ctx, "jackson-core-2", "jackson-databind-2"))
+                            .build()
+                            .apply(getCursor(), nc.getCoordinates().replace());
+                } else if (OBJECT_MAPPER_FACTORY.matches(nc)) {
+                    return createExplicitMapperTemplate(nc.getArguments().get(0), ctx)
+                            .apply(getCursor(), nc.getCoordinates().replace());
+                }
+
+                return nc;
+            }
+
+            private JavaTemplate createExplicitMapperTemplate(Expression factory, ExecutionContext ctx) {
+                JavaType type = factory.getType();
+
+                if (TypeUtils.isAssignableTo("com.fasterxml.jackson.dataformat.yaml.YAMLFactory", type)) {
+                    maybeAddImport("com.fasterxml.jackson.dataformat.yaml.YAMLMapper");
+                    maybeRemoveImport("com.fasterxml.jackson.dataformat.yaml.YAMLFactory");
+                    return JavaTemplate.builder("new YAMLMapper()")
+                            .imports("com.fasterxml.jackson.dataformat.yaml.YAMLMapper")
+                            .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx, "jackson-core-2", "jackson-databind-2", "jackson-dataformat-yaml-2"))
+                            .build();
+                } else if (TypeUtils.isAssignableTo("com.fasterxml.jackson.dataformat.xml.XmlFactory", type)) {
+                    maybeAddImport("com.fasterxml.jackson.dataformat.xml.XmlMapper");
+                    maybeRemoveImport("com.fasterxml.jackson.dataformat.xml.XmlFactory");
+                    return JavaTemplate.builder("new XmlMapper()")
+                            .imports("com.fasterxml.jackson.dataformat.xml.XmlMapper")
+                            .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx, "jackson-core-2", "jackson-databind-2", "jackson-dataformat-xml-2"))
+                            .build();
+                }
+
+                // we default back to JSON as it's the Jackson default
+                maybeRemoveImport("com.fasterxml.jackson.core.JsonFactory");
+                maybeAddImport("com.fasterxml.jackson.databind.json.JsonMapper");
+                return JavaTemplate.builder("new JsonMapper()")
+                        .imports("com.fasterxml.jackson.databind.json.JsonMapper")
+                        .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx, "jackson-core-2", "jackson-databind-2"))
+                        .build();
+
+
+            }
+        };
     }
 }
