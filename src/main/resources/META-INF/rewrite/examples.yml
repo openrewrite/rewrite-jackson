@@ -1,4 +1,3 @@
-#
 # Copyright 2025 the original author or authors.
 # <p>
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,8 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-
 ---
 type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.CodehausToFasterXML
@@ -120,27 +117,66 @@ examples:
     language: java
 ---
 type: specs.openrewrite.org/v1beta/example
-recipeName: org.openrewrite.java.jackson.UpgradeJackson_2_3
+recipeName: org.openrewrite.java.jackson.SimplifyJacksonExceptionCatch
 examples:
-- description: '`Jackson3MethodRenamesTest#jsonGeneratorWriteObject`'
+- description: '`SimplifyJacksonExceptionCatchTest#simplifiesJacksonExceptionWithRuntimeException`'
   sources:
   - before: |
-      import com.fasterxml.jackson.core.JsonGenerator;
+      import tools.jackson.core.JacksonException;
 
       class Test {
-          void test(JsonGenerator gen, Object value) throws Exception {
-              gen.writeObject(value);
+          void doSomething() {
+              try {
+                  // some code
+              } catch (JacksonException | RuntimeException e) {
+                  e.printStackTrace();
+              }
           }
       }
     after: |
-      import tools.jackson.core.JsonGenerator;
-
       class Test {
-          void test(JsonGenerator gen, Object value) throws Exception {
-              gen.writePOJO(value);
+          void doSomething() {
+              try {
+                  // some code
+              } catch (RuntimeException e) {
+                  e.printStackTrace();
+              }
           }
       }
     language: java
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.jackson.UpdateSerializationInclusionConfiguration
+examples:
+- description: '`UpdateSerializationInclusionConfigurationTest#updateSerializationInclusionOnBuilder`'
+  sources:
+  - before: |
+      import com.fasterxml.jackson.annotation.JsonInclude;
+      import com.fasterxml.jackson.databind.json.JsonMapper;
+
+      class Test {
+          void configure() {
+              JsonMapper.builder()
+                .serializationInclusion(JsonInclude.Include.NON_NULL)
+                .build();
+          }
+      }
+    after: |
+      import com.fasterxml.jackson.annotation.JsonInclude;
+      import com.fasterxml.jackson.databind.json.JsonMapper;
+
+      class Test {
+          void configure() {
+              JsonMapper.builder()
+                .changeDefaultPropertyInclusion(incl -> incl.withContentInclusion(JsonInclude.Include.NON_NULL).withValueInclusion(JsonInclude.Include.NON_NULL))
+                .build();
+          }
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.jackson.UpgradeJackson_2_3
+examples:
 - description: '`Jackson3DependenciesTest#jacksonAnnotations`'
   sources:
   - before: |
@@ -173,6 +209,40 @@ examples:
       </project>
     path: pom.xml
     language: xml
+- description: '`Jackson3MethodRenamesTest#jsonGeneratorWriteObject`'
+  sources:
+  - before: |
+      import com.fasterxml.jackson.core.JsonGenerator;
+
+      class Test {
+          void test(JsonGenerator gen, Object value) throws Exception {
+              gen.writeObject(value);
+          }
+      }
+    after: |
+      import tools.jackson.core.JsonGenerator;
+
+      class Test {
+          void test(JsonGenerator gen, Object value) throws Exception {
+              gen.writePOJO(value);
+          }
+      }
+    language: java
+- description: '`Jackson3TypeChangesTest#jsonFactory`'
+  sources:
+  - before: |
+      import com.fasterxml.jackson.core.JsonFactory;
+
+      class Test {
+          JsonFactory factory = new JsonFactory();
+      }
+    after: |
+      import tools.jackson.core.TokenStreamFactory;
+
+      class Test {
+          TokenStreamFactory factory = new TokenStreamFactory();
+      }
+    language: java
 - description: '`UpgradeJackson_2_3Test#jacksonUpgradeToVersion3`'
   sources:
   - before: |
@@ -249,21 +319,6 @@ examples:
       </project>
     path: pom.xml
     language: xml
-- description: '`Jackson3TypeChangesTest#jsonFactory`'
-  sources:
-  - before: |
-      import com.fasterxml.jackson.core.JsonFactory;
-
-      class Test {
-          JsonFactory factory = new JsonFactory();
-      }
-    after: |
-      import tools.jackson.core.TokenStreamFactory;
-
-      class Test {
-          TokenStreamFactory factory = new TokenStreamFactory();
-      }
-    language: java
 ---
 type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.UpgradeJackson_2_3_RemoveRedundantFeatureFlags
