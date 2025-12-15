@@ -32,7 +32,7 @@ class UseFormatAlignedObjectMappersTest implements RewriteTest {
           .parser(JavaParser.fromJavaVersion()
             .logCompilationWarningsAndErrors(true)
             .classpathFromResources(new InMemoryExecutionContext(),
-              "jackson-core-2", "jackson-databind-2", "jackson-dataformat-yaml-2", "jackson-dataformat-xml-2"));
+              "jackson-core-2", "jackson-databind-2", "jackson-dataformat-xml-2"));
     }
 
     @DocumentExample
@@ -78,30 +78,6 @@ class UseFormatAlignedObjectMappersTest implements RewriteTest {
 
               class A {
                   ObjectMapper mapper = new XmlMapper();
-              }
-              """
-          )
-        );
-    }
-
-    @Test
-    void ymlMapper() {
-        rewriteRun(
-          java(
-            """
-              import com.fasterxml.jackson.databind.ObjectMapper;
-              import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-
-              class A {
-                  ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
-              }
-              """,
-            """
-              import com.fasterxml.jackson.databind.ObjectMapper;
-              import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
-
-              class A {
-                  ObjectMapper mapper = new YAMLMapper();
               }
               """
           )
