@@ -53,11 +53,12 @@ public class UseFormatAlignedObjectMappers extends Recipe {
                     maybeAddImport("com.fasterxml.jackson.databind.json.JsonMapper");
                     return JavaTemplate.builder("new JsonMapper()")
                             .imports("com.fasterxml.jackson.databind.json.JsonMapper")
-                            .javaParser(JavaParser.fromJavaVersion()
-                                    .classpathFromResources(ctx, "jackson-core-2", "jackson-databind-2"))
+                            .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx, "jackson-core-2", "jackson-databind-2"))
                             .build()
                             .apply(getCursor(), nc.getCoordinates().replace());
-                } else if (OBJECT_MAPPER_FACTORY.matches(nc)) {
+                }
+
+                if (OBJECT_MAPPER_FACTORY.matches(nc)) {
                     return createExplicitMapperTemplate(nc.getArguments().get(0), ctx)
                             .apply(getCursor(), nc.getCoordinates().replace());
                 }
@@ -75,7 +76,9 @@ public class UseFormatAlignedObjectMappers extends Recipe {
                             .imports("com.fasterxml.jackson.dataformat.yaml.YAMLMapper")
                             .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx, "jackson-core-2", "jackson-databind-2", "jackson-dataformat-yaml-2"))
                             .build();
-                } else if (TypeUtils.isAssignableTo("com.fasterxml.jackson.dataformat.xml.XmlFactory", type)) {
+                }
+
+                if (TypeUtils.isAssignableTo("com.fasterxml.jackson.dataformat.xml.XmlFactory", type)) {
                     maybeAddImport("com.fasterxml.jackson.dataformat.xml.XmlMapper");
                     maybeRemoveImport("com.fasterxml.jackson.dataformat.xml.XmlFactory");
                     return JavaTemplate.builder("new XmlMapper()")
