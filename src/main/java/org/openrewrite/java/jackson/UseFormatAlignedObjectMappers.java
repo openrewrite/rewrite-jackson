@@ -70,8 +70,8 @@ public class UseFormatAlignedObjectMappers extends Recipe {
                 JavaType type = factory.getType();
 
                 if (TypeUtils.isAssignableTo("com.fasterxml.jackson.dataformat.yaml.YAMLFactory", type)) {
-                    maybeAddImport("com.fasterxml.jackson.dataformat.yaml.YAMLMapper");
                     maybeRemoveImport("com.fasterxml.jackson.dataformat.yaml.YAMLFactory");
+                    maybeAddImport("com.fasterxml.jackson.dataformat.yaml.YAMLMapper");
                     return JavaTemplate.builder("new YAMLMapper()")
                             .imports("com.fasterxml.jackson.dataformat.yaml.YAMLMapper")
                             .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx, "jackson-core-2", "jackson-databind-2", "jackson-dataformat-yaml-2"))
@@ -79,8 +79,8 @@ public class UseFormatAlignedObjectMappers extends Recipe {
                 }
 
                 if (TypeUtils.isAssignableTo("com.fasterxml.jackson.dataformat.xml.XmlFactory", type)) {
-                    maybeAddImport("com.fasterxml.jackson.dataformat.xml.XmlMapper");
                     maybeRemoveImport("com.fasterxml.jackson.dataformat.xml.XmlFactory");
+                    maybeAddImport("com.fasterxml.jackson.dataformat.xml.XmlMapper");
                     return JavaTemplate.builder("new XmlMapper()")
                             .imports("com.fasterxml.jackson.dataformat.xml.XmlMapper")
                             .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx, "jackson-core-2", "jackson-databind-2", "jackson-dataformat-xml-2"))
@@ -94,8 +94,6 @@ public class UseFormatAlignedObjectMappers extends Recipe {
                         .imports("com.fasterxml.jackson.databind.json.JsonMapper")
                         .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx, "jackson-core-2", "jackson-databind-2"))
                         .build();
-
-
             }
         };
     }
