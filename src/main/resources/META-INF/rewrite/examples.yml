@@ -346,6 +346,27 @@ examples:
     language: java
 ---
 type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.jackson.UseFormatAlignedObjectMappers
+examples:
+- description: '`UseFormatAlignedObjectMappersTest#jsonMapper`'
+  sources:
+  - before: |
+      import com.fasterxml.jackson.databind.ObjectMapper;
+      import com.fasterxml.jackson.core.JsonFactory;
+
+      class A {
+          ObjectMapper mapper = new ObjectMapper(new JsonFactory());
+      }
+    after: |
+      import com.fasterxml.jackson.databind.ObjectMapper;
+      import com.fasterxml.jackson.databind.json.JsonMapper;
+
+      class A {
+          ObjectMapper mapper = new JsonMapper();
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.UseModernDateTimeSerialization
 examples:
 - description: '`UseModernDateTimeSerializationTest#removeIso8601FormatOnLocalDateTime`'
