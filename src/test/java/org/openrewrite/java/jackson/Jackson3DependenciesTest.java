@@ -39,8 +39,8 @@ class Jackson3DependenciesTest implements RewriteTest {
     @Test
     void jacksonAnnotations() {
         rewriteRun(
-          //language=xml
           pomXml(
+            //language=xml
             """
               <project>
                   <modelVersion>4.0.0</modelVersion>
@@ -78,8 +78,8 @@ class Jackson3DependenciesTest implements RewriteTest {
     @Test
     void jacksonCore() {
         rewriteRun(
-          //language=xml
           pomXml(
+            //language=xml
             """
               <project>
                   <modelVersion>4.0.0</modelVersion>
@@ -108,8 +108,8 @@ class Jackson3DependenciesTest implements RewriteTest {
     @Test
     void jacksonDatabind() {
         rewriteRun(
-          //language=xml
           pomXml(
+            //language=xml
             """
               <project>
                   <modelVersion>4.0.0</modelVersion>
@@ -138,8 +138,8 @@ class Jackson3DependenciesTest implements RewriteTest {
     @Test
     void jacksonModuleKotlin() {
         rewriteRun(
-          //language=xml
           pomXml(
+            //language=xml
             """
               <project>
                   <modelVersion>4.0.0</modelVersion>
@@ -169,8 +169,8 @@ class Jackson3DependenciesTest implements RewriteTest {
     @ValueSource(strings = {"_2.12", "_2.13", "_3"})
     void jacksonModuleScala(String artifactSuffix) {
         rewriteRun(
-          //language=xml
           pomXml(
+            //language=xml
             """
               <project>
                   <modelVersion>4.0.0</modelVersion>
@@ -198,8 +198,8 @@ class Jackson3DependenciesTest implements RewriteTest {
     @Test
     void jacksonBom() {
         rewriteRun(
-          //language=xml
           pomXml(
+            //language=xml
             """
               <project>
                   <modelVersion>4.0.0</modelVersion>
@@ -232,8 +232,8 @@ class Jackson3DependenciesTest implements RewriteTest {
     @Test
     void jacksonModuleParameterNames() {
         rewriteRun(
-          //language=xml
           pomXml(
+            //language=xml
             """
               <project>
                   <modelVersion>4.0.0</modelVersion>
@@ -265,8 +265,8 @@ class Jackson3DependenciesTest implements RewriteTest {
     @ValueSource(strings = {"jackson-datatype-jdk8", "jackson-datatype-jsr310"})
     void jacksonDatatypeJdk8(String datatypeModule) {
         rewriteRun(
-          //language=xml
           pomXml(
+            //language=xml
             """
               <project>
                   <modelVersion>4.0.0</modelVersion>
@@ -298,8 +298,8 @@ class Jackson3DependenciesTest implements RewriteTest {
     @Test
     void noDuplicateJacksonDatabindDependencies() {
         rewriteRun(
-          //language=xml
           pomXml(
+            //language=xml
             """
               <project>
                   <modelVersion>4.0.0</modelVersion>
@@ -369,8 +369,8 @@ class Jackson3DependenciesTest implements RewriteTest {
     @ValueSource(strings = {"yaml", "xml", "csv", "cbor", "avro", "smile", "ion"})
     void jacksonDataformats(String format) {
         rewriteRun(
-          //language=xml
           pomXml(
+            //language=xml
             """
               <project>
                   <modelVersion>4.0.0</modelVersion>
