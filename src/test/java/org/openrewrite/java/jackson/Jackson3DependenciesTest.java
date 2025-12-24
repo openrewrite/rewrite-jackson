@@ -594,8 +594,8 @@ class Jackson3DependenciesTest implements RewriteTest {
       "jackson-datatype-moneta", "jackson-datatype-pcollections"})
     void datatypeMigrated(String artifact) {
         rewriteRun(
-          //language=xml
           pomXml(
+            //language=xml
             """
               <project>
                   <modelVersion>4.0.0</modelVersion>
@@ -611,26 +611,12 @@ class Jackson3DependenciesTest implements RewriteTest {
                   </dependencies>
               </project>
               """.formatted(artifact),
-            spec -> spec.after(pom -> {
-                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+").matcher(pom);
-                assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
-                String jacksonVersion = versionMatcher.group(0);
-                return """
-                  <project>
-                      <modelVersion>4.0.0</modelVersion>
-                      <groupId>org.example</groupId>
-                      <artifactId>example</artifactId>
-                      <version>1.0.0</version>
-                      <dependencies>
-                          <dependency>
-                              <groupId>tools.jackson.datatype</groupId>
-                              <artifactId>%s</artifactId>
-                              <version>%s</version>
-                          </dependency>
-                      </dependencies>
-                  </project>
-                  """.formatted(artifact, jacksonVersion);
-            })
+            spec -> spec.after(pom ->
+              assertThat(pom)
+                .doesNotContain(">com.fasterxml.jackson.datatype<")
+                .contains(">tools.jackson.datatype<")
+                .containsPattern("3\\.\\d+\\.\\d+")
+                .actual())
           )
         );
     }
