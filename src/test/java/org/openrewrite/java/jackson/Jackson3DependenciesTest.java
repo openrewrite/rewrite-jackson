@@ -586,4 +586,52 @@ class Jackson3DependenciesTest implements RewriteTest {
         );
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"jackson-datatype-eclipse-collections", "jackson-datatype-guava", "jackson-datatype-hibernate4",
+      "jackson-datatype-hibernate5", "jackson-datatype-hibernate5-jakarta", "jackson-datatype-hibernate6", "jackson-datatype-hibernate7",
+      "jackson-datatype-hppc", "jackson-datatype-javax-money", "jackson-datatype-jakarta-jsonp", "jackson-datatype-jaxrs",
+      "jackson-datatype-joda", "jackson-datatype-joda-money", "jackson-datatype-json-org", "jackson-datatype-jsr353",
+      "jackson-datatype-moneta", "jackson-datatype-pcollections"})
+    void datatypeMigrated(String artifact) {
+        rewriteRun(
+          //language=xml
+          pomXml(
+            """
+              <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>org.example</groupId>
+                  <artifactId>example</artifactId>
+                  <version>1.0.0</version>
+                  <dependencies>
+                      <dependency>
+                          <groupId>com.fasterxml.jackson.datatype</groupId>
+                          <artifactId>%s</artifactId>
+                          <version>2.20.0</version>
+                      </dependency>
+                  </dependencies>
+              </project>
+              """.formatted(artifact),
+            spec -> spec.after(pom -> {
+                Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+").matcher(pom);
+                assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
+                String jacksonVersion = versionMatcher.group(0);
+                return """
+                  <project>
+                      <modelVersion>4.0.0</modelVersion>
+                      <groupId>org.example</groupId>
+                      <artifactId>example</artifactId>
+                      <version>1.0.0</version>
+                      <dependencies>
+                          <dependency>
+                              <groupId>tools.jackson.datatype</groupId>
+                              <artifactId>%s</artifactId>
+                              <version>%s</version>
+                          </dependency>
+                      </dependencies>
+                  </project>
+                  """.formatted(artifact, jacksonVersion);
+            })
+          )
+        );
+    }
 }
