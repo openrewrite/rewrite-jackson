@@ -189,6 +189,21 @@ recipeList:
       oldArtifactId: jackson-datatype-*
       newGroupId: tools.jackson.datatype
       newVersion: 3.0.x
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: com.fasterxml.jackson.jaxrs
+      oldArtifactId: "*"
+      newGroupId: tools.jackson.jaxrs
+      newVersion: 3.0.x
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: com.fasterxml.jackson.jakarta.rs
+      oldArtifactId: "*"
+      newGroupId: tools.jackson.jakarta.rs
+      newVersion: 3.0.x
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: com.fasterxml.jackson.jr
+      oldArtifactId: "*"
+      newGroupId: tools.jackson.jr
+      newVersion: 3.0.x
   # Retained for the case where two or more removed modules are present, without jackson-databind
   - org.openrewrite.maven.RemoveDuplicateDependencies
 
