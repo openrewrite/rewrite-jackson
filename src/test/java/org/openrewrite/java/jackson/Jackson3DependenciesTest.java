@@ -455,4 +455,100 @@ class Jackson3DependenciesTest implements RewriteTest {
           )
         );
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"jackson-jaxrs-base", "jackson-jaxrs-cbor-provider", "jackson-jaxrs-json-provider",
+      "jackson-jaxrs-smile-provider", "jackson-jaxrs-xml-provider", "jackson-jaxrs-yaml-provider"})
+    void jaxrsMigrated(String artifact) {
+        rewriteRun(
+          pomXml(
+            //language=xml
+            """
+              <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>org.example</groupId>
+                  <artifactId>example</artifactId>
+                  <version>1.0.0</version>
+                  <dependencies>
+                      <dependency>
+                          <groupId>com.fasterxml.jackson.jaxrs</groupId>
+                          <artifactId>%s</artifactId>
+                          <version>2.20.0</version>
+                      </dependency>
+                  </dependencies>
+              </project>
+              """.formatted(artifact),
+            spec -> spec.after(pom ->
+              assertThat(pom)
+                .doesNotContain(">com.fasterxml.jackson.jaxrs<")
+                .contains(">tools.jackson.jaxrs<")
+                .containsPattern("3\\.\\d+\\.\\d+")
+                .actual())
+          )
+        );
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"jackson-jakarta-rs-base", "jackson-jakarta-rs-cbor-provider", "jackson-jakarta-rs-json-provider",
+      "jackson-jakarta-rs-smile-provider", "jackson-jakarta-rs-xml-provider", "jackson-jakarta-rs-yaml-provider"})
+    void jakartaRsMigrated(String artifact) {
+        rewriteRun(
+          pomXml(
+            //language=xml
+            """
+              <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>org.example</groupId>
+                  <artifactId>example</artifactId>
+                  <version>1.0.0</version>
+                  <dependencies>
+                      <dependency>
+                          <groupId>com.fasterxml.jackson.jakarta.rs</groupId>
+                          <artifactId>%s</artifactId>
+                          <version>2.20.0</version>
+                      </dependency>
+                  </dependencies>
+              </project>
+              """.formatted(artifact),
+            spec -> spec.after(pom ->
+              assertThat(pom)
+                .doesNotContain(">com.fasterxml.jackson.jakarta.rs<")
+                .contains(">tools.jackson.jakarta.rs<")
+                .containsPattern("3\\.\\d+\\.\\d+")
+                .actual())
+          )
+        );
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"jackson-jr-all", "jackson-jr-annotation-support", "jackson-jr-extension-javatime",
+      "jackson-jr-objects", "jackson-jr-retrofit2", "jackson-jr-stree"})
+    void jrMigrated(String artifact) {
+        rewriteRun(
+          pomXml(
+            //language=xml
+            """
+              <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>org.example</groupId>
+                  <artifactId>example</artifactId>
+                  <version>1.0.0</version>
+                  <dependencies>
+                      <dependency>
+                          <groupId>com.fasterxml.jackson.jr</groupId>
+                          <artifactId>%s</artifactId>
+                          <version>2.20.0</version>
+                      </dependency>
+                  </dependencies>
+              </project>
+              """.formatted(artifact),
+            spec -> spec.after(pom ->
+              assertThat(pom)
+                .doesNotContain(">com.fasterxml.jackson.jr<")
+                .contains(">tools.jackson.jr<")
+                .containsPattern("3\\.\\d+\\.\\d+")
+                .actual())
+          )
+        );
+    }
 }
