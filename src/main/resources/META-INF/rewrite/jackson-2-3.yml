@@ -210,7 +210,7 @@ recipeList:
 ---
 type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.java.jackson.UpgradeJackson_2_3_RemoveModules
-displayName: Remove Jackson 2.x modules included in jackson-databind in 3.x.
+displayName: Remove Jackson 2.x modules included in jackson-databind in 3.x
 description: Remove Jackson modules such as `jackson-module-parameter-names`, `jackson-datatype-jdk8`, and `jackson-datatype-jsr310` to depend on `jackson-databind` in Jackson 3.x.
 tags:
   - jackson-3
