@@ -48,7 +48,6 @@ description: Upgrade Jackson Maven dependencies from 2.x to 3.x versions and upd
 tags:
   - jackson-3
 recipeList:
-  - org.openrewrite.java.jackson.UpgradeJackson_2_3_RemoveModules
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
       groupId: com.fasterxml.jackson.core
       artifactId: jackson-annotations
@@ -204,31 +203,6 @@ recipeList:
       oldArtifactId: "*"
       newGroupId: tools.jackson.jr
       newVersion: 3.0.x
-  # Retained for the case where two or more removed modules are present, without jackson-databind
-  - org.openrewrite.maven.RemoveDuplicateDependencies
-
----
-type: specs.openrewrite.org/v1beta/recipe
-name: org.openrewrite.java.jackson.UpgradeJackson_2_3_RemoveModules
-displayName: Remove Jackson 2.x modules included in jackson-databind in 3.x
-description: Remove Jackson modules such as `jackson-module-parameter-names`, `jackson-datatype-jdk8`, and `jackson-datatype-jsr310` to depend on `jackson-databind` in Jackson 3.x.
-tags:
-  - jackson-3
-preconditions:
-  # When jackson-databind is present, we can remove these dependencies
-  - org.openrewrite.java.dependencies.FindDependency:
-      groupId: com.fasterxml.jackson.core
-      artifactId: jackson-databind
-recipeList:
-  - org.openrewrite.java.dependencies.RemoveDependency:
-      groupId: com.fasterxml.jackson.module
-      artifactId: jackson-module-parameter-names
-  - org.openrewrite.java.dependencies.RemoveDependency:
-      groupId: com.fasterxml.jackson.datatype
-      artifactId: jackson-datatype-jdk8
-  - org.openrewrite.java.dependencies.RemoveDependency:
-      groupId: com.fasterxml.jackson.datatype
-      artifactId: jackson-datatype-jsr310
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
