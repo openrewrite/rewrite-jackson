@@ -28,6 +28,8 @@ description: >-
 tags:
   - jackson-3
 recipeList:
+  - org.openrewrite.java.jackson.UpdateSerializationInclusionConfiguration
+  - org.openrewrite.java.jackson.UseFormatAlignedObjectMappers
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_Dependencies
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_TypeChanges
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_MethodRenames
@@ -36,6 +38,7 @@ recipeList:
   - org.openrewrite.java.jackson.UseModernDateTimeSerialization
   - org.openrewrite.java.jackson.ReplaceStreamWriteCapability
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_PackageChanges
+  - org.openrewrite.java.jackson.SimplifyJacksonExceptionCatch
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
@@ -179,6 +182,26 @@ recipeList:
       oldArtifactId: jackson-datatype-jsr310
       newGroupId: tools.jackson.core
       newArtifactId: jackson-databind
+      newVersion: 3.0.x
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: com.fasterxml.jackson.datatype
+      oldArtifactId: jackson-datatype-*
+      newGroupId: tools.jackson.datatype
+      newVersion: 3.0.x
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: com.fasterxml.jackson.jaxrs
+      oldArtifactId: "*"
+      newGroupId: tools.jackson.jaxrs
+      newVersion: 3.0.x
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: com.fasterxml.jackson.jakarta.rs
+      oldArtifactId: "*"
+      newGroupId: tools.jackson.jakarta.rs
+      newVersion: 3.0.x
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: com.fasterxml.jackson.jr
+      oldArtifactId: "*"
+      newGroupId: tools.jackson.jr
       newVersion: 3.0.x
 
 ---
@@ -404,15 +427,6 @@ recipeList:
       methodPattern: com.fasterxml.jackson.databind.JsonNode asText(..)
       newMethodName: asString
   - org.openrewrite.java.ChangeMethodName:
-      methodPattern: com.fasterxml.jackson.databind.JsonNode elements()
-      newMethodName: values
-  - org.openrewrite.java.ChangeMethodName:
-      methodPattern: com.fasterxml.jackson.databind.JsonNode fields()
-      newMethodName: properties
-  - org.openrewrite.java.ChangeMethodName:
-      methodPattern: com.fasterxml.jackson.databind.JsonNode fieldNames()
-      newMethodName: propertyNames
-  - org.openrewrite.java.ChangeMethodName:
       methodPattern: com.fasterxml.jackson.databind.JsonNode findValuesAsText(..)
       newMethodName: findValuesAsString
   - org.openrewrite.java.ChangeMethodName:
@@ -427,6 +441,7 @@ recipeList:
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: com.fasterxml.jackson.databind.JsonNode with(..)
       newMethodName: withObject
+  - org.openrewrite.java.jackson.Jackson3JsonNodeFieldIterators
 
 ---
 type: specs.openrewrite.org/v1beta/recipe

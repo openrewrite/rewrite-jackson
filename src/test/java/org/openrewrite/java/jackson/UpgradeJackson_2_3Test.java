@@ -41,8 +41,8 @@ class UpgradeJackson_2_3Test implements RewriteTest {
     @Test
     void jacksonUpgradeToVersion3() {
         rewriteRun(
-          //language=xml
           pomXml(
+            //language=xml
             """
               <project>
                   <modelVersion>4.0.0</modelVersion>
@@ -88,6 +88,7 @@ class UpgradeJackson_2_3Test implements RewriteTest {
                 assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
                 String jacksonVersion = versionMatcher.group(0);
 
+                //language=xml
                 return """
                   <project>
                       <modelVersion>4.0.0</modelVersion>
@@ -157,8 +158,8 @@ class UpgradeJackson_2_3Test implements RewriteTest {
     @Test
     void jacksonUpgradeToVersion3_jacksonBomOnly() {
         rewriteRun(
-          //language=xml
           pomXml(
+            //language=xml
             """
               <project>
                   <modelVersion>4.0.0</modelVersion>
