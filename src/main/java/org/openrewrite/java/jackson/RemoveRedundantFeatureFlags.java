@@ -54,19 +54,12 @@ public class RemoveRedundantFeatureFlags extends Recipe {
             example = "true")
     Boolean newDefaultValue;
 
-    @Override
-    public String getDisplayName() {
-        return "Remove redundant Jackson 3 feature flag configurations";
-    }
+    String displayName = "Remove redundant Jackson 3 feature flag configurations";
 
-    @Override
-    public String getDescription() {
-        //language=markdown
-        return "Remove `ObjectMapper` feature flag configurations that set values to their new Jackson 3 defaults. " +
+    String description = "Remove `ObjectMapper` feature flag configurations that set values to their new Jackson 3 defaults. " +
                 "For example, `disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)` and " +
                 "`configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)` are redundant since this is " +
                 "now disabled by default in Jackson 3.";
-    }
 
     @Override
     public Set<String> getTags() {

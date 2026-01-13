@@ -37,15 +37,9 @@ public class CodehausDependencyToFasterXML extends Recipe {
     @Nullable
     String version;
 
-    @Override
-    public String getDisplayName() {
-        return "Migrate dependencies from Jackson Codehaus (legacy) to FasterXML";
-    }
+    String displayName = "Migrate dependencies from Jackson Codehaus (legacy) to FasterXML";
 
-    @Override
-    public String getDescription() {
-        return "Replace Codehaus Jackson dependencies with FasterXML Jackson dependencies, and add databind if needed.";
-    }
+    String description = "Replace Codehaus Jackson dependencies with FasterXML Jackson dependencies, and add databind if needed.";
 
     @Override
     public List<Recipe> getRecipeList() {
