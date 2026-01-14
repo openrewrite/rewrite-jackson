@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.jackson;
 
+import lombok.Getter;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
@@ -33,15 +34,11 @@ public class UseFormatAlignedObjectMappers extends Recipe {
 
     private static final MethodMatcher OBJECT_MAPPER_FACTORY = new MethodMatcher("com.fasterxml.jackson.databind.ObjectMapper <constructor>(com.fasterxml.jackson.core.JsonFactory)");
 
-    @Override
-    public String getDisplayName() {
-        return "Use format alignment `ObjectMappers`";
-    }
+    @Getter
+    final String displayName = "Use format alignment `ObjectMappers`";
 
-    @Override
-    public String getDescription() {
-        return "Replace wrapping `ObjectMapper` calls with their format aligned implementation.";
-    }
+    @Getter
+    final String description = "Replace wrapping `ObjectMapper` calls with their format aligned implementation.";
 
     private static final Map<String, String> FACTORY_TO_MAPPER = new HashMap<String, String>() {{
         put("com.fasterxml.jackson.core.JsonFactory", "com.fasterxml.jackson.databind.json.JsonMapper");

@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.jackson.codehaus;
 
+import lombok.Getter;
 import org.jspecify.annotations.NonNull;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
@@ -36,15 +37,11 @@ public class RemoveDoublyAnnotatedCodehausAnnotations extends Recipe {
     private static final AnnotationMatcher MATCHER_CODEHAUS = new AnnotationMatcher("@" + ORG_CODEHAUS_JACKSON_MAP_ANNOTATE_JSON_SERIALIZE, true);
     private static final AnnotationMatcher MATCHER_FASTERXML = new AnnotationMatcher("@" + COM_FASTERXML_JACKSON_DATABIND_ANNOTATION_JSON_SERIALIZE, true);
 
-    @Override
-    public String getDisplayName() {
-        return "Remove Codehaus Jackson annotations if doubly annotated";
-    }
+    @Getter
+    final String displayName = "Remove Codehaus Jackson annotations if doubly annotated";
 
-    @Override
-    public String getDescription() {
-        return "Remove Codehaus Jackson annotations if they are doubly annotated with Jackson annotations from the `com.fasterxml.jackson` package.";
-    }
+    @Getter
+    final String description = "Remove Codehaus Jackson annotations if they are doubly annotated with Jackson annotations from the `com.fasterxml.jackson` package.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {

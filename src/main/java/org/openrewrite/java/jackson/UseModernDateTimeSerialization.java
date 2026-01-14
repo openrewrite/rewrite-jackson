@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.jackson;
 
+import lombok.Getter;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
@@ -58,16 +59,12 @@ public class UseModernDateTimeSerialization extends Recipe {
             "HH:mm:ss"
     ));
 
-    @Override
-    public String getDisplayName() {
-        return "Use modern date/time serialization defaults";
-    }
+    @Getter
+    final String displayName = "Use modern date/time serialization defaults";
 
-    @Override
-    public String getDescription() {
-        return "Remove redundant `@JsonFormat` annotations on `java.time` types that specify ISO-8601 patterns, " +
-                "as Jackson 3 uses ISO-8601 as the default format (with `WRITE_DATES_AS_TIMESTAMPS` now disabled by default).";
-    }
+    @Getter
+    final String description = "Remove redundant `@JsonFormat` annotations on `java.time` types that specify ISO-8601 patterns, " +
+            "as Jackson 3 uses ISO-8601 as the default format (with `WRITE_DATES_AS_TIMESTAMPS` now disabled by default).";
 
     @Override
     public Set<String> getTags() {

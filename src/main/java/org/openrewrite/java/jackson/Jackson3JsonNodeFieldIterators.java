@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.jackson;
 
+import lombok.Getter;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
@@ -33,16 +34,12 @@ public class Jackson3JsonNodeFieldIterators extends Recipe {
     private static final MethodMatcher FIELDS_NAMES = new MethodMatcher("com.fasterxml.jackson.databind.JsonNode fieldNames()");
     private static final MethodMatcher ELEMENTS = new MethodMatcher("com.fasterxml.jackson.databind.JsonNode elements()");
 
-    @Override
-    public String getDisplayName() {
-        return "Migrate `JSONNode` field iterator for Jackson 3";
-    }
+    @Getter
+    final String displayName = "Migrate `JSONNode` field iterator for Jackson 3";
 
-    @Override
-    public String getDescription() {
-        return "`JSONNode` fields are using `Collections` instead of `Iterator` singe Jackson 3. " +
-                "To mimic Jackson 2s behavior an additional call to `Collection#iterator()`is needed.";
-    }
+    @Getter
+    final String description = "`JSONNode` fields are using `Collections` instead of `Iterator` singe Jackson 3. " +
+            "To mimic Jackson 2s behavior an additional call to `Collection#iterator()`is needed.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {

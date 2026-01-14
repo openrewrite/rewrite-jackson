@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.jackson.codehaus;
 
+import lombok.Getter;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
@@ -35,15 +36,11 @@ public class JsonIncludeAnnotation extends Recipe {
     private static final String ORG_CODEHAUS_JACKSON_MAP_ANNOTATE_JSON_SERIALIZE = "org.codehaus.jackson.map.annotate.JsonSerialize";
     private static final String COM_FASTERXML_JACKSON_ANNOTATION_JSON_INCLUDE = "com.fasterxml.jackson.annotation.JsonInclude";
 
-    @Override
-    public String getDisplayName() {
-        return "Migrate to Jackson `@JsonInclude`";
-    }
+    @Getter
+    final String displayName = "Migrate to Jackson `@JsonInclude`";
 
-    @Override
-    public String getDescription() {
-        return "Move Codehaus' `@JsonSerialize.include` argument to FasterXMLs `@JsonInclude` annotation.";
-    }
+    @Getter
+    final String description = "Move Codehaus' `@JsonSerialize.include` argument to FasterXMLs `@JsonInclude` annotation.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {

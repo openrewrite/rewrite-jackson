@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.jackson.codehaus;
 
+import lombok.Getter;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
@@ -29,15 +30,11 @@ import org.openrewrite.java.tree.J;
 import static org.openrewrite.java.template.internal.AbstractRefasterJavaVisitor.EmbeddingOption.SHORTEN_NAMES;
 
 public class ReplaceSerializationConfigAnnotationIntrospector extends Recipe {
-    @Override
-    public String getDisplayName() {
-        return "Migrate serialization annotation processor";
-    }
+    @Getter
+    final String displayName = "Migrate serialization annotation processor";
 
-    @Override
-    public String getDescription() {
-        return "Migrate serialization annotation processor to use the codehaus config method.";
-    }
+    @Getter
+    final String description = "Migrate serialization annotation processor to use the codehaus config method.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {

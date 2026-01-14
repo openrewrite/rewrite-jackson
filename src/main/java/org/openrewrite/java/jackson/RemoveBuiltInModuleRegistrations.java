@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.jackson;
 
+import lombok.Getter;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
@@ -48,17 +49,13 @@ public class RemoveBuiltInModuleRegistrations extends Recipe {
             "com.fasterxml.jackson.datatype.jsr310.JavaTimeModule"
     ));
 
-    @Override
-    public String getDisplayName() {
-        return "Remove registrations of modules built-in to Jackson 3";
-    }
+    @Getter
+    final String displayName = "Remove registrations of modules built-in to Jackson 3";
 
-    @Override
-    public String getDescription() {
-        return "In Jackson 3, `ParameterNamesModule`, `Jdk8Module`, and `JavaTimeModule` are built into `jackson-databind` " +
-                "and no longer need to be registered manually. This recipe removes `ObjectMapper.registerModule()` and `MapperBuilder.addModule()` calls " +
-                "for these modules.";
-    }
+    @Getter
+    final String description = "In Jackson 3, `ParameterNamesModule`, `Jdk8Module`, and `JavaTimeModule` are built into `jackson-databind` " +
+            "and no longer need to be registered manually. This recipe removes `ObjectMapper.registerModule()` and `MapperBuilder.addModule()` calls " +
+            "for these modules.";
 
     @Override
     public Set<String> getTags() {

@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.jackson;
 
+import lombok.Getter;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
@@ -39,15 +40,11 @@ public class RemoveRedundantJsonPropertyValue extends Recipe {
     private static final String JACKSON_JSON_PROPERTY = "com.fasterxml.jackson.annotation.JsonProperty";
     private static final AnnotationMatcher JSON_PROPERTY_MATCHER = new AnnotationMatcher("@" + JACKSON_JSON_PROPERTY, true);
 
-    @Override
-    public String getDisplayName() {
-        return "Remove redundant `@JsonProperty` argument";
-    }
+    @Getter
+    final String displayName = "Remove redundant `@JsonProperty` argument";
 
-    @Override
-    public String getDescription() {
-        return "Remove `@JsonProperty` annotation or value attribute when the value matches the argument name.";
-    }
+    @Getter
+    final String description = "Remove `@JsonProperty` annotation or value attribute when the value matches the argument name.";
 
     @Override
     public Set<String> getTags() {

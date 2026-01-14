@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.jackson;
 
+import lombok.Getter;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
@@ -35,17 +36,13 @@ public class ReplaceStreamWriteCapability extends Recipe {
     private static final MethodMatcher CAN_WRITE_BINARY_NATIVELY = new MethodMatcher("com.fasterxml.jackson.core.JsonGenerator canWriteBinaryNatively()");
     private static final MethodMatcher CAN_WRITE_FORMATTED_NUMBERS = new MethodMatcher("com.fasterxml.jackson.core.JsonGenerator canWriteFormattedNumbers()");
 
-    @Override
-    public String getDisplayName() {
-        return "Replace removed `JsonGenerator` capability methods with `StreamWriteCapability`";
-    }
+    @Getter
+    final String displayName = "Replace removed `JsonGenerator` capability methods with `StreamWriteCapability`";
 
-    @Override
-    public String getDescription() {
-        return "In Jackson 3, `JsonGenerator.canWriteBinaryNatively()` and `canWriteFormattedNumbers()` were removed " +
-                "and replaced with the `StreamWriteCapability` enum. This recipe updates these method calls to use " +
-                "`getWriteCapabilities().isEnabled(StreamWriteCapability.*)` instead.";
-    }
+    @Getter
+    final String description = "In Jackson 3, `JsonGenerator.canWriteBinaryNatively()` and `canWriteFormattedNumbers()` were removed " +
+            "and replaced with the `StreamWriteCapability` enum. This recipe updates these method calls to use " +
+            "`getWriteCapabilities().isEnabled(StreamWriteCapability.*)` instead.";
 
     @Override
     public Set<String> getTags() {

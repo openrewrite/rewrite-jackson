@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.jackson;
 
+import lombok.Getter;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
@@ -35,16 +36,12 @@ public class UpdateSerializationInclusionConfiguration extends Recipe {
 
     private static final MethodMatcher MAPPER_BUILDER_SERIALIZATION_INCLUSION_MATCHER = new MethodMatcher("com.fasterxml.jackson.databind..MapperBuilder serializationInclusion(com.fasterxml.jackson.annotation.JsonInclude.Include)");
 
-    @Override
-    public String getDisplayName() {
-        return "Update configuration of serialization inclusion in ObjectMapper for Jackson 3";
-    }
+    @Getter
+    final String displayName = "Update configuration of serialization inclusion in ObjectMapper for Jackson 3";
 
-    @Override
-    public String getDescription() {
-        return "In Jackson 3, `mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL)` is no longer supported " +
-                "and should be replaced by `changeDefaultPropertyInclusion()` for both `valueInclusion` and `contentInclusion`.";
-    }
+    @Getter
+    final String description = "In Jackson 3, `mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL)` is no longer supported " +
+            "and should be replaced by `changeDefaultPropertyInclusion()` for both `valueInclusion` and `contentInclusion`.";
 
     @Override
     public Set<String> getTags() {

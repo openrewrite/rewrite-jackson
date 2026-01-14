@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.jackson;
 
+import lombok.Getter;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
@@ -36,18 +37,14 @@ public class SimplifyJacksonExceptionCatch extends Recipe {
     private static final String RUNTIME_EXCEPTION = "java.lang.RuntimeException";
     private static final String JACKSON_RUNTIME_EXCEPTION = "tools.jackson.core.JacksonException";
 
-    @Override
-    public String getDisplayName() {
-        return "Simplify catch clauses for Jackson exceptions";
-    }
+    @Getter
+    final String displayName = "Simplify catch clauses for Jackson exceptions";
 
-    @Override
-    public String getDescription() {
-        return "In Jackson 3, `JacksonException` and its subtypes extend `RuntimeException`. " +
-                "This recipe simplifies multi-catch clauses by removing Jackson exception types " +
-                "when `RuntimeException` is also caught, since catching both is redundant. " +
-                "For example, `catch (JacksonException | RuntimeException e)` becomes `catch (RuntimeException e)`.";
-    }
+    @Getter
+    final String description = "In Jackson 3, `JacksonException` and its subtypes extend `RuntimeException`. " +
+            "This recipe simplifies multi-catch clauses by removing Jackson exception types " +
+            "when `RuntimeException` is also caught, since catching both is redundant. " +
+            "For example, `catch (JacksonException | RuntimeException e)` becomes `catch (RuntimeException e)`.";
 
     @Override
     public Set<String> getTags() {

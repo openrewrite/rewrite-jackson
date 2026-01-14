@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.jackson.codehaus;
 
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
 import org.openrewrite.ExecutionContext;
@@ -38,16 +39,12 @@ public class TransferJsonSerializeArgumentsFromCodehausToFasterXML extends Recip
 
     private static final String[] TRANSFERABLE_ARGUMENTS = {"using", "contentUsing", "keyUsing", "nullUsing"};
 
-    @Override
-    public String getDisplayName() {
-        return "Transfer @JsonSerialize arguments from Codehaus to FasterXML";
-    }
+    @Getter
+    final String displayName = "Transfer @JsonSerialize arguments from Codehaus to FasterXML";
 
-    @Override
-    public String getDescription() {
-        return "Transfer @JsonSerialize annotation arguments (using, contentUsing, keyUsing, nullUsing) from Codehaus " +
-                "to FasterXML. If the argument was set already, it will not be transferred.";
-    }
+    @Getter
+    final String description = "Transfer @JsonSerialize annotation arguments (using, contentUsing, keyUsing, nullUsing) from Codehaus " +
+            "to FasterXML. If the argument was set already, it will not be transferred.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
