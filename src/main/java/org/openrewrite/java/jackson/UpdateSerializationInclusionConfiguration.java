@@ -43,10 +43,8 @@ public class UpdateSerializationInclusionConfiguration extends Recipe {
     final String description = "In Jackson 3, `mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL)` is no longer supported " +
             "and should be replaced by `changeDefaultPropertyInclusion()` for both `valueInclusion` and `contentInclusion`.";
 
-    @Override
-    public Set<String> getTags() {
-        return singleton("jackson-3");
-    }
+    @Getter
+    final Set<String> tags = singleton( "jackson-3" );
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {

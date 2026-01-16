@@ -66,10 +66,8 @@ public class UseModernDateTimeSerialization extends Recipe {
     final String description = "Remove redundant `@JsonFormat` annotations on `java.time` types that specify ISO-8601 patterns, " +
             "as Jackson 3 uses ISO-8601 as the default format (with `WRITE_DATES_AS_TIMESTAMPS` now disabled by default).";
 
-    @Override
-    public Set<String> getTags() {
-        return singleton("jackson-3");
-    }
+    @Getter
+    final Set<String> tags = singleton( "jackson-3" );
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {

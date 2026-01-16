@@ -46,10 +46,8 @@ public class RemoveRedundantJsonPropertyValue extends Recipe {
     @Getter
     final String description = "Remove `@JsonProperty` annotation or value attribute when the value matches the argument name.";
 
-    @Override
-    public Set<String> getTags() {
-        return singleton("jackson-2");
-    }
+    @Getter
+    final Set<String> tags = singleton( "jackson-2" );
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {

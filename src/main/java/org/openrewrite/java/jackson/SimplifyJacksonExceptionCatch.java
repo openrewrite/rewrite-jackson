@@ -46,10 +46,8 @@ public class SimplifyJacksonExceptionCatch extends Recipe {
             "when `RuntimeException` is also caught, since catching both is redundant. " +
             "For example, `catch (JacksonException | RuntimeException e)` becomes `catch (RuntimeException e)`.";
 
-    @Override
-    public Set<String> getTags() {
-        return singleton("jackson-3");
-    }
+    @Getter
+    final Set<String> tags = singleton( "jackson-3" );
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {

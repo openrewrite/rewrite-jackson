@@ -61,10 +61,7 @@ public class RemoveRedundantFeatureFlags extends Recipe {
                 "`configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)` are redundant since this is " +
                 "now disabled by default in Jackson 3.";
 
-    @Override
-    public Set<String> getTags() {
-        return singleton("jackson-3");
-    }
+    Set<String> tags = singleton( "jackson-3" );
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {

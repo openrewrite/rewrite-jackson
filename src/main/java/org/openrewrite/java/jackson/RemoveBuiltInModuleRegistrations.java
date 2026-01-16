@@ -57,10 +57,8 @@ public class RemoveBuiltInModuleRegistrations extends Recipe {
             "and no longer need to be registered manually. This recipe removes `ObjectMapper.registerModule()` and `MapperBuilder.addModule()` calls " +
             "for these modules.";
 
-    @Override
-    public Set<String> getTags() {
-        return singleton("jackson-3");
-    }
+    @Getter
+    final Set<String> tags = singleton( "jackson-3" );
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {

@@ -44,10 +44,8 @@ public class ReplaceStreamWriteCapability extends Recipe {
             "and replaced with the `StreamWriteCapability` enum. This recipe updates these method calls to use " +
             "`getWriteCapabilities().isEnabled(StreamWriteCapability.*)` instead.";
 
-    @Override
-    public Set<String> getTags() {
-        return singleton("jackson-3");
-    }
+    @Getter
+    final Set<String> tags = singleton( "jackson-3" );
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
