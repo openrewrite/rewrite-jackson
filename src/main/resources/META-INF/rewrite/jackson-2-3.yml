@@ -253,10 +253,10 @@ recipeList:
       newFullyQualifiedTypeName: tools.jackson.dataformat.ion.IonWriteFeature
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: com.fasterxml.jackson.core.JsonParseException
-      newFullyQualifiedTypeName: tools.jackson.core.StreamReadException
+      newFullyQualifiedTypeName: tools.jackson.core.exc.StreamReadException
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: com.fasterxml.jackson.core.JsonGenerationException
-      newFullyQualifiedTypeName: tools.jackson.core.StreamWriteException
+      newFullyQualifiedTypeName: tools.jackson.core.exc.StreamWriteException
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: com.fasterxml.jackson.core.JsonProcessingException
       newFullyQualifiedTypeName: tools.jackson.core.JacksonException

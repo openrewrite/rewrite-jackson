@@ -18,6 +18,7 @@ package org.openrewrite.java.jackson;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.InMemoryExecutionContext;
+import org.openrewrite.Issue;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
@@ -255,6 +256,42 @@ class Jackson3TypeChangesTest implements RewriteTest {
               class XmlThings {
                   public final XmlReadFeature readFeature = XmlReadFeature.EMPTY_ELEMENT_AS_NULL;
                   public final XmlWriteFeature writeFeature = XmlWriteFeature.WRITE_XML_DECLARATION;
+              }
+              """
+          )
+        );
+    }
+
+    @Issue("https://github.com/openrewrite/rewrite-jackson/issues/75")
+    @Test
+    void jsonParseException() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonGenerationException;
+              import com.fasterxml.jackson.core.JsonParseException;
+
+              class Test {
+                  void handle(JsonParseException e) {
+                      e.printStackTrace();
+                  }
+                  void handle(JsonGenerationException e) {
+                      e.printStackTrace();
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.exc.StreamReadException;
+              import tools.jackson.core.exc.StreamWriteException;
+
+              class Test {
+                  void handle(StreamReadException e) {
+                      e.printStackTrace();
+                  }
+                  void handle(StreamWriteException e) {
+                      e.printStackTrace();
+                  }
               }
               """
           )
