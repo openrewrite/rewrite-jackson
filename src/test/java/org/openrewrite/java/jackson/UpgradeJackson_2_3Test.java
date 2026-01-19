@@ -99,7 +99,7 @@ class UpgradeJackson_2_3Test implements RewriteTest {
                           <dependency>
                               <groupId>com.fasterxml.jackson.core</groupId>
                               <artifactId>jackson-annotations</artifactId>
-                              <version>2.20</version>
+                              <version>2.21</version>
                           </dependency>
                           <dependency>
                               <groupId>tools.jackson.core</groupId>
