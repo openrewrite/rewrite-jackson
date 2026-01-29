@@ -35,9 +35,10 @@ import static java.util.Collections.singleton;
 public class UpdateSerializationInclusionConfiguration extends Recipe {
 
     private static final MethodMatcher MAPPER_BUILDER_SERIALIZATION_INCLUSION_MATCHER = new MethodMatcher("com.fasterxml.jackson.databind..MapperBuilder serializationInclusion(com.fasterxml.jackson.annotation.JsonInclude.Include)");
+    private static final MethodMatcher OBJECT_MAPPER_SET_SERIALIZATION_INCLUSION_MATCHER = new MethodMatcher("com.fasterxml.jackson.databind.ObjectMapper setSerializationInclusion(com.fasterxml.jackson.annotation.JsonInclude.Include)");
 
     @Getter
-    final String displayName = "Update configuration of serialization inclusion in ObjectMapper for Jackson 3";
+    final String displayName = "Update configuration of serialization inclusion in `ObjectMapper` for Jackson 3";
 
     @Getter
     final String description = "In Jackson 3, `mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL)` is no longer supported " +
@@ -48,28 +49,46 @@ public class UpdateSerializationInclusionConfiguration extends Recipe {
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
-        return Preconditions.check(new UsesMethod<>(MAPPER_BUILDER_SERIALIZATION_INCLUSION_MATCHER), new JavaIsoVisitor<ExecutionContext>() {
-            @Override
-            public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
-                J.MethodInvocation mi = super.visitMethodInvocation(method, ctx);
-                if (MAPPER_BUILDER_SERIALIZATION_INCLUSION_MATCHER.matches(mi)) {
-                    J.MethodInvocation result = JavaTemplate
-                            .builder("#{any(tools.jackson.databind.json.JsonMapper$Builder)}.changeDefaultPropertyInclusion(incl -> incl" +
-                                    ".withContentInclusion(#{any(com.fasterxml.jackson.annotation.JsonInclude.Include)})" +
-                                    ".withValueInclusion(#{any(com.fasterxml.jackson.annotation.JsonInclude.Include)}))")
-                            .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx,
-                                    "jackson-annotations-2", "jackson-core-3", "jackson-databind-3"))
-                            .build()
-                            .apply(
-                                    getCursor(),
-                                    mi.getCoordinates().replace(),
-                                    mi.getSelect(),
-                                    mi.getArguments().get(0),
-                                    mi.getArguments().get(0));
-                    return result.getPadding().withSelect(JRightPadded.build(result.getSelect()).withAfter(mi.getPadding().getSelect().getAfter()));
-                }
-                return mi;
-            }
-        });
+        return Preconditions.check(
+                Preconditions.or(
+                        new UsesMethod<>(MAPPER_BUILDER_SERIALIZATION_INCLUSION_MATCHER),
+                        new UsesMethod<>(OBJECT_MAPPER_SET_SERIALIZATION_INCLUSION_MATCHER)
+                ),
+                new JavaIsoVisitor<ExecutionContext>() {
+                    @Override
+                    public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
+                        J.MethodInvocation mi = super.visitMethodInvocation(method, ctx);
+                        if (MAPPER_BUILDER_SERIALIZATION_INCLUSION_MATCHER.matches(mi)) {
+                            J.MethodInvocation result = JavaTemplate
+                                    .builder("#{any(tools.jackson.databind.json.JsonMapper$Builder)}.changeDefaultPropertyInclusion(incl -> incl" +
+                                            ".withContentInclusion(#{any(com.fasterxml.jackson.annotation.JsonInclude.Include)})" +
+                                            ".withValueInclusion(#{any(com.fasterxml.jackson.annotation.JsonInclude.Include)}))")
+                                    .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx,
+                                            "jackson-annotations-2", "jackson-core-3", "jackson-databind-3"))
+                                    .build()
+                                    .apply(
+                                            getCursor(),
+                                            mi.getCoordinates().replace(),
+                                            mi.getSelect(),
+                                            mi.getArguments().get(0),
+                                            mi.getArguments().get(0));
+                            return result.getPadding().withSelect(JRightPadded.build(result.getSelect()).withAfter(mi.getPadding().getSelect().getAfter()));
+                        }
+                        if (OBJECT_MAPPER_SET_SERIALIZATION_INCLUSION_MATCHER.matches(mi)) {
+                            J.MethodInvocation result = JavaTemplate
+                                    .builder("#{any(com.fasterxml.jackson.databind.ObjectMapper)}.setDefaultPropertyInclusion(#{any(com.fasterxml.jackson.annotation.JsonInclude.Include)})")
+                                    .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx,
+                                            "jackson-annotations-2", "jackson-core-2", "jackson-databind-2"))
+                                    .build()
+                                    .apply(
+                                            getCursor(),
+                                            mi.getCoordinates().replace(),
+                                            mi.getSelect(),
+                                            mi.getArguments().get(0));
+                            return result.getPadding().withSelect(JRightPadded.build(result.getSelect()).withAfter(mi.getPadding().getSelect().getAfter()));
+                        }
+                        return mi;
+                    }
+                });
     }
 }
