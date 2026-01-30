@@ -75,6 +75,8 @@ public class UpdateSerializationInclusionConfiguration extends Recipe {
                             return result.getPadding().withSelect(JRightPadded.build(result.getSelect()).withAfter(mi.getPadding().getSelect().getAfter()));
                         }
                         if (OBJECT_MAPPER_SET_SERIALIZATION_INCLUSION_MATCHER.matches(mi)) {
+                            // Uses Jackson 2 classpath because the type is still com.fasterxml.jackson.databind.ObjectMapper
+                            // at this point; the package migration to tools.jackson happens later in UpgradeJackson_2_3_PackageChanges
                             J.MethodInvocation result = JavaTemplate
                                     .builder("#{any(com.fasterxml.jackson.databind.ObjectMapper)}.setDefaultPropertyInclusion(#{any(com.fasterxml.jackson.annotation.JsonInclude.Include)})")
                                     .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx,
