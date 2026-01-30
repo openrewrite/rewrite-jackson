@@ -19,6 +19,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.java.jackson.JacksonBestPractices
 displayName: Jackson best practices
 description: Apply best practices for using Jackson library, including upgrade to Jackson 2.x and removing redundant annotations.
+preconditions:
+  - org.openrewrite.Singleton
 tags:
   - jackson-2
   - best practices
