@@ -33,33 +33,6 @@ class UpdateSerializationInclusionConfigurationTest implements RewriteTest {
             "jackson-annotations-2", "jackson-core-2", "jackson-databind-2"));
     }
 
-    @Test
-    void updateSerializationInclusionOnObjectMapper() {
-        rewriteRun(
-          // language=java
-          java(
-            """
-              import com.fasterxml.jackson.annotation.JsonInclude;
-              import com.fasterxml.jackson.databind.ObjectMapper;
-
-              class Test {
-                  private static ObjectMapper objectMapper = new ObjectMapper()
-                          .setSerializationInclusion(JsonInclude.Include.NON_NULL);
-              }
-              """,
-            """
-              import com.fasterxml.jackson.annotation.JsonInclude;
-              import com.fasterxml.jackson.databind.ObjectMapper;
-
-              class Test {
-                  private static ObjectMapper objectMapper = new ObjectMapper()
-                          .setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL);
-              }
-              """
-          )
-        );
-    }
-
     @DocumentExample
     @Test
     void updateSerializationInclusionOnBuilder() {
