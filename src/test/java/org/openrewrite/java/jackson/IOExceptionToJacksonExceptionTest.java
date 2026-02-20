@@ -195,6 +195,31 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
     }
 
     @Test
+    void noChangeWhenTryBlockContainsNonJacksonIOExceptionSource() {
+        rewriteRun(
+          java(
+            """
+              import java.io.IOException;
+              import java.io.FileInputStream;
+              import tools.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void readAndDeserialize() {
+                      ObjectMapper mapper = new ObjectMapper();
+                      try {
+                          byte[] data = new FileInputStream("data.json").readAllBytes();
+                          mapper.readValue(data, String.class);
+                      } catch (IOException e) {
+                          throw new RuntimeException(e);
+                      }
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void noChangeWhenAlreadyCatchingJacksonException() {
         rewriteRun(
           java(
