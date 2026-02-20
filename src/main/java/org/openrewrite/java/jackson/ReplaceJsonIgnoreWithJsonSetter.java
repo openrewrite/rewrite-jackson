@@ -70,19 +70,14 @@ public class ReplaceJsonIgnoreWithJsonSetter extends Recipe {
                             return vd;
                         }
 
-                        // Check: must not already have @JsonSetter
-                        for (J.Annotation annotation : vd.getLeadingAnnotations()) {
-                            if (JSON_SETTER_MATCHER.matches(annotation)) {
-                                return vd;
-                            }
-                        }
-
                         // Check: must have @JsonIgnore annotation (not @JsonIgnore(false))
                         J.Annotation jsonIgnoreAnnotation = null;
                         for (J.Annotation annotation : vd.getLeadingAnnotations()) {
+                            if (JSON_SETTER_MATCHER.matches(annotation)) {
+                                return vd; // Check: must not already have @JsonSetter
+                            }
                             if (JSON_IGNORE_MATCHER.matches(annotation) && !isJsonIgnoreFalse(annotation)) {
                                 jsonIgnoreAnnotation = annotation;
-                                break;
                             }
                         }
                         if (jsonIgnoreAnnotation == null) {
