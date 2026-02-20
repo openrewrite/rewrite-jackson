@@ -40,6 +40,41 @@ examples:
     language: java
 ---
 type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.jackson.IOExceptionToJacksonException
+examples:
+- description: '`IOExceptionToJacksonExceptionTest#objectMapperReadValue`'
+  sources:
+  - before: |
+      import java.io.IOException;
+      import tools.jackson.databind.ObjectMapper;
+
+      class Test {
+          void deserialize(byte[] data) {
+              ObjectMapper objectMapper = new ObjectMapper();
+              try {
+                  objectMapper.readValue(data, String.class);
+              } catch (IOException e) {
+                  throw new RuntimeException("IO exception", e);
+              }
+          }
+      }
+    after: |
+      import tools.jackson.core.JacksonException;
+      import tools.jackson.databind.ObjectMapper;
+
+      class Test {
+          void deserialize(byte[] data) {
+              ObjectMapper objectMapper = new ObjectMapper();
+              try {
+                  objectMapper.readValue(data, String.class);
+              } catch (JacksonException e) {
+                  throw new RuntimeException("IO exception", e);
+              }
+          }
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.RemoveBuiltInModuleRegistrations
 examples:
 - description: '`RemoveBuiltInModuleRegistrationsTest#removeJavaTimeModuleRegistration`'

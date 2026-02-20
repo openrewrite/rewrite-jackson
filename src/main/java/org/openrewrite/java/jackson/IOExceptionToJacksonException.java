@@ -71,8 +71,8 @@ public class IOExceptionToJacksonException extends Recipe {
                         }
                         return try_.withCatches(ListUtils.map(try_.getCatches(), catch_ -> {
                             if (TypeUtils.isOfClassType(catch_.getParameter().getType(), IO_EXCEPTION)) {
-                                maybeAddImport(JACKSON_EXCEPTION);
                                 maybeRemoveImport(IO_EXCEPTION);
+                                maybeAddImport(JACKSON_EXCEPTION);
                                 return (J.Try.Catch) new ChangeType(IO_EXCEPTION, JACKSON_EXCEPTION, true)
                                         .getVisitor().visit(catch_, ctx);
                             }
