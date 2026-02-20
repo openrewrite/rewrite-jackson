@@ -38,6 +38,7 @@ recipeList:
   - org.openrewrite.java.jackson.UseModernDateTimeSerialization
   - org.openrewrite.java.jackson.ReplaceStreamWriteCapability
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_PackageChanges
+  - org.openrewrite.java.jackson.IOExceptionToJacksonException
   - org.openrewrite.java.jackson.SimplifyJacksonExceptionCatch
 
 ---
