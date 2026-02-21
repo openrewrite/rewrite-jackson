@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 the original author or authors.
+ * Copyright 2026 the original author or authors.
  * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JavaType;
 import org.openrewrite.java.tree.TypeUtils;
 
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -54,7 +55,9 @@ public class IOExceptionToJacksonException extends Recipe {
     @Getter
     final String description = "In Jackson 3, `ObjectMapper` and related classes no longer throw `IOException`. " +
             "This recipe replaces `catch (IOException e)` with `catch (JacksonException e)` " +
-            "when the try block only contains Jackson API calls that throw `IOException`.";
+            "when the try block contains Jackson API calls. When the try block also contains " +
+            "non-Jackson code that throws `IOException`, an additional `catch (JacksonException e)` " +
+            "block is added before the existing `IOException` catch.";
 
     @Getter
     final Set<String> tags = singleton("jackson-3");
@@ -77,7 +80,7 @@ public class IOExceptionToJacksonException extends Recipe {
                             return try_;
                         }
                         if (hasNonJacksonIOExceptionSource(try_)) {
-                            return try_;
+                            return addJacksonExceptionCatch(try_, ctx);
                         }
                         return try_.withCatches(ListUtils.map(try_.getCatches(), catch_ -> {
                             if (TypeUtils.isOfClassType(catch_.getParameter().getType(), IO_EXCEPTION)) {
@@ -88,6 +91,26 @@ public class IOExceptionToJacksonException extends Recipe {
                             }
                             return catch_;
                         }));
+                    }
+
+                    private J.Try addJacksonExceptionCatch(J.Try try_, ExecutionContext ctx) {
+                        List<J.Try.Catch> catches = try_.getCatches();
+                        // Skip if JacksonException is already caught
+                        if (catches.stream().anyMatch(c ->
+                                TypeUtils.isAssignableTo(JACKSON_EXCEPTION, c.getParameter().getType()))) {
+                            return try_;
+                        }
+                        for (int i = 0; i < catches.size(); i++) {
+                            J.Try.Catch catch_ = catches.get(i);
+                            if (TypeUtils.isOfClassType(catch_.getParameter().getType(), IO_EXCEPTION)) {
+                                J.Try.Catch jacksonCatch = (J.Try.Catch) new ChangeType(
+                                        IO_EXCEPTION, JACKSON_EXCEPTION, true)
+                                        .getVisitor().visit(catch_, ctx);
+                                maybeAddImport(JACKSON_EXCEPTION);
+                                return try_.withCatches(ListUtils.insert(catches, jacksonCatch, i));
+                            }
+                        }
+                        return try_;
                     }
                 }
         );

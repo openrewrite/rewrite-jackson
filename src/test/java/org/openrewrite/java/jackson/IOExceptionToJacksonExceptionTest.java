@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 the original author or authors.
+ * Copyright 2026 the original author or authors.
  * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -195,7 +195,7 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
     }
 
     @Test
-    void noChangeWhenTryBlockContainsNonJacksonIOExceptionSource() {
+    void addsJacksonExceptionCatchWhenMixedIOSources() {
         rewriteRun(
           java(
             """
@@ -209,6 +209,27 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
                       try {
                           byte[] data = new FileInputStream("data.json").readAllBytes();
                           mapper.readValue(data, String.class);
+                      } catch (IOException e) {
+                          throw new RuntimeException(e);
+                      }
+                  }
+              }
+              """,
+            """
+              import java.io.IOException;
+              import java.io.FileInputStream;
+
+              import tools.jackson.core.JacksonException;
+              import tools.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void readAndDeserialize() {
+                      ObjectMapper mapper = new ObjectMapper();
+                      try {
+                          byte[] data = new FileInputStream("data.json").readAllBytes();
+                          mapper.readValue(data, String.class);
+                      } catch (JacksonException e) {
+                          throw new RuntimeException(e);
                       } catch (IOException e) {
                           throw new RuntimeException(e);
                       }
@@ -234,6 +255,34 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
                           mapper.readValue(data, String.class);
                       } catch (JacksonException e) {
                           throw new RuntimeException(e);
+                      }
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void noChangeWhenMixedIOAndAlreadyCatchingJacksonException() {
+        rewriteRun(
+          java(
+            """
+              import java.io.IOException;
+              import java.io.FileInputStream;
+              import tools.jackson.core.JacksonException;
+              import tools.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void readAndDeserialize() {
+                      ObjectMapper mapper = new ObjectMapper();
+                      try {
+                          byte[] data = new FileInputStream("data.json").readAllBytes();
+                          mapper.readValue(data, String.class);
+                      } catch (JacksonException e) {
+                          throw new RuntimeException("Jackson error", e);
+                      } catch (IOException e) {
+                          throw new RuntimeException("IO error", e);
                       }
                   }
               }
