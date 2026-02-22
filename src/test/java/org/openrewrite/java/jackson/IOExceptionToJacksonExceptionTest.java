@@ -195,7 +195,7 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
     }
 
     @Test
-    void addsJacksonExceptionCatchWhenMixedIOSources() {
+    void multiCatchWhenMixedIOSources() {
         rewriteRun(
           java(
             """
@@ -228,9 +228,7 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
                       try {
                           byte[] data = new FileInputStream("data.json").readAllBytes();
                           mapper.readValue(data, String.class);
-                      } catch (JacksonException e) {
-                          throw new RuntimeException(e);
-                      } catch (IOException e) {
+                      } catch (JacksonException | IOException e) {
                           throw new RuntimeException(e);
                       }
                   }
