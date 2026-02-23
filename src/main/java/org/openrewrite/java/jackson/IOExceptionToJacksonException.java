@@ -16,11 +16,7 @@
 package org.openrewrite.java.jackson;
 
 import lombok.Getter;
-import org.openrewrite.ExecutionContext;
-import org.openrewrite.Preconditions;
-import org.openrewrite.Recipe;
-import org.openrewrite.Tree;
-import org.openrewrite.TreeVisitor;
+import org.openrewrite.*;
 import org.openrewrite.internal.ListUtils;
 import org.openrewrite.java.ChangeType;
 import org.openrewrite.java.JavaIsoVisitor;
@@ -74,8 +70,8 @@ public class IOExceptionToJacksonException extends Recipe {
                     public J.Try visitTry(J.Try tryStatement, ExecutionContext ctx) {
                         J.Try try_ = super.visitTry(tryStatement, ctx);
                         if (FindMethods.find(try_, OBJECT_MAPPER_PATTERN).isEmpty() &&
-                            FindMethods.find(try_, OBJECT_READER_PATTERN).isEmpty() &&
-                            FindMethods.find(try_, OBJECT_WRITER_PATTERN).isEmpty()) {
+                                FindMethods.find(try_, OBJECT_READER_PATTERN).isEmpty() &&
+                                FindMethods.find(try_, OBJECT_WRITER_PATTERN).isEmpty()) {
                             return try_;
                         }
                         if (hasNonJacksonIOExceptionSource(try_)) {
@@ -86,7 +82,7 @@ public class IOExceptionToJacksonException extends Recipe {
                                 maybeRemoveImport(IO_EXCEPTION);
                                 maybeAddImport(JACKSON_EXCEPTION);
                                 return (J.Try.Catch) new ChangeType(IO_EXCEPTION, JACKSON_EXCEPTION, true)
-                                        .getVisitor().visit(catch_, ctx, getCursor().getParentOrThrow());
+                                        .getVisitor().visitNonNull(catch_, ctx, getCursor().getParentOrThrow());
                             }
                             return catch_;
                         }));
@@ -102,12 +98,8 @@ public class IOExceptionToJacksonException extends Recipe {
                             if (!TypeUtils.isOfClassType(catch_.getParameter().getType(), IO_EXCEPTION)) {
                                 return catch_;
                             }
-                            J.Try.Catch jacksonCatch = (J.Try.Catch) new ChangeType(
-                                    IO_EXCEPTION, JACKSON_EXCEPTION, true)
-                                    .getVisitor().visit(catch_, ctx);
-                            if (jacksonCatch == null) {
-                                return catch_;
-                            }
+                            J.Try.Catch jacksonCatch = (J.Try.Catch) new ChangeType(IO_EXCEPTION, JACKSON_EXCEPTION, true)
+                                    .getVisitor().visitNonNull(catch_, ctx, getCursor().getParentOrThrow());
                             J.VariableDeclarations ioParam = catch_.getParameter().getTree();
                             NameTree jacksonType = jacksonCatch.getParameter().getTree().getTypeExpression();
                             J.MultiCatch multiCatch = new J.MultiCatch(
@@ -120,9 +112,7 @@ public class IOExceptionToJacksonException extends Recipe {
                                     )
                             );
                             maybeAddImport(JACKSON_EXCEPTION);
-                            return catch_.withParameter(
-                                    catch_.getParameter().withTree(ioParam.withTypeExpression(multiCatch))
-                            );
+                            return catch_.withParameter(catch_.getParameter().withTree(ioParam.withTypeExpression(multiCatch)));
                         }));
                     }
                 }
@@ -137,14 +127,14 @@ public class IOExceptionToJacksonException extends Recipe {
                     return method;
                 }
                 if (OBJECT_MAPPER_MATCHER.matches(method) ||
-                    OBJECT_READER_MATCHER.matches(method) ||
-                    OBJECT_WRITER_MATCHER.matches(method)) {
+                        OBJECT_READER_MATCHER.matches(method) ||
+                        OBJECT_WRITER_MATCHER.matches(method)) {
                     return method;
                 }
                 JavaType.Method methodType = method.getMethodType();
                 if (methodType != null &&
-                    methodType.getThrownExceptions().stream()
-                            .anyMatch(te -> TypeUtils.isAssignableTo(IO_EXCEPTION, te))) {
+                        methodType.getThrownExceptions().stream()
+                                .anyMatch(te -> TypeUtils.isAssignableTo(IO_EXCEPTION, te))) {
                     result.set(true);
                 }
                 return method;
@@ -157,8 +147,8 @@ public class IOExceptionToJacksonException extends Recipe {
                 }
                 JavaType.Method methodType = newClass.getMethodType();
                 if (methodType != null &&
-                    methodType.getThrownExceptions().stream()
-                            .anyMatch(te -> TypeUtils.isAssignableTo(IO_EXCEPTION, te))) {
+                        methodType.getThrownExceptions().stream()
+                                .anyMatch(te -> TypeUtils.isAssignableTo(IO_EXCEPTION, te))) {
                     result.set(true);
                 }
                 return newClass;
