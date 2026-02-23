@@ -37,6 +37,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.util.Collections.singleton;
 
+@Getter
 public class IOExceptionToJacksonException extends Recipe {
 
     private static final String IO_EXCEPTION = "java.io.IOException";
@@ -50,17 +51,14 @@ public class IOExceptionToJacksonException extends Recipe {
     private static final MethodMatcher OBJECT_READER_MATCHER = new MethodMatcher(OBJECT_READER_PATTERN, true);
     private static final MethodMatcher OBJECT_WRITER_MATCHER = new MethodMatcher(OBJECT_WRITER_PATTERN, true);
 
-    @Getter
     final String displayName = "Replace `IOException` with `JacksonException` in catch clauses";
 
-    @Getter
     final String description = "In Jackson 3, `ObjectMapper` and related classes no longer throw `IOException`. " +
             "This recipe replaces `catch (IOException e)` with `catch (JacksonException e)` " +
             "when the try block contains Jackson API calls. When the try block also contains " +
             "non-Jackson code that throws `IOException`, the catch is changed to a multi-catch " +
             "`catch (JacksonException | IOException e)`.";
 
-    @Getter
     final Set<String> tags = singleton("jackson-3");
 
     @Override
