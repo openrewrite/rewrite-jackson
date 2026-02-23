@@ -396,6 +396,49 @@ class Jackson3DependenciesTest implements RewriteTest {
         );
     }
 
+    @Test
+    void jacksonDataformatWithManagedDependencies() {
+        rewriteRun(
+          pomXml(
+            //language=xml
+            """
+              <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>org.example</groupId>
+                  <artifactId>example</artifactId>
+                  <version>1.0.0</version>
+                  <properties>
+                      <jackson.version>2.19.1</jackson.version>
+                  </properties>
+                  <dependencyManagement>
+                      <dependencies>
+                          <dependency>
+                              <groupId>com.fasterxml.jackson.dataformat</groupId>
+                              <artifactId>jackson-dataformat-yaml</artifactId>
+                              <version>${jackson.version}</version>
+                          </dependency>
+                      </dependencies>
+                  </dependencyManagement>
+                  <dependencies>
+                      <dependency>
+                          <groupId>com.fasterxml.jackson.dataformat</groupId>
+                          <artifactId>jackson-dataformat-yaml</artifactId>
+                      </dependency>
+                  </dependencies>
+              </project>
+              """,
+            spec -> spec.after(pom ->
+              assertThat(pom)
+                .doesNotContain(">com.fasterxml.jackson.dataformat<")
+                .contains(">tools.jackson.dataformat<")
+                .contains(">jackson-dataformat-yaml<")
+                .doesNotContain(">*<")
+                .containsPattern("3\\.\\d+\\.\\d+")
+                .actual())
+          )
+        );
+    }
+
     @Issue("https://github.com/openrewrite/rewrite-jackson/issues/49")
     @Test
     void jsonSchemaModuleIsNotMigrated() {
