@@ -30,6 +30,7 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
     public void defaults(RecipeSpec spec) {
         spec.recipe(new IOExceptionToJacksonException())
           .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
+            "jackson-core-2", "jackson-databind-2",
             "jackson-core-3", "jackson-databind-3"));
     }
 
@@ -40,7 +41,7 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
           java(
             """
               import java.io.IOException;
-              import tools.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.databind.ObjectMapper;
 
               class Test {
                   void deserialize(byte[] data) {
@@ -54,8 +55,8 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
               }
               """,
             """
+              import com.fasterxml.jackson.databind.ObjectMapper;
               import tools.jackson.core.JacksonException;
-              import tools.jackson.databind.ObjectMapper;
 
               class Test {
                   void deserialize(byte[] data) {
@@ -78,7 +79,7 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
           java(
             """
               import java.io.IOException;
-              import tools.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.databind.ObjectMapper;
 
               class Test {
                   String serialize(Object obj) {
@@ -92,8 +93,8 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
               }
               """,
             """
+              import com.fasterxml.jackson.databind.ObjectMapper;
               import tools.jackson.core.JacksonException;
-              import tools.jackson.databind.ObjectMapper;
 
               class Test {
                   String serialize(Object obj) {
@@ -116,8 +117,8 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
           java(
             """
               import java.io.IOException;
-              import tools.jackson.databind.ObjectMapper;
-              import tools.jackson.databind.ObjectWriter;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.databind.ObjectWriter;
 
               class Test {
                   byte[] write(Object obj) {
@@ -131,9 +132,9 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
               }
               """,
             """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.databind.ObjectWriter;
               import tools.jackson.core.JacksonException;
-              import tools.jackson.databind.ObjectMapper;
-              import tools.jackson.databind.ObjectWriter;
 
               class Test {
                   byte[] write(Object obj) {
@@ -177,7 +178,7 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
         rewriteRun(
           java(
             """
-              import tools.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.databind.ObjectMapper;
 
               class Test {
                   void deserialize(byte[] data) {
@@ -201,7 +202,7 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
             """
               import java.io.IOException;
               import java.io.FileInputStream;
-              import tools.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.databind.ObjectMapper;
 
               class Test {
                   void readAndDeserialize() {
@@ -218,9 +219,8 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
             """
               import java.io.IOException;
               import java.io.FileInputStream;
-
+              import com.fasterxml.jackson.databind.ObjectMapper;
               import tools.jackson.core.JacksonException;
-              import tools.jackson.databind.ObjectMapper;
 
               class Test {
                   void readAndDeserialize() {
@@ -247,7 +247,7 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
               import java.io.IOException;
               import java.net.URI;
               import java.net.URISyntaxException;
-              import tools.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.databind.ObjectMapper;
 
               class Test {
                   void readAndDeserialize(String address) {
@@ -267,9 +267,8 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
               import java.io.IOException;
               import java.net.URI;
               import java.net.URISyntaxException;
-
+              import com.fasterxml.jackson.databind.ObjectMapper;
               import tools.jackson.core.JacksonException;
-              import tools.jackson.databind.ObjectMapper;
 
               class Test {
                   void readAndDeserialize(String address) {
@@ -294,7 +293,7 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
           java(
             """
               import tools.jackson.core.JacksonException;
-              import tools.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.databind.ObjectMapper;
 
               class Test {
                   void deserialize(byte[] data) {
@@ -318,8 +317,8 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
             """
               import java.io.IOException;
               import java.io.FileInputStream;
+              import com.fasterxml.jackson.databind.ObjectMapper;
               import tools.jackson.core.JacksonException;
-              import tools.jackson.databind.ObjectMapper;
 
               class Test {
                   void readAndDeserialize() {

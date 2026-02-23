@@ -28,6 +28,7 @@ description: >-
 tags:
   - jackson-3
 recipeList:
+  - org.openrewrite.java.jackson.IOExceptionToJacksonException  # Before any type changes, to ensure we update catches
   - org.openrewrite.java.jackson.UpdateSerializationInclusionConfiguration
   - org.openrewrite.java.jackson.UseFormatAlignedObjectMappers
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_Dependencies
@@ -39,7 +40,6 @@ recipeList:
   - org.openrewrite.java.jackson.ReplaceStreamWriteCapability
   - org.openrewrite.java.jackson.ReplaceJsonIgnoreWithJsonSetter
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_PackageChanges
-  - org.openrewrite.java.jackson.IOExceptionToJacksonException
   - org.openrewrite.java.jackson.SimplifyJacksonExceptionCatch
 
 ---

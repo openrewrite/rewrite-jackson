@@ -40,9 +40,9 @@ public class IOExceptionToJacksonException extends Recipe {
     private static final String IO_EXCEPTION = "java.io.IOException";
     private static final String JACKSON_EXCEPTION = "tools.jackson.core.JacksonException";
 
-    private static final String OBJECT_MAPPER_PATTERN = "tools.jackson.databind.ObjectMapper *(..)";
-    private static final String OBJECT_READER_PATTERN = "tools.jackson.databind.ObjectReader *(..)";
-    private static final String OBJECT_WRITER_PATTERN = "tools.jackson.databind.ObjectWriter *(..)";
+    private static final String OBJECT_MAPPER_PATTERN = "com.fasterxml.jackson.databind.ObjectMapper *(..)";
+    private static final String OBJECT_READER_PATTERN = "com.fasterxml.jackson.databind.ObjectReader *(..)";
+    private static final String OBJECT_WRITER_PATTERN = "com.fasterxml.jackson.databind.ObjectWriter *(..)";
 
     private static final MethodMatcher OBJECT_MAPPER_MATCHER = new MethodMatcher(OBJECT_MAPPER_PATTERN, true);
     private static final MethodMatcher OBJECT_READER_MATCHER = new MethodMatcher(OBJECT_READER_PATTERN, true);
