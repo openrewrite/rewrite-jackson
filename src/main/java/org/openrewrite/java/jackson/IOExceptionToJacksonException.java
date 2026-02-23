@@ -86,7 +86,7 @@ public class IOExceptionToJacksonException extends Recipe {
                                 maybeRemoveImport(IO_EXCEPTION);
                                 maybeAddImport(JACKSON_EXCEPTION);
                                 return (J.Try.Catch) new ChangeType(IO_EXCEPTION, JACKSON_EXCEPTION, true)
-                                        .getVisitor().visit(catch_, ctx);
+                                        .getVisitor().visit(catch_, ctx, getCursor().getParentOrThrow());
                             }
                             return catch_;
                         }));
@@ -109,16 +109,14 @@ public class IOExceptionToJacksonException extends Recipe {
                                 return catch_;
                             }
                             J.VariableDeclarations ioParam = catch_.getParameter().getTree();
-                            J.VariableDeclarations jacksonParam = jacksonCatch.getParameter().getTree();
-                            NameTree jacksonType = (NameTree) jacksonParam.getTypeExpression();
-                            NameTree ioType = (NameTree) ioParam.getTypeExpression();
+                            NameTree jacksonType = jacksonCatch.getParameter().getTree().getTypeExpression();
                             J.MultiCatch multiCatch = new J.MultiCatch(
                                     Tree.randomId(),
                                     jacksonType.getPrefix(),
                                     Markers.EMPTY,
                                     Arrays.asList(
                                             JRightPadded.build((NameTree) jacksonType.withPrefix(Space.EMPTY)).withAfter(Space.SINGLE_SPACE),
-                                            JRightPadded.build((NameTree) ioType.withPrefix(Space.SINGLE_SPACE))
+                                            JRightPadded.build(ioParam.getTypeExpression().withPrefix(Space.SINGLE_SPACE))
                                     )
                             );
                             maybeAddImport(JACKSON_EXCEPTION);
@@ -132,8 +130,7 @@ public class IOExceptionToJacksonException extends Recipe {
     }
 
     private static boolean hasNonJacksonIOExceptionSource(J.Try try_) {
-        AtomicBoolean found = new AtomicBoolean(false);
-        new JavaIsoVisitor<AtomicBoolean>() {
+        return new JavaIsoVisitor<AtomicBoolean>() {
             @Override
             public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, AtomicBoolean result) {
                 if (result.get()) {
@@ -166,7 +163,18 @@ public class IOExceptionToJacksonException extends Recipe {
                 }
                 return newClass;
             }
-        }.visit(try_.getBody(), found);
-        return found.get();
+
+            @Override
+            public J.Throw visitThrow(J.Throw thrown, AtomicBoolean result) {
+                if (result.get()) {
+                    return thrown;
+                }
+                JavaType type = thrown.getException().getType();
+                if (type != null && TypeUtils.isAssignableTo(IO_EXCEPTION, type)) {
+                    result.set(true);
+                }
+                return thrown;
+            }
+        }.reduce(try_.getBody(), new AtomicBoolean(false)).get();
     }
 }
