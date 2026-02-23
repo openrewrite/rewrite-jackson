@@ -26,6 +26,7 @@ import org.openrewrite.java.search.UsesMethod;
 import org.openrewrite.java.tree.*;
 import org.openrewrite.marker.Markers;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -78,7 +79,7 @@ public class IOExceptionToJacksonException extends Recipe {
                             return addJacksonExceptionCatch(try_, ctx);
                         }
                         return try_.withCatches(ListUtils.map(try_.getCatches(), catch_ -> {
-                            if (TypeUtils.isOfClassType(catch_.getParameter().getType(), IO_EXCEPTION)) {
+                            if (catchesIOException(catch_)) {
                                 maybeRemoveImport(IO_EXCEPTION);
                                 maybeAddImport(JACKSON_EXCEPTION);
                                 return (J.Try.Catch) new ChangeType(IO_EXCEPTION, JACKSON_EXCEPTION, true)
@@ -90,17 +91,45 @@ public class IOExceptionToJacksonException extends Recipe {
 
                     private J.Try addJacksonExceptionCatch(J.Try try_, ExecutionContext ctx) {
                         List<J.Try.Catch> catches = try_.getCatches();
-                        if (catches.stream().anyMatch(c ->
-                                TypeUtils.isAssignableTo(JACKSON_EXCEPTION, c.getParameter().getType()))) {
+                        if (catches.stream().anyMatch(IOExceptionToJacksonException::catchesJacksonException)) {
                             return try_;
                         }
                         return try_.withCatches(ListUtils.map(catches, catch_ -> {
-                            if (!TypeUtils.isOfClassType(catch_.getParameter().getType(), IO_EXCEPTION)) {
+                            if (!catchesIOException(catch_)) {
                                 return catch_;
                             }
                             J.Try.Catch jacksonCatch = (J.Try.Catch) new ChangeType(IO_EXCEPTION, JACKSON_EXCEPTION, true)
                                     .getVisitor().visitNonNull(catch_, ctx, getCursor().getParentOrThrow());
                             J.VariableDeclarations ioParam = catch_.getParameter().getTree();
+
+                            if (ioParam.getTypeExpression() instanceof J.MultiCatch) {
+                                // Insert JacksonException before IOException in existing multi-catch
+                                J.MultiCatch origMultiCatch = (J.MultiCatch) ioParam.getTypeExpression();
+                                J.MultiCatch changedMultiCatch = (J.MultiCatch) jacksonCatch.getParameter().getTree().getTypeExpression();
+                                NameTree jacksonAlt = null;
+                                for (JRightPadded<NameTree> rp : changedMultiCatch.getPadding().getAlternatives()) {
+                                    if (TypeUtils.isOfClassType(rp.getElement().getType(), JACKSON_EXCEPTION)) {
+                                        jacksonAlt = rp.getElement();
+                                        break;
+                                    }
+                                }
+                                if (jacksonAlt == null) {
+                                    return catch_;
+                                }
+                                NameTree finalJacksonAlt = jacksonAlt;
+                                List<JRightPadded<NameTree>> newAlts = new ArrayList<>();
+                                for (JRightPadded<NameTree> rp : origMultiCatch.getPadding().getAlternatives()) {
+                                    if (TypeUtils.isOfClassType(rp.getElement().getType(), IO_EXCEPTION)) {
+                                        newAlts.add(JRightPadded.build((NameTree) finalJacksonAlt.withPrefix(Space.SINGLE_SPACE)).withAfter(Space.SINGLE_SPACE));
+                                    }
+                                    newAlts.add(rp);
+                                }
+                                maybeAddImport(JACKSON_EXCEPTION);
+                                return catch_.withParameter(catch_.getParameter().withTree(
+                                        ioParam.withTypeExpression(origMultiCatch.getPadding().withAlternatives(newAlts))));
+                            }
+
+                            // Single type: create new multi-catch with JacksonException | IOException
                             NameTree jacksonType = jacksonCatch.getParameter().getTree().getTypeExpression();
                             J.MultiCatch multiCatch = new J.MultiCatch(
                                     Tree.randomId(),
@@ -117,6 +146,24 @@ public class IOExceptionToJacksonException extends Recipe {
                     }
                 }
         );
+    }
+
+    private static boolean catchesIOException(J.Try.Catch catch_) {
+        J.VariableDeclarations param = catch_.getParameter().getTree();
+        if (param.getTypeExpression() instanceof J.MultiCatch) {
+            return ((J.MultiCatch) param.getTypeExpression()).getAlternatives().stream()
+                    .anyMatch(alt -> TypeUtils.isOfClassType(alt.getType(), IO_EXCEPTION));
+        }
+        return TypeUtils.isOfClassType(catch_.getParameter().getType(), IO_EXCEPTION);
+    }
+
+    private static boolean catchesJacksonException(J.Try.Catch catch_) {
+        J.VariableDeclarations param = catch_.getParameter().getTree();
+        if (param.getTypeExpression() instanceof J.MultiCatch) {
+            return ((J.MultiCatch) param.getTypeExpression()).getAlternatives().stream()
+                    .anyMatch(alt -> TypeUtils.isAssignableTo(JACKSON_EXCEPTION, alt.getType()));
+        }
+        return TypeUtils.isAssignableTo(JACKSON_EXCEPTION, catch_.getParameter().getType());
     }
 
     private static boolean hasNonJacksonIOExceptionSource(J.Try try_) {

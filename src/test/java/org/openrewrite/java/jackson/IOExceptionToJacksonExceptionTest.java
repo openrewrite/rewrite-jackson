@@ -239,6 +239,56 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
     }
 
     @Test
+    void expandExistingMultiCatchWithJacksonException() {
+        rewriteRun(
+          java(
+            """
+              import java.io.FileInputStream;
+              import java.io.IOException;
+              import java.net.URI;
+              import java.net.URISyntaxException;
+              import tools.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void readAndDeserialize(String address) {
+                      ObjectMapper mapper = new ObjectMapper();
+                      try {
+                          URI uri = new URI(address);
+                          byte[] data = new FileInputStream("data.json").readAllBytes();
+                          mapper.readValue(data, String.class);
+                      } catch (URISyntaxException | IOException e) {
+                          throw new RuntimeException(e);
+                      }
+                  }
+              }
+              """,
+            """
+              import java.io.FileInputStream;
+              import java.io.IOException;
+              import java.net.URI;
+              import java.net.URISyntaxException;
+
+              import tools.jackson.core.JacksonException;
+              import tools.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void readAndDeserialize(String address) {
+                      ObjectMapper mapper = new ObjectMapper();
+                      try {
+                          URI uri = new URI(address);
+                          byte[] data = new FileInputStream("data.json").readAllBytes();
+                          mapper.readValue(data, String.class);
+                      } catch (URISyntaxException | JacksonException | IOException e) {
+                          throw new RuntimeException(e);
+                      }
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void noChangeWhenAlreadyCatchingJacksonException() {
         rewriteRun(
           java(
