@@ -400,6 +400,35 @@ class RemoveRedundantFeatureFlagsTest implements RewriteTest {
         );
     }
 
+    @Test
+    void removeConfigureChainedOnNewObjectMapper() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import static com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS;
+
+              class Test {
+                  ObjectMapper configure() {
+                      return new ObjectMapper()
+                          .configure(WRITE_DATES_AS_TIMESTAMPS, false);
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  ObjectMapper configure() {
+                      return new ObjectMapper();
+                  }
+              }
+              """
+          )
+        );
+    }
+
 
 
     @Nested

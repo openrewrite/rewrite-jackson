@@ -109,8 +109,11 @@ public class RemoveRedundantFeatureFlags extends Recipe {
                     public @Nullable J visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
                         if (shouldRemove(method)) {
                             maybeRemoveFeatureImport(method.getArguments().get(0));
-                            // If it's part of a chain, return the select; otherwise remove the statement
-                            return method.getSelect() instanceof J.MethodInvocation ? method.getSelect() : null;
+                            // If it's part of a chain (method call or new X()), return the select; otherwise remove the statement
+                            if (method.getSelect() instanceof J.MethodInvocation || method.getSelect() instanceof J.NewClass) {
+                                return method.getSelect().withPrefix(method.getPrefix());
+                            }
+                            return null;
                         }
                         return super.visitMethodInvocation(method, ctx);
                     }
