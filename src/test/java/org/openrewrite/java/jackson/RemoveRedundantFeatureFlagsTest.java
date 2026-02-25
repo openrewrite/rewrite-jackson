@@ -407,7 +407,8 @@ class RemoveRedundantFeatureFlagsTest implements RewriteTest {
           java(
             """
               import com.fasterxml.jackson.databind.ObjectMapper;
-              import static com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS;
+
+import static com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS;
 
               class Test {
                   ObjectMapper configure() {
