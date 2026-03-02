@@ -17,6 +17,7 @@ package org.openrewrite.java.jackson;
 
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
+import org.openrewrite.Issue;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
@@ -33,7 +34,8 @@ class UpgradeJackson_2_3Test implements RewriteTest {
     public void defaults(RecipeSpec spec) {
         spec
           .parser(JavaParser.fromJavaVersion().classpath(
-            "jackson-annotations", "jackson-core", "jackson-databind"))
+            "jackson-annotations", "jackson-core", "jackson-databind",
+            "jackson-datatype-jsr310"))
           .recipeFromResources("org.openrewrite.java.jackson.UpgradeJackson_2_3");
     }
 
@@ -216,6 +218,50 @@ class UpgradeJackson_2_3Test implements RewriteTest {
                   static void helloJackson() {
                       Object[] input = new Object[] { "one", "two" };
                       TokenStreamFactory factory = new JsonFactoryBuilder().build();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Issue("https://github.com/openrewrite/rewrite-jackson/issues/89")
+    @Test
+    void chainedConfigurationOnNewObjectMapper() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonInclude;
+              import com.fasterxml.jackson.databind.DeserializationFeature;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.databind.SerializationFeature;
+              import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
+              import java.util.TimeZone;
+
+              class Test {
+                  ObjectMapper objectMapper() {
+                      return new ObjectMapper()
+                              .registerModule(new JavaTimeModule())
+                              .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+                              .setTimeZone(TimeZone.getDefault())
+                              .setSerializationInclusion(JsonInclude.Include.NON_NULL)
+                              .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonInclude;
+              import tools.jackson.databind.ObjectMapper;
+
+              import java.util.TimeZone;
+
+              class Test {
+                  ObjectMapper objectMapper() {
+                      return new ObjectMapper()
+                              .setTimeZone(TimeZone.getDefault())
+                              .setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL);
                   }
               }
               """
