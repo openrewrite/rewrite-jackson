@@ -270,6 +270,113 @@ class UpgradeJackson_2_3Test implements RewriteTest {
     }
 
     @Test
+    void replaceJsonIgnoreWithJsonSetter() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonIgnore;
+              import java.util.LinkedHashMap;
+              import java.util.Map;
+
+              class Model {
+                  @JsonIgnore
+                  private Map<String, Object> additionalProperties = new LinkedHashMap<>();
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonSetter;
+              import com.fasterxml.jackson.annotation.Nulls;
+
+              import java.util.LinkedHashMap;
+              import java.util.Map;
+
+              class Model {
+                  @JsonSetter(nulls = Nulls.AS_EMPTY)
+                  private Map<String, Object> additionalProperties = new LinkedHashMap<>();
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void jsonGeneratorMethodRenamesAndModuleRemoval() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonGenerator;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
+              class JacksonService {
+                  ObjectMapper mapper = new ObjectMapper()
+                          .registerModule(new JavaTimeModule());
+
+                  void write(JsonGenerator gen, String name, Object value) throws Exception {
+                      gen.writeObjectField(name, value);
+                      gen.writeObject(value);
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonGenerator;
+              import tools.jackson.databind.ObjectMapper;
+
+              class JacksonService {
+                  ObjectMapper mapper = new ObjectMapper();
+
+                  void write(JsonGenerator gen, String name, Object value) throws Exception {
+                      gen.writeObjectProperty(name, value);
+                      gen.writePOJO(value);
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void migratesExceptionTypeInCatch() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonParseException;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void parse(byte[] data) {
+                      ObjectMapper mapper = new ObjectMapper();
+                      try {
+                          mapper.readValue(data, Object.class);
+                      } catch (JsonParseException | RuntimeException e) {
+                          e.printStackTrace();
+                      }
+                  }
+              }
+              """,
+            """
+              import tools.jackson.databind.ObjectMapper;
+              import tools.jackson.core.exc.StreamReadException;
+
+              class Test {
+                  void parse(byte[] data) {
+                      ObjectMapper mapper = new ObjectMapper();
+                      try {
+                          mapper.readValue(data, Object.class);
+                      } catch (StreamReadException | RuntimeException e) {
+                          e.printStackTrace();
+                      }
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void jacksonUpgradeToVersion3_java8Only() {
         rewriteRun(
           pomXml(
