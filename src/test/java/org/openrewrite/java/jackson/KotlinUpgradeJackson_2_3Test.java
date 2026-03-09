@@ -16,6 +16,7 @@
 package org.openrewrite.java.jackson;
 
 import org.junit.jupiter.api.Test;
+import org.openrewrite.DocumentExample;
 import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.Issue;
 import org.openrewrite.kotlin.KotlinParser;
@@ -35,6 +36,7 @@ class KotlinUpgradeJackson_2_3Test implements RewriteTest {
               "jackson-annotations-2", "jackson-core-2", "jackson-databind-2"));
     }
 
+    @DocumentExample
     @Test
     void removeRedundantFeatureFlagsFromChain() {
         rewriteRun(
