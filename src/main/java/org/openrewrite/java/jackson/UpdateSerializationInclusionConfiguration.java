@@ -46,7 +46,7 @@ public class UpdateSerializationInclusionConfiguration extends Recipe {
             "and should be replaced by `changeDefaultPropertyInclusion()` for both `valueInclusion` and `contentInclusion`.";
 
     @Getter
-    final Set<String> tags = singleton( "jackson-3" );
+    final Set<String> tags = singleton("jackson-3");
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -74,9 +74,7 @@ public class UpdateSerializationInclusionConfiguration extends Recipe {
                                             mi.getArguments().get(0),
                                             mi.getArguments().get(0));
                             result = result.getPadding().withSelect(JRightPadded.build(result.getSelect()).withAfter(mi.getPadding().getSelect().getAfter()));
-                            // Fix lambda parameter type for Kotlin AST compatibility
-                            result = fixLambdaParameterType(result);
-                            return result;
+                            return fixLambdaParameterType(result);
                         }
                         if (OBJECT_MAPPER_SET_SERIALIZATION_INCLUSION_MATCHER.matches(mi)) {
                             // Simple rename from setSerializationInclusion to setDefaultPropertyInclusion;
@@ -102,8 +100,9 @@ public class UpdateSerializationInclusionConfiguration extends Recipe {
                             public J.VariableDeclarations.NamedVariable visitVariable(J.VariableDeclarations.NamedVariable variable, Integer p) {
                                 J.VariableDeclarations.NamedVariable nv = super.visitVariable(variable, p);
                                 if ("incl".equals(nv.getSimpleName())) {
-                                    nv = nv.withVariableType(new JavaType.Variable(null, 0, "incl", includeValueType, includeValueType, null));
-                                    nv = nv.withName(nv.getName().withType(includeValueType));
+                                    return nv
+                                            .withName(nv.getName().withType(includeValueType))
+                                            .withVariableType(new JavaType.Variable(null, 0, "incl", includeValueType, includeValueType, null));
                                 }
                                 return nv;
                             }
