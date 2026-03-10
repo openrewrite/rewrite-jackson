@@ -138,8 +138,8 @@ class RemoveThrowsIOExceptionFromJacksonOverridesTest implements RewriteTest {
               """,
             """
               import tools.jackson.core.JsonGenerator;
-              import tools.jackson.databind.SerializationContext;
               import tools.jackson.databind.ser.std.StdSerializer;
+              import tools.jackson.databind.SerializationContext;
 
               class DateSerializer extends StdSerializer<java.util.Date> {
                   public DateSerializer() {
