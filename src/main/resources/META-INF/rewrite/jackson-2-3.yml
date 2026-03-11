@@ -29,7 +29,12 @@ tags:
   - jackson-3
 recipeList:
   - org.openrewrite.java.jackson.IOExceptionToJacksonException  # Before any type changes, to ensure we update catches
-  - org.openrewrite.java.jackson.RemoveThrowsIOExceptionFromJacksonOverrides
+  - org.openrewrite.java.RemoveMethodThrows:
+      methodPattern: com.fasterxml.jackson.databind.JsonSerializer serialize(..)
+      exceptionTypePattern: java.io.IOException
+  - org.openrewrite.java.RemoveMethodThrows:
+      methodPattern: com.fasterxml.jackson.databind.JsonDeserializer deserialize(..)
+      exceptionTypePattern: java.io.IOException
   - org.openrewrite.java.jackson.StdDeserializerNullConstructor
   - org.openrewrite.java.jackson.LombokJacksonizedConfig
   - org.openrewrite.java.jackson.UpdateSerializationInclusionConfiguration

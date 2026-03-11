@@ -17,11 +17,10 @@ package org.openrewrite.java.jackson;
 
 import lombok.Getter;
 import org.openrewrite.*;
-import org.openrewrite.java.JavaIsoVisitor;
-import org.openrewrite.java.tree.J;
-import org.openrewrite.java.tree.JavaType;
+import org.openrewrite.java.trait.Annotated;
 import org.openrewrite.text.PlainText;
 import org.openrewrite.text.PlainTextParser;
+import org.openrewrite.text.PlainTextVisitor;
 
 import java.nio.file.Paths;
 import java.util.*;
@@ -75,17 +74,9 @@ public class LombokJacksonizedConfig extends ScanningRecipe<LombokJacksonizedCon
                 }
 
                 if (tree instanceof org.openrewrite.java.tree.JavaSourceFile) {
-                    new JavaIsoVisitor<ExecutionContext>() {
-                        @Override
-                        public J.Annotation visitAnnotation(J.Annotation annotation, ExecutionContext ctx) {
-                            JavaType annotationType = annotation.getType();
-                            if (annotationType instanceof JavaType.FullyQualified &&
-                                    JACKSONIZED.equals(((JavaType.FullyQualified) annotationType).getFullyQualifiedName())) {
-                                acc.hasJacksonized.set(true);
-                            }
-                            return annotation;
-                        }
-                    }.visit(tree, ctx);
+                    if (new Annotated.Matcher("@" + JACKSONIZED).lower((SourceFile) tree).findFirst().isPresent()) {
+                        acc.hasJacksonized.set(true);
+                    }
                 }
 
                 return tree;
@@ -109,21 +100,18 @@ public class LombokJacksonizedConfig extends ScanningRecipe<LombokJacksonizedCon
         if (!acc.hasJacksonized.get() || !acc.hasLombokConfig.get() || acc.alreadyConfigured.get()) {
             return TreeVisitor.noop();
         }
-        return new TreeVisitor<Tree, ExecutionContext>() {
-            @Override
-            public Tree visit(@SuppressWarnings("NullableProblems") Tree tree, ExecutionContext ctx) {
-                if (tree instanceof PlainText) {
-                    PlainText plainText = (PlainText) tree;
-                    if (plainText.getSourcePath().toString().equals("lombok.config")) {
-                        String text = plainText.getText();
-                        if (!text.endsWith("\n")) {
-                            text += "\n";
+        return Preconditions.check(
+                new FindSourceFiles("**/lombok.config").getVisitor(),
+                new PlainTextVisitor<ExecutionContext>() {
+                    @Override
+                    public PlainText visitText(PlainText text, ExecutionContext ctx) {
+                        String content = text.getText();
+                        if (!content.endsWith("\n")) {
+                            content += "\n";
                         }
-                        return plainText.withText(text + CONFIG_LINE);
+                        return text.withText(content + CONFIG_LINE);
                     }
                 }
-                return tree;
-            }
-        };
+        );
     }
 }

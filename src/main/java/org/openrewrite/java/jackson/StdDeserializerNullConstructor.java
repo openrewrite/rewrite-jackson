@@ -20,6 +20,7 @@ import org.jspecify.annotations.Nullable;
 import org.openrewrite.*;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.JavaTemplate;
+import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.*;
 
@@ -32,6 +33,9 @@ import static java.util.Collections.singleton;
 public class StdDeserializerNullConstructor extends Recipe {
 
     private static final String STD_DESERIALIZER = "com.fasterxml.jackson.databind.deser.std.StdDeserializer";
+
+    private static final MethodMatcher STD_DESER_CONSTRUCTOR =
+            new MethodMatcher(STD_DESERIALIZER + " <constructor>(..)", true);
 
     final String displayName = "Replace `null` type in `StdDeserializer` constructor with actual type";
 
@@ -50,8 +54,12 @@ public class StdDeserializerNullConstructor extends Recipe {
                     public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
                         J.MethodInvocation mi = super.visitMethodInvocation(method, ctx);
 
-                        String name = mi.getSimpleName();
-                        if (!"this".equals(name) && !"super".equals(name)) {
+                        // Match super(null) targeting StdDeserializer constructor
+                        boolean isSuperCall = STD_DESER_CONSTRUCTOR.matches(mi);
+                        // Match this(null) in StdDeserializer subclass constructors
+                        boolean isThisCall = !isSuperCall && "this".equals(mi.getSimpleName());
+
+                        if (!isSuperCall && !isThisCall) {
                             return mi;
                         }
 
@@ -67,6 +75,11 @@ public class StdDeserializerNullConstructor extends Recipe {
 
                         J.ClassDeclaration classDecl = getCursor().firstEnclosing(J.ClassDeclaration.class);
                         if (classDecl == null || classDecl.getType() == null) {
+                            return mi;
+                        }
+
+                        // For this() calls, verify the enclosing class extends StdDeserializer
+                        if (isThisCall && !TypeUtils.isAssignableTo(STD_DESERIALIZER, classDecl.getType())) {
                             return mi;
                         }
 
