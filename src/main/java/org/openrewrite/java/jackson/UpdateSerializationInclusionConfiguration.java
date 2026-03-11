@@ -75,8 +75,7 @@ public class UpdateSerializationInclusionConfiguration extends Recipe {
                                             mi.getArguments().get(0),
                                             mi.getArguments().get(0));
                             result = result.getPadding().withSelect(JRightPadded.build(result.getSelect()).withAfter(mi.getPadding().getSelect().getAfter()));
-                            result = fixLambdaParameterType(result);
-                            return fixLambdaBodySpacing(result);
+                            return fixKotlinLambdaParameterTypeAndBodySpacing(result);
                         }
                         if (OBJECT_MAPPER_SET_SERIALIZATION_INCLUSION_MATCHER.matches(mi)) {
                             // Simple rename from setSerializationInclusion to setDefaultPropertyInclusion;
@@ -90,13 +89,14 @@ public class UpdateSerializationInclusionConfiguration extends Recipe {
                         return mi;
                     }
 
-                    /**
-                     * The JavaTemplate-generated lambda body loses its leading space
-                     * when rendered to Kotlin. Walk the result to ensure the lambda
-                     * body has a single space prefix.
-                     */
-                    private J.MethodInvocation fixLambdaBodySpacing(J.MethodInvocation mi) {
+                    private J.MethodInvocation fixKotlinLambdaParameterTypeAndBodySpacing(J.MethodInvocation mi) {
+                        JavaType includeValueType = JavaType.ShallowClass.build("com.fasterxml.jackson.annotation.JsonInclude$Value");
                         return (J.MethodInvocation) new JavaIsoVisitor<Integer>() {
+                            /**
+                             * The JavaTemplate-generated lambda body loses its leading space
+                             * when rendered to Kotlin. Walk the result to ensure the lambda
+                             * body has a single space prefix.
+                             */
                             @Override
                             public J.Lambda visitLambda(J.Lambda lambda, Integer p) {
                                 J.Lambda l = super.visitLambda(lambda, p);
@@ -105,17 +105,12 @@ public class UpdateSerializationInclusionConfiguration extends Recipe {
                                 }
                                 return l;
                             }
-                        }.visitNonNull(mi, 0);
-                    }
 
-                    /**
-                     * The JavaTemplate-generated lambda has an untyped parameter which fails
-                     * Kotlin AST type validation. Walk the result to add the type to the
-                     * lambda parameter variable.
-                     */
-                    private J.MethodInvocation fixLambdaParameterType(J.MethodInvocation mi) {
-                        JavaType includeValueType = JavaType.ShallowClass.build("com.fasterxml.jackson.annotation.JsonInclude$Value");
-                        return (J.MethodInvocation) new JavaIsoVisitor<Integer>() {
+                            /**
+                             * The JavaTemplate-generated lambda has an untyped parameter which fails
+                             * Kotlin AST type validation. Walk the result to add the type to the
+                             * lambda parameter variable.
+                             */
                             @Override
                             public J.VariableDeclarations.NamedVariable visitVariable(J.VariableDeclarations.NamedVariable variable, Integer p) {
                                 J.VariableDeclarations.NamedVariable nv = super.visitVariable(variable, p);
