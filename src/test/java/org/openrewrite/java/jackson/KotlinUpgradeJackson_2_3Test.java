@@ -139,7 +139,7 @@ class KotlinUpgradeJackson_2_3Test implements RewriteTest {
 
               fun configure(): JsonMapper {
                   return JsonMapper.builder()
-                      .changeDefaultPropertyInclusion({ incl ->incl.withContentInclusion(JsonInclude.Include.NON_NULL).withValueInclusion(JsonInclude.Include.NON_NULL)})
+                      .changeDefaultPropertyInclusion({ incl -> incl.withContentInclusion(JsonInclude.Include.NON_NULL).withValueInclusion(JsonInclude.Include.NON_NULL)})
                       .build()
               }
               """

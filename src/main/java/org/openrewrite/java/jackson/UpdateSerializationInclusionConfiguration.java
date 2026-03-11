@@ -28,6 +28,7 @@ import org.openrewrite.java.search.UsesMethod;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JRightPadded;
 import org.openrewrite.java.tree.JavaType;
+import org.openrewrite.java.tree.Space;
 
 import java.util.Set;
 
@@ -74,7 +75,8 @@ public class UpdateSerializationInclusionConfiguration extends Recipe {
                                             mi.getArguments().get(0),
                                             mi.getArguments().get(0));
                             result = result.getPadding().withSelect(JRightPadded.build(result.getSelect()).withAfter(mi.getPadding().getSelect().getAfter()));
-                            return fixLambdaParameterType(result);
+                            result = fixLambdaParameterType(result);
+                            return fixLambdaBodySpacing(result);
                         }
                         if (OBJECT_MAPPER_SET_SERIALIZATION_INCLUSION_MATCHER.matches(mi)) {
                             // Simple rename from setSerializationInclusion to setDefaultPropertyInclusion;
@@ -86,6 +88,24 @@ public class UpdateSerializationInclusionConfiguration extends Recipe {
                             return mi;
                         }
                         return mi;
+                    }
+
+                    /**
+                     * The JavaTemplate-generated lambda body loses its leading space
+                     * when rendered to Kotlin. Walk the result to ensure the lambda
+                     * body has a single space prefix.
+                     */
+                    private J.MethodInvocation fixLambdaBodySpacing(J.MethodInvocation mi) {
+                        return (J.MethodInvocation) new JavaIsoVisitor<Integer>() {
+                            @Override
+                            public J.Lambda visitLambda(J.Lambda lambda, Integer p) {
+                                J.Lambda l = super.visitLambda(lambda, p);
+                                if (l.getBody().getPrefix().isEmpty()) {
+                                    return l.withBody(l.getBody().withPrefix(Space.SINGLE_SPACE));
+                                }
+                                return l;
+                            }
+                        }.visitNonNull(mi, 0);
                     }
 
                     /**
