@@ -15,7 +15,9 @@
  */
 package org.openrewrite.java.jackson;
 
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import lombok.Value;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.*;
 import org.openrewrite.java.JavaIsoVisitor;
@@ -29,21 +31,21 @@ import java.util.Set;
 
 import static java.util.Collections.singleton;
 
-@Getter
+@Value
+@EqualsAndHashCode(callSuper = false)
 public class StdDeserializerNullConstructor extends Recipe {
 
     private static final String STD_DESERIALIZER = "com.fasterxml.jackson.databind.deser.std.StdDeserializer";
-
     private static final MethodMatcher STD_DESER_CONSTRUCTOR =
             new MethodMatcher(STD_DESERIALIZER + " <constructor>(..)", true);
+    private static final MethodMatcher ANY_STD_DESER_SUBCLASS_CONSTRUCTOR =
+            new MethodMatcher("* <constructor>(..)");
 
-    final String displayName = "Replace `null` type in `StdDeserializer` constructor with actual type";
+    String displayName = "Replace `null` type in `StdDeserializer` constructor with actual type";
 
-    final String description = "In Jackson 3, `StdDeserializer` no longer accepts `null` for the handled type " +
+    String description = "In Jackson 3, `StdDeserializer` no longer accepts `null` for the handled type " +
             "parameter. This recipe replaces `this(null)` and `super((Class<?>) null)` in `StdDeserializer` " +
             "subclass constructors with the actual type parameter from the class declaration.";
-
-    final Set<String> tags = singleton("jackson-3");
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -54,17 +56,10 @@ public class StdDeserializerNullConstructor extends Recipe {
                     public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
                         J.MethodInvocation mi = super.visitMethodInvocation(method, ctx);
 
-                        // Match super(null) targeting StdDeserializer constructor
-                        boolean isSuperCall = STD_DESER_CONSTRUCTOR.matches(mi);
-                        // Match this(null) in StdDeserializer subclass constructors
-                        boolean isThisCall = !isSuperCall && "this".equals(mi.getSimpleName());
-
-                        if (!isSuperCall && !isThisCall) {
-                            return mi;
-                        }
-
-                        J.MethodDeclaration constructor = getCursor().firstEnclosing(J.MethodDeclaration.class);
-                        if (constructor == null || !constructor.isConstructor()) {
+                        // Match super(null) on StdDeserializer or this(null) on a subclass
+                        if (!STD_DESER_CONSTRUCTOR.matches(mi) &&
+                                !(ANY_STD_DESER_SUBCLASS_CONSTRUCTOR.matches(mi) &&
+                                        isInStdDeserializerSubclass())) {
                             return mi;
                         }
 
@@ -78,20 +73,20 @@ public class StdDeserializerNullConstructor extends Recipe {
                             return mi;
                         }
 
-                        // For this() calls, verify the enclosing class extends StdDeserializer
-                        if (isThisCall && !TypeUtils.isAssignableTo(STD_DESERIALIZER, classDecl.getType())) {
-                            return mi;
-                        }
-
                         JavaType typeParam = resolveStdDeserializerTypeParam(classDecl.getType());
                         if (!(typeParam instanceof JavaType.FullyQualified)) {
                             return mi;
                         }
 
                         String className = ((JavaType.FullyQualified) typeParam).getClassName();
-                        return JavaTemplate.builder(className + ".class")
-                                .build()
-                                .apply(getCursor(), mi.getCoordinates().replaceArguments());
+                        return classLiteral(className).apply(
+                                getCursor(), mi.getCoordinates().replaceArguments());
+                    }
+
+                    private boolean isInStdDeserializerSubclass() {
+                        J.ClassDeclaration classDecl = getCursor().firstEnclosing(J.ClassDeclaration.class);
+                        return classDecl != null && classDecl.getType() != null &&
+                                TypeUtils.isAssignableTo(STD_DESERIALIZER, classDecl.getType());
                     }
 
                     private boolean isNullLiteral(Expression expr) {
@@ -127,5 +122,9 @@ public class StdDeserializerNullConstructor extends Recipe {
                     }
                 }
         );
+    }
+
+    private static JavaTemplate classLiteral(String className) {
+        return JavaTemplate.builder(className + ".class").build();
     }
 }

@@ -16,6 +16,7 @@
 package org.openrewrite.java.jackson;
 
 import org.junit.jupiter.api.Test;
+import org.openrewrite.DocumentExample;
 import org.openrewrite.Issue;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
@@ -37,12 +38,13 @@ class RemoveThrowsIOExceptionFromJacksonOverridesTest implements RewriteTest {
     @Override
     public void defaults(RecipeSpec spec) {
         spec
-          .parser(JavaParser.fromJavaVersion().classpath(
-            "jackson-annotations", "jackson-core", "jackson-databind"))
+          .parser(JavaParser.fromJavaVersion()
+            .classpath("jackson-annotations", "jackson-core", "jackson-databind"))
           .recipeFromResources("org.openrewrite.java.jackson.UpgradeJackson_2_3");
     }
 
     @Test
+    @DocumentExample
     void removeThrowsIOExceptionFromSerializer() {
         rewriteRun(
           //language=java
@@ -55,8 +57,7 @@ class RemoveThrowsIOExceptionFromJacksonOverridesTest implements RewriteTest {
 
               class MySerializer extends JsonSerializer<String> {
                   @Override
-                  public void serialize(String value, JsonGenerator gen,
-                          SerializerProvider provider) throws IOException {
+                  public void serialize(String value, JsonGenerator gen, SerializerProvider provider) throws IOException {
                       gen.writeString(value.toUpperCase());
                   }
               }
@@ -68,8 +69,7 @@ class RemoveThrowsIOExceptionFromJacksonOverridesTest implements RewriteTest {
 
               class MySerializer extends ValueSerializer<String> {
                   @Override
-                  public void serialize(String value, JsonGenerator gen,
-                          SerializationContext provider) {
+                  public void serialize(String value, JsonGenerator gen, SerializationContext provider) {
                       gen.writeString(value.toUpperCase());
                   }
               }
@@ -91,8 +91,7 @@ class RemoveThrowsIOExceptionFromJacksonOverridesTest implements RewriteTest {
 
               class MyDeserializer extends JsonDeserializer<String> {
                   @Override
-                  public String deserialize(JsonParser p, DeserializationContext ctxt)
-                          throws IOException {
+                  public String deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
                       return p.getValueAsString();
                   }
               }
@@ -130,8 +129,7 @@ class RemoveThrowsIOExceptionFromJacksonOverridesTest implements RewriteTest {
                   }
 
                   @Override
-                  public void serialize(java.util.Date value, JsonGenerator gen,
-                          SerializerProvider provider) throws IOException {
+                  public void serialize(java.util.Date value, JsonGenerator gen, SerializerProvider provider) throws IOException {
                       gen.writeString(value.toString());
                   }
               }
@@ -147,8 +145,92 @@ class RemoveThrowsIOExceptionFromJacksonOverridesTest implements RewriteTest {
                   }
 
                   @Override
-                  public void serialize(java.util.Date value, JsonGenerator gen,
-                          SerializationContext provider) {
+                  public void serialize(java.util.Date value, JsonGenerator gen, SerializationContext provider) {
+                      gen.writeString(value.toString());
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void keepOtherException() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonGenerator;
+              import com.fasterxml.jackson.databind.SerializerProvider;
+              import com.fasterxml.jackson.databind.ser.std.StdSerializer;
+              import java.io.IOException;
+
+              class DateSerializer extends StdSerializer<java.util.Date> {
+                  public DateSerializer() {
+                      super(java.util.Date.class);
+                  }
+
+                  @Override
+                  public void serialize(java.util.Date value, JsonGenerator gen, SerializerProvider provider) throws IOException, IllegalArgumentException {
+                      gen.writeString(value.toString());
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonGenerator;
+              import tools.jackson.databind.ser.std.StdSerializer;
+              import tools.jackson.databind.SerializationContext;
+
+              class DateSerializer extends StdSerializer<java.util.Date> {
+                  public DateSerializer() {
+                      super(java.util.Date.class);
+                  }
+
+                  @Override
+                  public void serialize(java.util.Date value, JsonGenerator gen, SerializationContext provider) throws IllegalArgumentException {
+                      gen.writeString(value.toString());
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void keepOnOtherMethods() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonGenerator;
+              import com.fasterxml.jackson.databind.SerializerProvider;
+              import com.fasterxml.jackson.databind.ser.std.StdSerializer;
+
+              import java.io.IOException;
+
+              class DateSerializer extends StdSerializer<java.util.Date> {
+                  public DateSerializer() {
+                      super(java.util.Date.class);
+                  }
+
+                  public void otherSerialize(java.util.Date value, JsonGenerator gen, SerializerProvider provider) throws IOException {
+                      gen.writeString(value.toString());
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonGenerator;
+              import tools.jackson.databind.ser.std.StdSerializer;
+              import tools.jackson.databind.SerializationContext;
+
+              import java.io.IOException;
+
+              class DateSerializer extends StdSerializer<java.util.Date> {
+                  public DateSerializer() {
+                      super(java.util.Date.class);
+                  }
+
+                  public void otherSerialize(java.util.Date value, JsonGenerator gen, SerializationContext provider) throws IOException {
                       gen.writeString(value.toString());
                   }
               }

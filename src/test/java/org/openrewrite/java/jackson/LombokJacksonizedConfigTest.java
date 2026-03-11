@@ -16,6 +16,7 @@
 package org.openrewrite.java.jackson;
 
 import org.junit.jupiter.api.Test;
+import org.openrewrite.DocumentExample;
 import org.openrewrite.Issue;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
@@ -37,12 +38,12 @@ class LombokJacksonizedConfigTest implements RewriteTest {
     @Override
     public void defaults(RecipeSpec spec) {
         spec
-          .parser(JavaParser.fromJavaVersion().classpath(
-            "jackson-annotations", "jackson-core", "jackson-databind",
-            "lombok"))
+          .parser(JavaParser.fromJavaVersion()
+            .classpath("jackson-annotations", "jackson-core", "jackson-databind", "lombok"))
           .recipeFromResources("org.openrewrite.java.jackson.UpgradeJackson_2_3");
     }
 
+    @DocumentExample
     @Test
     void addJacksonVersionToLombokConfig() {
         rewriteRun(
@@ -93,13 +94,31 @@ class LombokJacksonizedConfigTest implements RewriteTest {
               }
               """
           ),
-          //noinspection DataFlowIssue
           text(
-            null, // file does not exist before the recipe runs
+            doesNotExist(),
             """
               lombok.jacksonized.jacksonVersion = 3
               """,
             spec -> spec.path("lombok.config")
+          )
+        );
+    }
+
+    @Test
+    void skipForPureLombok() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import lombok.Builder;
+              import lombok.Value;
+
+              @Value
+              @Builder
+              class MyDto {
+                  String name;
+              }
+              """
           )
         );
     }

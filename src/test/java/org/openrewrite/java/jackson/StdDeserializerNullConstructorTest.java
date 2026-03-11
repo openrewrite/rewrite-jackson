@@ -16,6 +16,7 @@
 package org.openrewrite.java.jackson;
 
 import org.junit.jupiter.api.Test;
+import org.openrewrite.DocumentExample;
 import org.openrewrite.Issue;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
@@ -36,12 +37,13 @@ class StdDeserializerNullConstructorTest implements RewriteTest {
     @Override
     public void defaults(RecipeSpec spec) {
         spec
-          .parser(JavaParser.fromJavaVersion().classpath(
-            "jackson-annotations", "jackson-core", "jackson-databind"))
+          .parser(JavaParser.fromJavaVersion()
+            .classpath("jackson-annotations", "jackson-core", "jackson-databind"))
           .recipeFromResources("org.openrewrite.java.jackson.UpgradeJackson_2_3");
     }
 
     @Test
+    @DocumentExample
     void stdDeserializerThisNullPattern() {
         rewriteRun(
           //language=java
@@ -109,8 +111,7 @@ class StdDeserializerNullConstructorTest implements RewriteTest {
                   }
 
                   @Override
-                  public Long deserialize(JsonParser p, DeserializationContext ctxt)
-                          throws IOException {
+                  public Long deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
                       return p.getValueAsLong();
                   }
               }

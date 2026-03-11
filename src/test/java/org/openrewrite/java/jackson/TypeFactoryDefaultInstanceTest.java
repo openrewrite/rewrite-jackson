@@ -16,6 +16,7 @@
 package org.openrewrite.java.jackson;
 
 import org.junit.jupiter.api.Test;
+import org.openrewrite.DocumentExample;
 import org.openrewrite.Issue;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
@@ -35,12 +36,13 @@ class TypeFactoryDefaultInstanceTest implements RewriteTest {
     @Override
     public void defaults(RecipeSpec spec) {
         spec
-          .parser(JavaParser.fromJavaVersion().classpath(
-            "jackson-annotations", "jackson-core", "jackson-databind"))
+          .parser(JavaParser.fromJavaVersion()
+            .classpath("jackson-annotations", "jackson-core", "jackson-databind"))
           .recipeFromResources("org.openrewrite.java.jackson.UpgradeJackson_2_3");
     }
 
     @Test
+    @DocumentExample
     void typeFactoryDefaultInstanceRenamed() {
         rewriteRun(
           //language=java
@@ -62,33 +64,6 @@ class TypeFactoryDefaultInstanceTest implements RewriteTest {
               class Test {
                   JavaType getType() {
                       return TypeFactory.createDefaultInstance().constructType(String.class);
-                  }
-              }
-              """
-          )
-        );
-    }
-
-    @Test
-    void typeFactoryDefaultInstanceAssignedToVariable() {
-        rewriteRun(
-          //language=java
-          java(
-            """
-              import com.fasterxml.jackson.databind.type.TypeFactory;
-
-              class Test {
-                  void test() {
-                      TypeFactory tf = TypeFactory.defaultInstance();
-                  }
-              }
-              """,
-            """
-              import tools.jackson.databind.type.TypeFactory;
-
-              class Test {
-                  void test() {
-                      TypeFactory tf = TypeFactory.createDefaultInstance();
                   }
               }
               """
