@@ -116,4 +116,34 @@ class KotlinUpgradeJackson_2_3Test implements RewriteTest {
           )
         );
     }
+
+    @Test
+    void updateSerializationInclusionOnBuilder() {
+        rewriteRun(
+          spec -> spec.recipe(new UpdateSerializationInclusionConfiguration()),
+          //language=kotlin
+          kotlin(
+            """
+              import com.fasterxml.jackson.annotation.JsonInclude
+              import com.fasterxml.jackson.databind.json.JsonMapper
+
+              fun configure(): JsonMapper {
+                  return JsonMapper.builder()
+                      .serializationInclusion(JsonInclude.Include.NON_NULL)
+                      .build()
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonInclude
+              import com.fasterxml.jackson.databind.json.JsonMapper
+
+              fun configure(): JsonMapper {
+                  return JsonMapper.builder()
+                      .changeDefaultPropertyInclusion({ incl -> incl.withContentInclusion(JsonInclude.Include.NON_NULL).withValueInclusion(JsonInclude.Include.NON_NULL)})
+                      .build()
+              }
+              """
+          )
+        );
+    }
 }
