@@ -43,7 +43,7 @@ public class LombokJacksonizedConfig extends ScanningRecipe<LombokJacksonizedCon
             "`lombok.jacksonized.jacksonVersion = 3` to `lombok.config` so Lombok generates " +
             "Jackson 3 compatible annotations.";
 
-    static class Accumulator {
+    public static class Accumulator {
         final AtomicBoolean hasJacksonized = new AtomicBoolean(false);
         final AtomicBoolean hasLombokConfig = new AtomicBoolean(false);
         final AtomicBoolean alreadyConfigured = new AtomicBoolean(false);
@@ -64,7 +64,7 @@ public class LombokJacksonizedConfig extends ScanningRecipe<LombokJacksonizedCon
                 }
 
                 SourceFile sourceFile = (SourceFile) tree;
-                if (tree instanceof PlainText && sourceFile.getSourcePath().toString().equals("lombok.config")) {
+                if (tree instanceof PlainText && "lombok.config".equals(sourceFile.getSourcePath().toString())) {
                     acc.hasLombokConfig.set(true);
                     if (((PlainText) tree).getText().contains(CONFIG_KEY)) {
                         acc.alreadyConfigured.set(true);

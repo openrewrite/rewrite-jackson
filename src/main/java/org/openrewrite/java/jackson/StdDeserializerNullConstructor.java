@@ -16,7 +16,6 @@
 package org.openrewrite.java.jackson;
 
 import lombok.EqualsAndHashCode;
-import lombok.Getter;
 import lombok.Value;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.*;
@@ -27,9 +26,7 @@ import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.*;
 
 import java.util.List;
-import java.util.Set;
 
-import static java.util.Collections.singleton;
 
 @Value
 @EqualsAndHashCode(callSuper = false)
@@ -65,22 +62,17 @@ public class StdDeserializerNullConstructor extends Recipe {
 
                         List<Expression> args = mi.getArguments();
                         if (args.size() != 1 || !isNullLiteral(args.get(0))) {
+                            // too many arguments, this seems to be a customer constructor
                             return mi;
                         }
 
-                        J.ClassDeclaration classDecl = getCursor().firstEnclosing(J.ClassDeclaration.class);
-                        if (classDecl == null || classDecl.getType() == null) {
-                            return mi;
-                        }
-
-                        JavaType typeParam = resolveStdDeserializerTypeParam(classDecl.getType());
+                        JavaType typeParam = resolveStdDeserializerTypeParam();
                         if (!(typeParam instanceof JavaType.FullyQualified)) {
+                            // unable to determine the generic type parameter
                             return mi;
                         }
 
-                        String className = ((JavaType.FullyQualified) typeParam).getClassName();
-                        return classLiteral(className).apply(
-                                getCursor(), mi.getCoordinates().replaceArguments());
+                        return classLiteralFor(typeParam).apply(getCursor(), mi.getCoordinates().replaceArguments());
                     }
 
                     private boolean isInStdDeserializerSubclass() {
@@ -100,31 +92,35 @@ public class StdDeserializerNullConstructor extends Recipe {
                         return false;
                     }
 
-                    private @Nullable JavaType resolveStdDeserializerTypeParam(JavaType.FullyQualified type) {
-                        JavaType.FullyQualified current = type;
-                        while (current != null) {
-                            JavaType.FullyQualified supertype = current.getSupertype();
-                            if (supertype == null) {
-                                break;
-                            }
-                            if (STD_DESERIALIZER.equals(supertype.getFullyQualifiedName())) {
-                                if (supertype instanceof JavaType.Parameterized) {
-                                    List<JavaType> params = ((JavaType.Parameterized) supertype).getTypeParameters();
-                                    if (!params.isEmpty()) {
-                                        return params.get(0);
-                                    }
-                                }
-                                return null;
-                            }
-                            current = supertype;
+                    /**
+                     * resolves the genery type argument for the StdDeserializer class we are in
+                     */
+                    private @Nullable JavaType resolveStdDeserializerTypeParam() {
+                        J.ClassDeclaration classDecl = getCursor().firstEnclosing(J.ClassDeclaration.class);
+                        if (classDecl == null || classDecl.getType() == null) {
+                            return null;
                         }
+
+                        // supertype is never null because TypeUtils.isOfClassType would be false otherwise
+                        for (JavaType.FullyQualified supertype = classDecl.getType().getSupertype();
+                             !TypeUtils.isOfClassType(supertype, "java.lang.Object");
+                             supertype = supertype.getSupertype()) {
+                            if (TypeUtils.isOfClassType(supertype, STD_DESERIALIZER)) {
+                                List<JavaType> params = supertype.getTypeParameters();
+                                if (!params.isEmpty()) {
+                                    return params.get(0);
+                                }
+                            }
+                        }
+
                         return null;
                     }
                 }
         );
     }
 
-    private static JavaTemplate classLiteral(String className) {
+    private static JavaTemplate classLiteralFor(JavaType typeParam) {
+        String className = ((JavaType.FullyQualified) typeParam).getClassName();
         return JavaTemplate.builder(className + ".class").build();
     }
 }
