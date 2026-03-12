@@ -19,6 +19,7 @@ import lombok.EqualsAndHashCode;
 import lombok.Value;
 import org.openrewrite.*;
 import org.openrewrite.java.trait.Annotated;
+import org.openrewrite.java.tree.JavaSourceFile;
 import org.openrewrite.text.PlainText;
 import org.openrewrite.text.PlainTextParser;
 import org.openrewrite.text.PlainTextVisitor;
@@ -71,7 +72,8 @@ public class LombokJacksonizedConfig extends ScanningRecipe<LombokJacksonizedCon
                     }
                 }
 
-                if (tree instanceof org.openrewrite.java.tree.JavaSourceFile &&
+                if (!acc.hasJacksonized.get() &&
+                    tree instanceof JavaSourceFile &&
                     new Annotated.Matcher("@" + JACKSONIZED).lower(sourceFile).findFirst().isPresent()) {
                     acc.hasJacksonized.set(true);
                 }
@@ -105,6 +107,9 @@ public class LombokJacksonizedConfig extends ScanningRecipe<LombokJacksonizedCon
                     @Override
                     public PlainText visitText(PlainText text, ExecutionContext ctx) {
                         String content = text.getText();
+                        if (content.isEmpty()) {
+                            return text.withText(CONFIG_LINE);
+                        }
                         if (!content.endsWith("\n")) {
                             content += "\n";
                         }
