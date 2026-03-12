@@ -44,7 +44,5 @@ recipeDependencies {
     parserClasspath("tools.jackson.core:jackson-core:3.+")
     parserClasspath("tools.jackson.core:jackson-databind:3.+")
 
-    parserClasspath("org.projectlombok:lombok:latest.release")
-
     testParserClasspath("com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.17.3")
 }

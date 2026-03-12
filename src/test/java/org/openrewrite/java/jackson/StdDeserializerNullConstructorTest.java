@@ -42,8 +42,8 @@ class StdDeserializerNullConstructorTest implements RewriteTest {
           .recipeFromResources("org.openrewrite.java.jackson.UpgradeJackson_2_3");
     }
 
-    @Test
     @DocumentExample
+    @Test
     void stdDeserializerThisNullPattern() {
         rewriteRun(
           //language=java

@@ -15,8 +15,8 @@
  */
 package org.openrewrite.java.jackson;
 
-import lombok.EqualsAndHashCode;
-import lombok.Value;
+import lombok.Getter;
+import org.jspecify.annotations.Nullable;
 import org.openrewrite.*;
 import org.openrewrite.java.trait.Annotated;
 import org.openrewrite.java.tree.JavaSourceFile;
@@ -25,12 +25,13 @@ import org.openrewrite.text.PlainTextParser;
 import org.openrewrite.text.PlainTextVisitor;
 
 import java.nio.file.Paths;
-import java.util.*;
+import java.util.Collection;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 
-@Value
-@EqualsAndHashCode(callSuper = false)
+import static java.util.Collections.emptyList;
+import static java.util.stream.Collectors.toList;
+
+@Getter
 public class LombokJacksonizedConfig extends ScanningRecipe<LombokJacksonizedConfig.Accumulator> {
 
     private static final String JACKSONIZED = "lombok.extern.jackson.Jacksonized";
@@ -38,7 +39,6 @@ public class LombokJacksonizedConfig extends ScanningRecipe<LombokJacksonizedCon
     private static final String CONFIG_LINE = CONFIG_KEY + " = 3";
 
     String displayName = "Update `lombok.config` for Jackson 3 compatibility";
-
     String description = "When `@Jacksonized` is used, Lombok generates Jackson annotations. " +
             "By default it generates Jackson 2.x annotations. This recipe adds " +
             "`lombok.jacksonized.jacksonVersion = 3` to `lombok.config` so Lombok generates " +
@@ -59,7 +59,7 @@ public class LombokJacksonizedConfig extends ScanningRecipe<LombokJacksonizedCon
     public TreeVisitor<?, ExecutionContext> getScanner(Accumulator acc) {
         return new TreeVisitor<Tree, ExecutionContext>() {
             @Override
-            public Tree visit(@SuppressWarnings("NullableProblems") Tree tree, ExecutionContext ctx) {
+            public @Nullable Tree visit(@Nullable Tree tree, ExecutionContext ctx) {
                 if (!(tree instanceof SourceFile)) {
                     return tree;
                 }
@@ -73,8 +73,8 @@ public class LombokJacksonizedConfig extends ScanningRecipe<LombokJacksonizedCon
                 }
 
                 if (!acc.hasJacksonized.get() &&
-                    tree instanceof JavaSourceFile &&
-                    new Annotated.Matcher("@" + JACKSONIZED).lower(sourceFile).findFirst().isPresent()) {
+                        tree instanceof JavaSourceFile &&
+                        new Annotated.Matcher("@" + JACKSONIZED).lower(sourceFile).findFirst().isPresent()) {
                     acc.hasJacksonized.set(true);
                 }
 
@@ -86,13 +86,13 @@ public class LombokJacksonizedConfig extends ScanningRecipe<LombokJacksonizedCon
     @Override
     public Collection<SourceFile> generate(Accumulator acc, ExecutionContext ctx) {
         if (!acc.hasJacksonized.get() || acc.hasLombokConfig.get()) {
-            return Collections.emptyList();
+            return emptyList();
         }
 
         return PlainTextParser.builder().build()
                 .parse("")
                 .map(s -> (SourceFile) s.withSourcePath(Paths.get("lombok.config")))
-                .collect(Collectors.toList());
+                .collect(toList());
     }
 
     @Override

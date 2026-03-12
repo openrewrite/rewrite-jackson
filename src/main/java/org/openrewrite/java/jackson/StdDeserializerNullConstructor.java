@@ -15,21 +15,24 @@
  */
 package org.openrewrite.java.jackson;
 
-import lombok.EqualsAndHashCode;
-import lombok.Value;
+import lombok.Getter;
 import org.jspecify.annotations.Nullable;
-import org.openrewrite.*;
+import org.openrewrite.ExecutionContext;
+import org.openrewrite.Preconditions;
+import org.openrewrite.Recipe;
+import org.openrewrite.TreeVisitor;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.JavaTemplate;
 import org.openrewrite.java.MethodMatcher;
-import org.openrewrite.java.search.UsesType;
-import org.openrewrite.java.tree.*;
+import org.openrewrite.java.search.UsesMethod;
+import org.openrewrite.java.tree.Expression;
+import org.openrewrite.java.tree.J;
+import org.openrewrite.java.tree.JavaType;
+import org.openrewrite.java.tree.TypeUtils;
 
 import java.util.List;
 
-
-@Value
-@EqualsAndHashCode(callSuper = false)
+@Getter
 public class StdDeserializerNullConstructor extends Recipe {
 
     private static final String STD_DESERIALIZER = "com.fasterxml.jackson.databind.deser.std.StdDeserializer";
@@ -47,7 +50,9 @@ public class StdDeserializerNullConstructor extends Recipe {
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
         return Preconditions.check(
-                new UsesType<>(STD_DESERIALIZER, true),
+                Preconditions.or(
+                        new UsesMethod<>(STD_DESER_CONSTRUCTOR),
+                        new UsesMethod<>(ANY_STD_DESER_SUBCLASS_CONSTRUCTOR)),
                 new JavaIsoVisitor<ExecutionContext>() {
                     @Override
                     public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
@@ -72,7 +77,8 @@ public class StdDeserializerNullConstructor extends Recipe {
                             return mi;
                         }
 
-                        return classLiteralFor(typeParam).apply(getCursor(), mi.getCoordinates().replaceArguments());
+                        String className = ((JavaType.FullyQualified) typeParam).getClassName();
+                        return JavaTemplate.apply(className + ".class", getCursor(), mi.getCoordinates().replaceArguments());
                     }
 
                     private boolean isInStdDeserializerSubclass() {
@@ -82,18 +88,14 @@ public class StdDeserializerNullConstructor extends Recipe {
                     }
 
                     private boolean isNullLiteral(Expression expr) {
-                        if (expr instanceof J.Literal) {
-                            return ((J.Literal) expr).getValue() == null &&
-                                    ((J.Literal) expr).getType() == JavaType.Primitive.Null;
-                        }
                         if (expr instanceof J.TypeCast) {
                             return isNullLiteral(((J.TypeCast) expr).getExpression());
                         }
-                        return false;
+                        return J.Literal.isLiteralValue(expr, null);
                     }
 
                     /**
-                     * resolves the genery type argument for the StdDeserializer class we are in
+                     * resolves the generic type argument for the StdDeserializer class we are in
                      */
                     private @Nullable JavaType resolveStdDeserializerTypeParam() {
                         J.ClassDeclaration classDecl = getCursor().firstEnclosing(J.ClassDeclaration.class);
@@ -117,10 +119,5 @@ public class StdDeserializerNullConstructor extends Recipe {
                     }
                 }
         );
-    }
-
-    private static JavaTemplate classLiteralFor(JavaType typeParam) {
-        String className = ((JavaType.FullyQualified) typeParam).getClassName();
-        return JavaTemplate.builder(className + ".class").build();
     }
 }
