@@ -26,7 +26,6 @@ import org.openrewrite.text.PlainTextVisitor;
 
 import java.nio.file.Paths;
 import java.util.Collection;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
@@ -45,9 +44,9 @@ public class LombokJacksonizedConfig extends ScanningRecipe<LombokJacksonizedCon
             "Jackson 3 compatible annotations.";
 
     public static class Accumulator {
-        final AtomicBoolean hasJacksonized = new AtomicBoolean(false);
-        final AtomicBoolean hasLombokConfig = new AtomicBoolean(false);
-        final AtomicBoolean alreadyConfigured = new AtomicBoolean(false);
+        boolean hasJacksonized;
+        boolean hasLombokConfig;
+        boolean alreadyConfigured;
     }
 
     @Override
@@ -66,16 +65,16 @@ public class LombokJacksonizedConfig extends ScanningRecipe<LombokJacksonizedCon
 
                 SourceFile sourceFile = (SourceFile) tree;
                 if (tree instanceof PlainText && "lombok.config".equals(sourceFile.getSourcePath().toString())) {
-                    acc.hasLombokConfig.set(true);
+                    acc.hasLombokConfig = true;
                     if (((PlainText) tree).getText().contains(CONFIG_KEY)) {
-                        acc.alreadyConfigured.set(true);
+                        acc.alreadyConfigured = true;
                     }
                 }
 
-                if (!acc.hasJacksonized.get() &&
+                if (!acc.hasJacksonized &&
                         tree instanceof JavaSourceFile &&
                         new Annotated.Matcher("@" + JACKSONIZED).lower(sourceFile).findFirst().isPresent()) {
-                    acc.hasJacksonized.set(true);
+                    acc.hasJacksonized = true;
                 }
 
                 return tree;
@@ -85,7 +84,7 @@ public class LombokJacksonizedConfig extends ScanningRecipe<LombokJacksonizedCon
 
     @Override
     public Collection<SourceFile> generate(Accumulator acc, ExecutionContext ctx) {
-        if (!acc.hasJacksonized.get() || acc.hasLombokConfig.get()) {
+        if (!acc.hasJacksonized || acc.hasLombokConfig) {
             return emptyList();
         }
 
@@ -97,7 +96,7 @@ public class LombokJacksonizedConfig extends ScanningRecipe<LombokJacksonizedCon
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor(Accumulator acc) {
-        if (!acc.hasJacksonized.get() || acc.alreadyConfigured.get()) {
+        if (!acc.hasJacksonized || acc.alreadyConfigured) {
             return TreeVisitor.noop();
         }
 
