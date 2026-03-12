@@ -29,6 +29,14 @@ tags:
   - jackson-3
 recipeList:
   - org.openrewrite.java.jackson.IOExceptionToJacksonException  # Before any type changes, to ensure we update catches
+  - org.openrewrite.java.RemoveMethodThrows:
+      methodPattern: com.fasterxml.jackson.databind.JsonSerializer serialize(..)
+      exceptionTypePattern: java.io.IOException
+  - org.openrewrite.java.RemoveMethodThrows:
+      methodPattern: com.fasterxml.jackson.databind.JsonDeserializer deserialize(..)
+      exceptionTypePattern: java.io.IOException
+  - org.openrewrite.java.jackson.StdDeserializerNullConstructor
+  - org.openrewrite.java.jackson.LombokJacksonizedConfig
   - org.openrewrite.java.jackson.UpdateSerializationInclusionConfiguration
   - org.openrewrite.java.jackson.UseFormatAlignedObjectMappers
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_Dependencies
@@ -315,6 +323,9 @@ recipeList:
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_JsonGeneratorMethodRenames
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_JsonParserMethodRenames
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_JsonNodeMethodRenames
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.databind.type.TypeFactory defaultInstance()
+      newMethodName: createDefaultInstance
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
