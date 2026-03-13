@@ -120,7 +120,7 @@ public class IOExceptionToJacksonException extends Recipe {
                                 List<JRightPadded<NameTree>> newAlts = new ArrayList<>();
                                 for (JRightPadded<NameTree> rp : origMultiCatch.getPadding().getAlternatives()) {
                                     if (TypeUtils.isOfClassType(rp.getElement().getType(), IO_EXCEPTION)) {
-                                        newAlts.add(JRightPadded.build((NameTree) finalJacksonAlt.withPrefix(Space.SINGLE_SPACE)).withAfter(Space.SINGLE_SPACE));
+                                        newAlts.add(JRightPadded.build((NameTree) ((J) finalJacksonAlt.withId(Tree.randomId())).withPrefix(Space.SINGLE_SPACE)).withAfter(Space.SINGLE_SPACE));
                                     }
                                     newAlts.add(rp);
                                 }

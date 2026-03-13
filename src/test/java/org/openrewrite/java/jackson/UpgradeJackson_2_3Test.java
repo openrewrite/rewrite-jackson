@@ -269,6 +269,50 @@ class UpgradeJackson_2_3Test implements RewriteTest {
         );
     }
 
+    @Issue("https://github.com/moderneinc/customer-requests/issues/1995")
+    @Test
+    void multiCatchWithRuntimeExceptionAndIOExceptionDoesNotCrash() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import java.io.FileInputStream;
+              import java.io.IOException;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void readAndDeserialize() {
+                      ObjectMapper mapper = new ObjectMapper();
+                      try {
+                          byte[] data = new FileInputStream("data.json").readAllBytes();
+                          mapper.readValue(data, String.class);
+                      } catch (RuntimeException | IOException e) {
+                          throw new RuntimeException(e);
+                      }
+                  }
+              }
+              """,
+            """
+              import java.io.FileInputStream;
+              import java.io.IOException;
+              import tools.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void readAndDeserialize() {
+                      ObjectMapper mapper = new ObjectMapper();
+                      try {
+                          byte[] data = new FileInputStream("data.json").readAllBytes();
+                          mapper.readValue(data, String.class);
+                      } catch (RuntimeException | IOException e) {
+                          throw new RuntimeException(e);
+                      }
+                  }
+              }
+              """
+          )
+        );
+    }
+
     @Test
     void jacksonUpgradeToVersion3_java8Only() {
         rewriteRun(
