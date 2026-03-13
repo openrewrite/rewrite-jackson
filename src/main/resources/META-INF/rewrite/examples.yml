@@ -155,6 +155,39 @@ examples:
     language: java
 ---
 type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.jackson.AddJsonCreatorToPrivateConstructors
+examples:
+- description: '`AddJsonCreatorToPrivateConstructorsTest#privateConstructorWithJsonPropertyParams`'
+  sources:
+  - before: |
+      import com.fasterxml.jackson.annotation.JsonProperty;
+
+      class Model {
+          private final String name;
+          private final int age;
+
+          private Model(@JsonProperty("name") String name, @JsonProperty("age") int age) {
+              this.name = name;
+              this.age = age;
+          }
+      }
+    after: |
+      import com.fasterxml.jackson.annotation.JsonCreator;
+      import com.fasterxml.jackson.annotation.JsonProperty;
+
+      class Model {
+          private final String name;
+          private final int age;
+
+          @JsonCreator
+          private Model(@JsonProperty("name") String name, @JsonProperty("age") int age) {
+              this.name = name;
+              this.age = age;
+          }
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.ReplaceStreamWriteCapability
 examples:
 - description: '`ReplaceStreamWriteCapabilityTest#replaceCanWriteBinaryNatively`'
