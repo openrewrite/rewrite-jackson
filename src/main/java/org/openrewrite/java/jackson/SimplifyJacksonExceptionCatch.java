@@ -24,6 +24,7 @@ import org.openrewrite.internal.ListUtils;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.J;
+import org.openrewrite.java.tree.JRightPadded;
 import org.openrewrite.java.tree.NameTree;
 import org.openrewrite.java.tree.TypeUtils;
 
@@ -61,14 +62,16 @@ public class SimplifyJacksonExceptionCatch extends Recipe {
                             return mc;
                         }
 
-                        List<NameTree> filtered = ListUtils.filter(mc.getAlternatives(), nt -> {
-                            if (TypeUtils.isAssignableTo(JACKSON_RUNTIME_EXCEPTION, nt.getType())) {
-                                maybeRemoveImport(TypeUtils.asFullyQualified(nt.getType()));
+                        List<JRightPadded<NameTree>> filtered = ListUtils.filter(mc.getPadding().getAlternatives(), rp -> {
+                            if (TypeUtils.isAssignableTo(JACKSON_RUNTIME_EXCEPTION, rp.getElement().getType())) {
+                                maybeRemoveImport(TypeUtils.asFullyQualified(rp.getElement().getType()));
                                 return false;
                             }
                             return true;
                         });
-                        return mc.withAlternatives(ListUtils.mapFirst(filtered, first -> first.withPrefix(mc.getAlternatives().get(0).getPrefix())));
+                        return mc.getPadding().withAlternatives(
+                                ListUtils.mapFirst(filtered, first -> first.withElement(
+                                        first.getElement().withPrefix(mc.getAlternatives().get(0).getPrefix()))));
                     }
                 }
         );
