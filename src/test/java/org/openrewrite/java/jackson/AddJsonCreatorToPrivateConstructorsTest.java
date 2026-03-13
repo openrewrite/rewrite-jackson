@@ -198,7 +198,7 @@ class AddJsonCreatorToPrivateConstructorsTest implements RewriteTest {
     }
 
     @Test
-    void doNotChangeConstructorWithoutJsonPropertyOnParams() {
+    void addJsonCreatorToConstructorWithoutJsonPropertyOnParamsInJacksonAnnotatedClass() {
         rewriteRun(
           //language=java
           java(
@@ -208,6 +208,112 @@ class AddJsonCreatorToPrivateConstructorsTest implements RewriteTest {
               class Model {
                   @JsonProperty("name")
                   private String name;
+
+                  private Model(String name) {
+                      this.name = name;
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonCreator;
+              import com.fasterxml.jackson.annotation.JsonProperty;
+
+              class Model {
+                  @JsonProperty("name")
+                  private String name;
+
+                  @JsonCreator
+                  private Model(String name) {
+                      this.name = name;
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void addJsonCreatorWhenClassHasJsonIgnore() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonIgnore;
+
+              class Model {
+                  private final String name;
+                  @JsonIgnore
+                  private final String secret;
+
+                  private Model(String name, String secret) {
+                      this.name = name;
+                      this.secret = secret;
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonCreator;
+              import com.fasterxml.jackson.annotation.JsonIgnore;
+
+              class Model {
+                  private final String name;
+                  @JsonIgnore
+                  private final String secret;
+
+                  @JsonCreator
+                  private Model(String name, String secret) {
+                      this.name = name;
+                      this.secret = secret;
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void addJsonCreatorWhenClassHasClassLevelAnnotation() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonInclude;
+
+              @JsonInclude(JsonInclude.Include.NON_NULL)
+              class Model {
+                  private final String name;
+
+                  private Model(String name) {
+                      this.name = name;
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonCreator;
+              import com.fasterxml.jackson.annotation.JsonInclude;
+
+              @JsonInclude(JsonInclude.Include.NON_NULL)
+              class Model {
+                  private final String name;
+
+                  @JsonCreator
+                  private Model(String name) {
+                      this.name = name;
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void doNotChangeClassWithoutJacksonAnnotations() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              class Model {
+                  private final String name;
 
                   private Model(String name) {
                       this.name = name;
