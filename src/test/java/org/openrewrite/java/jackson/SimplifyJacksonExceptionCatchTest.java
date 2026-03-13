@@ -188,6 +188,55 @@ class SimplifyJacksonExceptionCatchTest implements RewriteTest {
     }
 
     @Test
+    void composedWithIOExceptionToJacksonExceptionOnMultiCatch() {
+        rewriteRun(
+          spec -> spec.recipes(
+            new IOExceptionToJacksonException(),
+            new SimplifyJacksonExceptionCatch()
+          ).expectedCyclesThatMakeChanges(2)
+           .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
+            "jackson-core-2", "jackson-databind-2",
+            "jackson-core-3", "jackson-databind-3")),
+          java(
+            """
+              import java.io.FileInputStream;
+              import java.io.IOException;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void readAndDeserialize() {
+                      ObjectMapper mapper = new ObjectMapper();
+                      try {
+                          byte[] data = new FileInputStream("data.json").readAllBytes();
+                          mapper.readValue(data, String.class);
+                      } catch (IOException | RuntimeException e) {
+                          throw new RuntimeException(e);
+                      }
+                  }
+              }
+              """,
+            """
+              import java.io.FileInputStream;
+              import java.io.IOException;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void readAndDeserialize() {
+                      ObjectMapper mapper = new ObjectMapper();
+                      try {
+                          byte[] data = new FileInputStream("data.json").readAllBytes();
+                          mapper.readValue(data, String.class);
+                      } catch ( IOException | RuntimeException e) {
+                          throw new RuntimeException(e);
+                      }
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void noChangeWhenNoJacksonException() {
         rewriteRun(
           java(
