@@ -418,6 +418,33 @@ examples:
 type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.UpgradeJackson_2_3_RemoveRedundantFeatureFlags
 examples:
+- description: '`KotlinUpgradeJackson_2_3Test#removeRedundantFeatureFlagsFromChain`'
+  sources:
+  - before: |
+      import com.fasterxml.jackson.databind.DeserializationFeature
+      import com.fasterxml.jackson.databind.ObjectMapper
+      import com.fasterxml.jackson.databind.SerializationFeature
+      import java.util.TimeZone
+
+      class Test {
+          fun objectMapper(): ObjectMapper {
+              return ObjectMapper()
+                      .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+                      .setTimeZone(TimeZone.getDefault())
+                      .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+          }
+      }
+    after: |
+      import com.fasterxml.jackson.databind.ObjectMapper
+      import java.util.TimeZone
+
+      class Test {
+          fun objectMapper(): ObjectMapper {
+              return ObjectMapper()
+                      .setTimeZone(TimeZone.getDefault())
+          }
+      }
+    language: kotlin
 - description: '`RemoveRedundantFeatureFlagsTest#removeEnableSortPropertiesAlphabetically`'
   sources:
   - before: |

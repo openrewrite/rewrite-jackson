@@ -27,6 +27,8 @@ import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.search.UsesMethod;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JRightPadded;
+import org.openrewrite.java.tree.JavaType;
+import org.openrewrite.java.tree.Space;
 
 import java.util.Set;
 
@@ -34,7 +36,7 @@ import static java.util.Collections.singleton;
 
 public class UpdateSerializationInclusionConfiguration extends Recipe {
 
-    private static final MethodMatcher MAPPER_BUILDER_SERIALIZATION_INCLUSION_MATCHER = new MethodMatcher("com.fasterxml.jackson.databind..MapperBuilder serializationInclusion(com.fasterxml.jackson.annotation.JsonInclude.Include)");
+    private static final MethodMatcher MAPPER_BUILDER_SERIALIZATION_INCLUSION_MATCHER = new MethodMatcher("com.fasterxml.jackson.databind..MapperBuilder serializationInclusion(com.fasterxml.jackson.annotation.JsonInclude.Include)", true);
     private static final MethodMatcher OBJECT_MAPPER_SET_SERIALIZATION_INCLUSION_MATCHER = new MethodMatcher("com.fasterxml.jackson.databind.ObjectMapper setSerializationInclusion(com.fasterxml.jackson.annotation.JsonInclude.Include)");
 
     @Getter
@@ -45,7 +47,7 @@ public class UpdateSerializationInclusionConfiguration extends Recipe {
             "and should be replaced by `changeDefaultPropertyInclusion()` for both `valueInclusion` and `contentInclusion`.";
 
     @Getter
-    final Set<String> tags = singleton( "jackson-3" );
+    final Set<String> tags = singleton("jackson-3");
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -72,7 +74,8 @@ public class UpdateSerializationInclusionConfiguration extends Recipe {
                                             mi.getSelect(),
                                             mi.getArguments().get(0),
                                             mi.getArguments().get(0));
-                            return result.getPadding().withSelect(JRightPadded.build(result.getSelect()).withAfter(mi.getPadding().getSelect().getAfter()));
+                            result = result.getPadding().withSelect(JRightPadded.build(result.getSelect()).withAfter(mi.getPadding().getSelect().getAfter()));
+                            return fixKotlinLambdaParameterTypeAndBodySpacing(result);
                         }
                         if (OBJECT_MAPPER_SET_SERIALIZATION_INCLUSION_MATCHER.matches(mi)) {
                             // Simple rename from setSerializationInclusion to setDefaultPropertyInclusion;
@@ -84,6 +87,41 @@ public class UpdateSerializationInclusionConfiguration extends Recipe {
                             return mi;
                         }
                         return mi;
+                    }
+
+                    private J.MethodInvocation fixKotlinLambdaParameterTypeAndBodySpacing(J.MethodInvocation mi) {
+                        JavaType includeValueType = JavaType.ShallowClass.build("com.fasterxml.jackson.annotation.JsonInclude$Value");
+                        return (J.MethodInvocation) new JavaIsoVisitor<Integer>() {
+                            /**
+                             * The JavaTemplate-generated lambda body loses its leading space
+                             * when rendered to Kotlin. Walk the result to ensure the lambda
+                             * body has a single space prefix.
+                             */
+                            @Override
+                            public J.Lambda visitLambda(J.Lambda lambda, Integer p) {
+                                J.Lambda l = super.visitLambda(lambda, p);
+                                if (l.getBody().getPrefix().isEmpty()) {
+                                    return l.withBody(l.getBody().withPrefix(Space.SINGLE_SPACE));
+                                }
+                                return l;
+                            }
+
+                            /**
+                             * The JavaTemplate-generated lambda has an untyped parameter which fails
+                             * Kotlin AST type validation. Walk the result to add the type to the
+                             * lambda parameter variable.
+                             */
+                            @Override
+                            public J.VariableDeclarations.NamedVariable visitVariable(J.VariableDeclarations.NamedVariable variable, Integer p) {
+                                J.VariableDeclarations.NamedVariable nv = super.visitVariable(variable, p);
+                                if ("incl".equals(nv.getSimpleName())) {
+                                    return nv
+                                            .withName(nv.getName().withType(includeValueType))
+                                            .withVariableType(new JavaType.Variable(null, 0, "incl", includeValueType, includeValueType, null));
+                                }
+                                return nv;
+                            }
+                        }.visitNonNull(mi, 0);
                     }
                 });
     }

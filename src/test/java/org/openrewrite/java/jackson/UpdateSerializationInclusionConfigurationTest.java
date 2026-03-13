@@ -68,6 +68,39 @@ class UpdateSerializationInclusionConfigurationTest implements RewriteTest {
     }
 
     @Test
+    void doubleBraceInitializationOnObjectMapper() {
+        rewriteRun(
+          // language=java
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonInclude;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void foo(Object dummyReq) throws Exception {
+                      var paramRequestString = new ObjectMapper() {{
+                          setSerializationInclusion(JsonInclude.Include.NON_ABSENT);
+                      }}.writeValueAsString(dummyReq);
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonInclude;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void foo(Object dummyReq) throws Exception {
+                      var paramRequestString = new ObjectMapper() {{
+                          setDefaultPropertyInclusion(JsonInclude.Include.NON_ABSENT);
+                      }}.writeValueAsString(dummyReq);
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void updateSerializationInclusionOnObjectMapper() {
         rewriteRun(
           // language=java
