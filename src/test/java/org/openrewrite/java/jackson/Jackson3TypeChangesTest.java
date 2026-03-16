@@ -262,7 +262,6 @@ class Jackson3TypeChangesTest implements RewriteTest {
         );
     }
 
-    @Issue("https://github.com/moderneinc/customer-requests/issues/2003")
     @Test
     void simpleFilterProvider() {
         rewriteRun(
@@ -286,7 +285,6 @@ class Jackson3TypeChangesTest implements RewriteTest {
         );
     }
 
-    @Issue("https://github.com/moderneinc/customer-requests/issues/2003")
     @Test
     void simpleBeanPropertyFilter() {
         rewriteRun(
