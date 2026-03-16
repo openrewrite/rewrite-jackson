@@ -310,6 +310,12 @@ recipeList:
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.Module
       newFullyQualifiedTypeName: tools.jackson.databind.JacksonModule
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.ser.impl.SimpleFilterProvider
+      newFullyQualifiedTypeName: tools.jackson.databind.ser.std.SimpleFilterProvider
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.ser.impl.SimpleBeanPropertyFilter
+      newFullyQualifiedTypeName: tools.jackson.databind.ser.std.SimpleBeanPropertyFilter
 
 # Based on https://github.com/FasterXML/jackson/blob/main/jackson3/MIGRATING_TO_JACKSON_3.md
 
