@@ -262,6 +262,52 @@ class Jackson3TypeChangesTest implements RewriteTest {
         );
     }
 
+    @Test
+    void simpleFilterProvider() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.ser.impl.SimpleFilterProvider;
+
+              class Test {
+                  SimpleFilterProvider provider = new SimpleFilterProvider();
+              }
+              """,
+            """
+              import tools.jackson.databind.ser.std.SimpleFilterProvider;
+
+              class Test {
+                  SimpleFilterProvider provider = new SimpleFilterProvider();
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void simpleBeanPropertyFilter() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.ser.impl.SimpleBeanPropertyFilter;
+
+              class Test {
+                  SimpleBeanPropertyFilter filter = SimpleBeanPropertyFilter.serializeAll();
+              }
+              """,
+            """
+              import tools.jackson.databind.ser.std.SimpleBeanPropertyFilter;
+
+              class Test {
+                  SimpleBeanPropertyFilter filter = SimpleBeanPropertyFilter.serializeAll();
+              }
+              """
+          )
+        );
+    }
+
     @Issue("https://github.com/openrewrite/rewrite-jackson/issues/75")
     @Test
     void jsonParseException() {
