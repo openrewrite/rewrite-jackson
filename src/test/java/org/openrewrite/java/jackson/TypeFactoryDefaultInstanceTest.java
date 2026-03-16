@@ -41,8 +41,8 @@ class TypeFactoryDefaultInstanceTest implements RewriteTest {
           .recipeFromResources("org.openrewrite.java.jackson.UpgradeJackson_2_3");
     }
 
-    @Test
     @DocumentExample
+    @Test
     void typeFactoryDefaultInstanceRenamed() {
         rewriteRun(
           //language=java

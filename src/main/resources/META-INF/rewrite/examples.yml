@@ -13,6 +13,39 @@
 # limitations under the License.
 ---
 type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.jackson.AddJsonCreatorToPrivateConstructors
+examples:
+- description: '`AddJsonCreatorToPrivateConstructorsTest#privateConstructorWithJsonPropertyParams`'
+  sources:
+  - before: |
+      import com.fasterxml.jackson.annotation.JsonProperty;
+
+      class Model {
+          private final String name;
+          private final int age;
+
+          private Model(@JsonProperty("name") String name, @JsonProperty("age") int age) {
+              this.name = name;
+              this.age = age;
+          }
+      }
+    after: |
+      import com.fasterxml.jackson.annotation.JsonCreator;
+      import com.fasterxml.jackson.annotation.JsonProperty;
+
+      class Model {
+          private final String name;
+          private final int age;
+
+          @JsonCreator
+          private Model(@JsonProperty("name") String name, @JsonProperty("age") int age) {
+              this.name = name;
+              this.age = age;
+          }
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.CodehausToFasterXML
 examples:
 - description: '`CodehausToFasterXMLTest#onlyJsonSerializeInclusion`'
@@ -151,39 +184,6 @@ examples:
       class Model {
           @JsonSetter(nulls = Nulls.AS_EMPTY)
           private Map<String, Object> additionalProperties = new LinkedHashMap<>();
-      }
-    language: java
----
-type: specs.openrewrite.org/v1beta/example
-recipeName: org.openrewrite.java.jackson.AddJsonCreatorToPrivateConstructors
-examples:
-- description: '`AddJsonCreatorToPrivateConstructorsTest#privateConstructorWithJsonPropertyParams`'
-  sources:
-  - before: |
-      import com.fasterxml.jackson.annotation.JsonProperty;
-
-      class Model {
-          private final String name;
-          private final int age;
-
-          private Model(@JsonProperty("name") String name, @JsonProperty("age") int age) {
-              this.name = name;
-              this.age = age;
-          }
-      }
-    after: |
-      import com.fasterxml.jackson.annotation.JsonCreator;
-      import com.fasterxml.jackson.annotation.JsonProperty;
-
-      class Model {
-          private final String name;
-          private final int age;
-
-          @JsonCreator
-          private Model(@JsonProperty("name") String name, @JsonProperty("age") int age) {
-              this.name = name;
-              this.age = age;
-          }
       }
     language: java
 ---
@@ -336,6 +336,111 @@ examples:
 
       class Test {
           TokenStreamFactory factory = new TokenStreamFactory();
+      }
+    language: java
+- description: '`LombokJacksonizedConfigTest#addJacksonVersionToLombokConfig`'
+  sources:
+  - before: |
+      import lombok.Builder;
+      import lombok.Value;
+      import lombok.extern.jackson.Jacksonized;
+
+      @Value
+      @Builder
+      @Jacksonized
+      class MyDto {
+          String name;
+          int age;
+      }
+    language: java
+- description: '`RemoveThrowsIOExceptionFromJacksonOverridesTest#removeThrowsIOExceptionFromSerializer`'
+  sources:
+  - before: |
+      import com.fasterxml.jackson.core.JsonGenerator;
+      import com.fasterxml.jackson.databind.JsonSerializer;
+      import com.fasterxml.jackson.databind.SerializerProvider;
+      import java.io.IOException;
+
+      class MySerializer extends JsonSerializer<String> {
+          @Override
+          public void serialize(String value, JsonGenerator gen, SerializerProvider provider) throws IOException {
+              gen.writeString(value.toUpperCase());
+          }
+      }
+    after: |
+      import tools.jackson.core.JsonGenerator;
+      import tools.jackson.databind.SerializationContext;
+      import tools.jackson.databind.ValueSerializer;
+
+      class MySerializer extends ValueSerializer<String> {
+          @Override
+          public void serialize(String value, JsonGenerator gen, SerializationContext provider) {
+              gen.writeString(value.toUpperCase());
+          }
+      }
+    language: java
+- description: '`StdDeserializerNullConstructorTest#stdDeserializerThisNullPattern`'
+  sources:
+  - before: |
+      import com.fasterxml.jackson.core.JsonParser;
+      import com.fasterxml.jackson.databind.DeserializationContext;
+      import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
+      import java.io.IOException;
+
+      class MyDeserializer extends StdDeserializer<String> {
+          public MyDeserializer() {
+              this(null);
+          }
+
+          public MyDeserializer(Class<?> vc) {
+              super(vc);
+          }
+
+          @Override
+          public String deserialize(JsonParser p, DeserializationContext ctxt)
+                  throws IOException {
+              return p.getValueAsString();
+          }
+      }
+    after: |
+      import tools.jackson.core.JsonParser;
+      import tools.jackson.databind.DeserializationContext;
+      import tools.jackson.databind.deser.std.StdDeserializer;
+
+      class MyDeserializer extends StdDeserializer<String> {
+          public MyDeserializer() {
+              this(String.class);
+          }
+
+          public MyDeserializer(Class<?> vc) {
+              super(vc);
+          }
+
+          @Override
+          public String deserialize(JsonParser p, DeserializationContext ctxt) {
+              return p.getValueAsString();
+          }
+      }
+    language: java
+- description: '`TypeFactoryDefaultInstanceTest#typeFactoryDefaultInstanceRenamed`'
+  sources:
+  - before: |
+      import com.fasterxml.jackson.databind.JavaType;
+      import com.fasterxml.jackson.databind.type.TypeFactory;
+
+      class Test {
+          JavaType getType() {
+              return TypeFactory.defaultInstance().constructType(String.class);
+          }
+      }
+    after: |
+      import tools.jackson.databind.JavaType;
+      import tools.jackson.databind.type.TypeFactory;
+
+      class Test {
+          JavaType getType() {
+              return TypeFactory.createDefaultInstance().constructType(String.class);
+          }
       }
     language: java
 - description: '`UpgradeJackson_2_3Test#jacksonUpgradeToVersion3`'

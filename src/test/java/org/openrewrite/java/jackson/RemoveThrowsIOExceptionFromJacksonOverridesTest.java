@@ -43,8 +43,8 @@ class RemoveThrowsIOExceptionFromJacksonOverridesTest implements RewriteTest {
           .recipeFromResources("org.openrewrite.java.jackson.UpgradeJackson_2_3");
     }
 
-    @Test
     @DocumentExample
+    @Test
     void removeThrowsIOExceptionFromSerializer() {
         rewriteRun(
           //language=java
