@@ -345,8 +345,6 @@ recipeList:
       oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.PropertyNamingStrategy$LowerCaseStrategy
       newFullyQualifiedTypeName: tools.jackson.databind.PropertyNamingStrategies$LowerCaseStrategy
 
-# Based on https://github.com/FasterXML/jackson/blob/main/jackson3/MIGRATING_TO_JACKSON_3.md
-
 ---
 type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.java.jackson.UpgradeJackson_2_3_RelocateFeatures
@@ -358,69 +356,54 @@ tags:
   - jackson-3
 recipeList:
   # EnumFeature — from DeserializationFeature
-  - org.openrewrite.java.jackson.RelocateJacksonFeature:
-      featureName: READ_ENUMS_USING_TO_STRING
-      oldTypeFqn: com.fasterxml.jackson.databind.DeserializationFeature
-      newTypeFqn: com.fasterxml.jackson.databind.EnumFeature
-  - org.openrewrite.java.jackson.RelocateJacksonFeature:
-      featureName: READ_UNKNOWN_ENUM_VALUES_AS_NULL
-      oldTypeFqn: com.fasterxml.jackson.databind.DeserializationFeature
-      newTypeFqn: com.fasterxml.jackson.databind.EnumFeature
-  - org.openrewrite.java.jackson.RelocateJacksonFeature:
-      featureName: READ_UNKNOWN_ENUM_VALUES_USING_DEFAULT_VALUE
-      oldTypeFqn: com.fasterxml.jackson.databind.DeserializationFeature
-      newTypeFqn: com.fasterxml.jackson.databind.EnumFeature
-  - org.openrewrite.java.jackson.RelocateJacksonFeature:
-      featureName: FAIL_ON_NUMBERS_FOR_ENUMS
-      oldTypeFqn: com.fasterxml.jackson.databind.DeserializationFeature
-      newTypeFqn: com.fasterxml.jackson.databind.EnumFeature
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.databind.DeserializationFeature.READ_ENUMS_USING_TO_STRING
+      fullyQualifiedConstantName: com.fasterxml.jackson.databind.EnumFeature.READ_ENUMS_USING_TO_STRING
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.databind.DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL
+      fullyQualifiedConstantName: com.fasterxml.jackson.databind.EnumFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.databind.DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_USING_DEFAULT_VALUE
+      fullyQualifiedConstantName: com.fasterxml.jackson.databind.EnumFeature.READ_UNKNOWN_ENUM_VALUES_USING_DEFAULT_VALUE
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_NUMBERS_FOR_ENUMS
+      fullyQualifiedConstantName: com.fasterxml.jackson.databind.EnumFeature.FAIL_ON_NUMBERS_FOR_ENUMS
   # EnumFeature — from SerializationFeature
-  - org.openrewrite.java.jackson.RelocateJacksonFeature:
-      featureName: WRITE_ENUMS_USING_TO_STRING
-      oldTypeFqn: com.fasterxml.jackson.databind.SerializationFeature
-      newTypeFqn: com.fasterxml.jackson.databind.EnumFeature
-  - org.openrewrite.java.jackson.RelocateJacksonFeature:
-      featureName: WRITE_ENUMS_USING_INDEX
-      oldTypeFqn: com.fasterxml.jackson.databind.SerializationFeature
-      newTypeFqn: com.fasterxml.jackson.databind.EnumFeature
-  - org.openrewrite.java.jackson.RelocateJacksonFeature:
-      featureName: WRITE_ENUM_KEYS_USING_INDEX
-      oldTypeFqn: com.fasterxml.jackson.databind.SerializationFeature
-      newTypeFqn: com.fasterxml.jackson.databind.EnumFeature
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.databind.SerializationFeature.WRITE_ENUMS_USING_TO_STRING
+      fullyQualifiedConstantName: com.fasterxml.jackson.databind.EnumFeature.WRITE_ENUMS_USING_TO_STRING
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.databind.SerializationFeature.WRITE_ENUMS_USING_INDEX
+      fullyQualifiedConstantName: com.fasterxml.jackson.databind.EnumFeature.WRITE_ENUMS_USING_INDEX
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.databind.SerializationFeature.WRITE_ENUM_KEYS_USING_INDEX
+      fullyQualifiedConstantName: com.fasterxml.jackson.databind.EnumFeature.WRITE_ENUM_KEYS_USING_INDEX
   # DateTimeFeature — from DeserializationFeature
-  - org.openrewrite.java.jackson.RelocateJacksonFeature:
-      featureName: ADJUST_DATES_TO_CONTEXT_TIME_ZONE
-      oldTypeFqn: com.fasterxml.jackson.databind.DeserializationFeature
-      newTypeFqn: com.fasterxml.jackson.databind.DateTimeFeature
-  - org.openrewrite.java.jackson.RelocateJacksonFeature:
-      featureName: READ_DATE_TIMESTAMPS_AS_NANOSECONDS
-      oldTypeFqn: com.fasterxml.jackson.databind.DeserializationFeature
-      newTypeFqn: com.fasterxml.jackson.databind.DateTimeFeature
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.databind.DeserializationFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE
+      fullyQualifiedConstantName: com.fasterxml.jackson.databind.DateTimeFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.databind.DeserializationFeature.READ_DATE_TIMESTAMPS_AS_NANOSECONDS
+      fullyQualifiedConstantName: com.fasterxml.jackson.databind.DateTimeFeature.READ_DATE_TIMESTAMPS_AS_NANOSECONDS
   # DateTimeFeature — from SerializationFeature
-  - org.openrewrite.java.jackson.RelocateJacksonFeature:
-      featureName: WRITE_DATES_AS_TIMESTAMPS
-      oldTypeFqn: com.fasterxml.jackson.databind.SerializationFeature
-      newTypeFqn: com.fasterxml.jackson.databind.DateTimeFeature
-  - org.openrewrite.java.jackson.RelocateJacksonFeature:
-      featureName: WRITE_DATE_KEYS_AS_TIMESTAMPS
-      oldTypeFqn: com.fasterxml.jackson.databind.SerializationFeature
-      newTypeFqn: com.fasterxml.jackson.databind.DateTimeFeature
-  - org.openrewrite.java.jackson.RelocateJacksonFeature:
-      featureName: WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS
-      oldTypeFqn: com.fasterxml.jackson.databind.SerializationFeature
-      newTypeFqn: com.fasterxml.jackson.databind.DateTimeFeature
-  - org.openrewrite.java.jackson.RelocateJacksonFeature:
-      featureName: WRITE_DATES_WITH_ZONE_ID
-      oldTypeFqn: com.fasterxml.jackson.databind.SerializationFeature
-      newTypeFqn: com.fasterxml.jackson.databind.DateTimeFeature
-  - org.openrewrite.java.jackson.RelocateJacksonFeature:
-      featureName: WRITE_DATES_WITH_CONTEXT_TIME_ZONE
-      oldTypeFqn: com.fasterxml.jackson.databind.SerializationFeature
-      newTypeFqn: com.fasterxml.jackson.databind.DateTimeFeature
-  - org.openrewrite.java.jackson.RelocateJacksonFeature:
-      featureName: WRITE_DURATIONS_AS_TIMESTAMPS
-      oldTypeFqn: com.fasterxml.jackson.databind.SerializationFeature
-      newTypeFqn: com.fasterxml.jackson.databind.DateTimeFeature
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS
+      fullyQualifiedConstantName: com.fasterxml.jackson.databind.DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATE_KEYS_AS_TIMESTAMPS
+      fullyQualifiedConstantName: com.fasterxml.jackson.databind.DateTimeFeature.WRITE_DATE_KEYS_AS_TIMESTAMPS
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS
+      fullyQualifiedConstantName: com.fasterxml.jackson.databind.DateTimeFeature.WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_WITH_ZONE_ID
+      fullyQualifiedConstantName: com.fasterxml.jackson.databind.DateTimeFeature.WRITE_DATES_WITH_ZONE_ID
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_WITH_CONTEXT_TIME_ZONE
+      fullyQualifiedConstantName: com.fasterxml.jackson.databind.DateTimeFeature.WRITE_DATES_WITH_CONTEXT_TIME_ZONE
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.databind.SerializationFeature.WRITE_DURATIONS_AS_TIMESTAMPS
+      fullyQualifiedConstantName: com.fasterxml.jackson.databind.DateTimeFeature.WRITE_DURATIONS_AS_TIMESTAMPS
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
