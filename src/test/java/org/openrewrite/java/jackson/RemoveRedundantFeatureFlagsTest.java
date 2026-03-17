@@ -282,6 +282,63 @@ class RemoveRedundantFeatureFlagsTest implements RewriteTest {
     }
 
     @Test
+    void removeDisableWriteDatesAsTimestamps() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.SerializationFeature;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void configure() {
+                      ObjectMapper mapper = new ObjectMapper();
+                      mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void configure() {
+                      ObjectMapper mapper = new ObjectMapper();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void removeDisableWriteDatesAsTimestampsFullyQualified() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void configure() {
+                      ObjectMapper mapper = new ObjectMapper();
+                      mapper.disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void configure() {
+                      ObjectMapper mapper = new ObjectMapper();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void removeConfigureWriteDatesAsTimestamps() {
         rewriteRun(
           //language=java

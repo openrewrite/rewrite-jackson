@@ -154,6 +154,11 @@ public class RemoveRedundantFeatureFlags extends Recipe {
                                 String className = ((J.Identifier) fieldAccess.getTarget()).getSimpleName();
                                 String fieldName = fieldAccess.getName().getSimpleName();
                                 return className + "." + fieldName;
+                            } else if (fieldAccess.getTarget() instanceof J.FieldAccess) {
+                                // Handle fully-qualified access like com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS
+                                String className = ((J.FieldAccess) fieldAccess.getTarget()).getName().getSimpleName();
+                                String fieldName = fieldAccess.getName().getSimpleName();
+                                return className + "." + fieldName;
                             }
                         } else if (arg instanceof J.Identifier) {
                             // Handle static imports
