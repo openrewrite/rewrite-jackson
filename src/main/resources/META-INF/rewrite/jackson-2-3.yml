@@ -44,6 +44,7 @@ recipeList:
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_MethodRenames
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_RemoveRedundantFeatureFlags
   - org.openrewrite.java.jackson.RemoveBuiltInModuleRegistrations
+  - org.openrewrite.java.jackson.UpgradeJackson_2_3_ObjectMapperMethodRenames
   - org.openrewrite.java.jackson.UseModernDateTimeSerialization
   - org.openrewrite.java.jackson.ReplaceStreamWriteCapability
   - org.openrewrite.java.jackson.ReplaceJsonIgnoreWithJsonSetter
@@ -330,7 +331,6 @@ recipeList:
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_JsonGeneratorMethodRenames
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_JsonParserMethodRenames
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_JsonNodeMethodRenames
-  - org.openrewrite.java.jackson.UpgradeJackson_2_3_ObjectMapperMethodRenames
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: com.fasterxml.jackson.databind.type.TypeFactory defaultInstance()
       newMethodName: createDefaultInstance
