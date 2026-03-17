@@ -17,6 +17,7 @@ package org.openrewrite.java.jackson;
 
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
+import org.openrewrite.java.AddCommentToMethodInvocations;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
@@ -26,7 +27,14 @@ import static org.openrewrite.java.Assertions.java;
 class CommentCanSerializeRemovalTest implements RewriteTest {
     @Override
     public void defaults(RecipeSpec spec) {
-        spec.recipeFromResources("org.openrewrite.java.jackson.CommentCanSerializeRemoval")
+        spec.recipes(
+            new AddCommentToMethodInvocations(
+              "TODO canSerialize was removed in Jackson 3 with no replacement (see https://github.com/FasterXML/jackson-databind/issues/1917). Attempt serialization/deserialization and catch exceptions instead.",
+              "com.fasterxml.jackson.databind.ObjectMapper canSerialize(..)"),
+            new AddCommentToMethodInvocations(
+              "TODO canDeserialize was removed in Jackson 3 with no replacement (see https://github.com/FasterXML/jackson-databind/issues/1917). Attempt serialization/deserialization and catch exceptions instead.",
+              "com.fasterxml.jackson.databind.ObjectMapper canDeserialize(..)")
+          )
           .parser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()));
     }
 
