@@ -43,6 +43,9 @@ recipeList:
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_TypeChanges
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_MethodRenames
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_RemoveRedundantFeatureFlags
+  - org.openrewrite.java.jackson.UpgradeJackson_2_3_RelocateFeatures
+  - org.openrewrite.java.jackson.RenameJsonTokenFieldName
+  - org.openrewrite.java.jackson.ReplaceObjectMapperCopy
   - org.openrewrite.java.jackson.RemoveBuiltInModuleRegistrations
   - org.openrewrite.java.jackson.UseModernDateTimeSerialization
   - org.openrewrite.java.jackson.ReplaceStreamWriteCapability
@@ -310,8 +313,114 @@ recipeList:
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.Module
       newFullyQualifiedTypeName: tools.jackson.databind.JacksonModule
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.ser.ContainerSerializer
+      newFullyQualifiedTypeName: tools.jackson.databind.ser.std.StdContainerSerializer
+  - org.openrewrite.java.RemoveImplements:
+      interfaceType: com.fasterxml.jackson.databind.deser.ContextualDeserializer
+  - org.openrewrite.java.RemoveImplements:
+      interfaceType: com.fasterxml.jackson.databind.ser.ContextualSerializer
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.module.afterburner.AfterburnerModule
+      newFullyQualifiedTypeName: tools.jackson.module.blackbird.BlackbirdModule
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.PropertyNamingStrategy
+      newFullyQualifiedTypeName: tools.jackson.databind.PropertyNamingStrategies
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.PropertyNamingStrategy$SnakeCaseStrategy
+      newFullyQualifiedTypeName: tools.jackson.databind.PropertyNamingStrategies$SnakeCaseStrategy
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.PropertyNamingStrategy$UpperCamelCaseStrategy
+      newFullyQualifiedTypeName: tools.jackson.databind.PropertyNamingStrategies$UpperCamelCaseStrategy
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.PropertyNamingStrategy$LowerCamelCaseStrategy
+      newFullyQualifiedTypeName: tools.jackson.databind.PropertyNamingStrategies$LowerCamelCaseStrategy
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.PropertyNamingStrategy$KebabCaseStrategy
+      newFullyQualifiedTypeName: tools.jackson.databind.PropertyNamingStrategies$KebabCaseStrategy
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.PropertyNamingStrategy$LowerDotCaseStrategy
+      newFullyQualifiedTypeName: tools.jackson.databind.PropertyNamingStrategies$LowerDotCaseStrategy
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.PropertyNamingStrategy$LowerCaseStrategy
+      newFullyQualifiedTypeName: tools.jackson.databind.PropertyNamingStrategies$LowerCaseStrategy
 
 # Based on https://github.com/FasterXML/jackson/blob/main/jackson3/MIGRATING_TO_JACKSON_3.md
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.jackson.UpgradeJackson_2_3_RelocateFeatures
+displayName: Relocate feature flags to new Jackson 3 enums
+description: >-
+  In Jackson 3, certain feature flags were moved from `DeserializationFeature`/`SerializationFeature`
+  to new enums (`EnumFeature`, `DateTimeFeature`).
+tags:
+  - jackson-3
+recipeList:
+  # EnumFeature — from DeserializationFeature
+  - org.openrewrite.java.jackson.RelocateJacksonFeature:
+      featureName: READ_ENUMS_USING_TO_STRING
+      oldTypeFqn: com.fasterxml.jackson.databind.DeserializationFeature
+      newTypeFqn: com.fasterxml.jackson.databind.EnumFeature
+  - org.openrewrite.java.jackson.RelocateJacksonFeature:
+      featureName: READ_UNKNOWN_ENUM_VALUES_AS_NULL
+      oldTypeFqn: com.fasterxml.jackson.databind.DeserializationFeature
+      newTypeFqn: com.fasterxml.jackson.databind.EnumFeature
+  - org.openrewrite.java.jackson.RelocateJacksonFeature:
+      featureName: READ_UNKNOWN_ENUM_VALUES_USING_DEFAULT_VALUE
+      oldTypeFqn: com.fasterxml.jackson.databind.DeserializationFeature
+      newTypeFqn: com.fasterxml.jackson.databind.EnumFeature
+  - org.openrewrite.java.jackson.RelocateJacksonFeature:
+      featureName: FAIL_ON_NUMBERS_FOR_ENUMS
+      oldTypeFqn: com.fasterxml.jackson.databind.DeserializationFeature
+      newTypeFqn: com.fasterxml.jackson.databind.EnumFeature
+  # EnumFeature — from SerializationFeature
+  - org.openrewrite.java.jackson.RelocateJacksonFeature:
+      featureName: WRITE_ENUMS_USING_TO_STRING
+      oldTypeFqn: com.fasterxml.jackson.databind.SerializationFeature
+      newTypeFqn: com.fasterxml.jackson.databind.EnumFeature
+  - org.openrewrite.java.jackson.RelocateJacksonFeature:
+      featureName: WRITE_ENUMS_USING_INDEX
+      oldTypeFqn: com.fasterxml.jackson.databind.SerializationFeature
+      newTypeFqn: com.fasterxml.jackson.databind.EnumFeature
+  - org.openrewrite.java.jackson.RelocateJacksonFeature:
+      featureName: WRITE_ENUM_KEYS_USING_INDEX
+      oldTypeFqn: com.fasterxml.jackson.databind.SerializationFeature
+      newTypeFqn: com.fasterxml.jackson.databind.EnumFeature
+  # DateTimeFeature — from DeserializationFeature
+  - org.openrewrite.java.jackson.RelocateJacksonFeature:
+      featureName: ADJUST_DATES_TO_CONTEXT_TIME_ZONE
+      oldTypeFqn: com.fasterxml.jackson.databind.DeserializationFeature
+      newTypeFqn: com.fasterxml.jackson.databind.DateTimeFeature
+  - org.openrewrite.java.jackson.RelocateJacksonFeature:
+      featureName: READ_DATE_TIMESTAMPS_AS_NANOSECONDS
+      oldTypeFqn: com.fasterxml.jackson.databind.DeserializationFeature
+      newTypeFqn: com.fasterxml.jackson.databind.DateTimeFeature
+  # DateTimeFeature — from SerializationFeature
+  - org.openrewrite.java.jackson.RelocateJacksonFeature:
+      featureName: WRITE_DATES_AS_TIMESTAMPS
+      oldTypeFqn: com.fasterxml.jackson.databind.SerializationFeature
+      newTypeFqn: com.fasterxml.jackson.databind.DateTimeFeature
+  - org.openrewrite.java.jackson.RelocateJacksonFeature:
+      featureName: WRITE_DATE_KEYS_AS_TIMESTAMPS
+      oldTypeFqn: com.fasterxml.jackson.databind.SerializationFeature
+      newTypeFqn: com.fasterxml.jackson.databind.DateTimeFeature
+  - org.openrewrite.java.jackson.RelocateJacksonFeature:
+      featureName: WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS
+      oldTypeFqn: com.fasterxml.jackson.databind.SerializationFeature
+      newTypeFqn: com.fasterxml.jackson.databind.DateTimeFeature
+  - org.openrewrite.java.jackson.RelocateJacksonFeature:
+      featureName: WRITE_DATES_WITH_ZONE_ID
+      oldTypeFqn: com.fasterxml.jackson.databind.SerializationFeature
+      newTypeFqn: com.fasterxml.jackson.databind.DateTimeFeature
+  - org.openrewrite.java.jackson.RelocateJacksonFeature:
+      featureName: WRITE_DATES_WITH_CONTEXT_TIME_ZONE
+      oldTypeFqn: com.fasterxml.jackson.databind.SerializationFeature
+      newTypeFqn: com.fasterxml.jackson.databind.DateTimeFeature
+  - org.openrewrite.java.jackson.RelocateJacksonFeature:
+      featureName: WRITE_DURATIONS_AS_TIMESTAMPS
+      oldTypeFqn: com.fasterxml.jackson.databind.SerializationFeature
+      newTypeFqn: com.fasterxml.jackson.databind.DateTimeFeature
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
