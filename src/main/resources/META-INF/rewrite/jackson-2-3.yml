@@ -49,6 +49,7 @@ recipeList:
   - org.openrewrite.java.jackson.ReplaceStreamWriteCapability
   - org.openrewrite.java.jackson.ReplaceJsonIgnoreWithJsonSetter
   - org.openrewrite.java.jackson.AddJsonCreatorToPrivateConstructors
+  - org.openrewrite.java.jackson.CommentCanSerializeRemoval
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_PackageChanges
   - org.openrewrite.java.jackson.SimplifyJacksonExceptionCatch
 
@@ -631,3 +632,23 @@ recipeList:
   - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
       existingFullyQualifiedConstantName: com.fasterxml.jackson.databind.DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_USING_DEFAULT_VALUE
       fullyQualifiedConstantName: tools.jackson.databind.cfg.EnumFeature.READ_UNKNOWN_ENUM_VALUES_USING_DEFAULT_VALUE
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.jackson.CommentCanSerializeRemoval
+displayName: Comment on removed `canSerialize` and `canDeserialize`
+description: >-
+  `ObjectMapper.canSerialize()` and `ObjectMapper.canDeserialize()` were removed in Jackson 3
+  with no direct replacement
+  ([jackson-databind#1917](https://github.com/FasterXML/jackson-databind/issues/1917)).
+  This recipe adds a comment explaining the removal and suggesting to attempt
+  serialization/deserialization and catch exceptions instead.
+tags:
+  - jackson-3
+recipeList:
+  - org.openrewrite.java.AddCommentToMethodInvocations:
+      methodPattern: "com.fasterxml.jackson.databind.ObjectMapper canSerialize(..)"
+      comment: "TODO canSerialize was removed in Jackson 3 with no replacement (see https://github.com/FasterXML/jackson-databind/issues/1917). Attempt serialization/deserialization and catch exceptions instead."
+  - org.openrewrite.java.AddCommentToMethodInvocations:
+      methodPattern: "com.fasterxml.jackson.databind.ObjectMapper canDeserialize(..)"
+      comment: "TODO canDeserialize was removed in Jackson 3 with no replacement (see https://github.com/FasterXML/jackson-databind/issues/1917). Attempt serialization/deserialization and catch exceptions instead."
