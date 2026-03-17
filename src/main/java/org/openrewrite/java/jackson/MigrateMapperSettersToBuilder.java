@@ -42,7 +42,6 @@ public class MigrateMapperSettersToBuilder extends Recipe {
     private static final String OBJECT_MAPPER = "com.fasterxml.jackson.databind.ObjectMapper";
     private static final String JSON_MAPPER = "com.fasterxml.jackson.databind.json.JsonMapper";
 
-    private static final MethodMatcher OBJECT_MAPPER_NO_ARG_CTOR = new MethodMatcher(OBJECT_MAPPER + " <constructor>()");
     private static final MethodMatcher JSON_MAPPER_NO_ARG_CTOR = new MethodMatcher(JSON_MAPPER + " <constructor>()");
 
     private static final String INVOCATIONS_TO_REMOVE = "INVOCATIONS_TO_REMOVE";
@@ -75,10 +74,10 @@ public class MigrateMapperSettersToBuilder extends Recipe {
     }
 
     @Getter
-    final String displayName = "Migrate `ObjectMapper` setter calls to builder pattern";
+    final String displayName = "Migrate `JsonMapper` setter calls to builder pattern";
 
     @Getter
-    final String description = "In Jackson 3, `ObjectMapper` and `JsonMapper` are immutable. " +
+    final String description = "In Jackson 3, `JsonMapper` is immutable. " +
             "Configuration methods like `setFilterProvider`, `addMixIn`, `disable`, `enable`, etc. " +
             "must be called on the builder instead. This recipe migrates setter calls to the builder " +
             "pattern when safe, or adds TODO comments when automatic migration is not possible.";
@@ -89,14 +88,14 @@ public class MigrateMapperSettersToBuilder extends Recipe {
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
         return Preconditions.check(
-                new UsesType<>(OBJECT_MAPPER, false),
+                new UsesType<>(JSON_MAPPER, false),
                 new JavaVisitor<ExecutionContext>() {
 
                     @Override
                     public J visitNewClass(J.NewClass newClass, ExecutionContext ctx) {
                         J.NewClass nc = (J.NewClass) super.visitNewClass(newClass, ctx);
 
-                        if (!OBJECT_MAPPER_NO_ARG_CTOR.matches(nc) && !JSON_MAPPER_NO_ARG_CTOR.matches(nc)) {
+                        if (!JSON_MAPPER_NO_ARG_CTOR.matches(nc)) {
                             return nc;
                         }
 
@@ -200,8 +199,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                     public J visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
                         J.MethodInvocation mi = (J.MethodInvocation) super.visitMethodInvocation(method, ctx);
 
-                        if (mi.getSelect() == null ||
-                            !TypeUtils.isAssignableTo(OBJECT_MAPPER, mi.getSelect().getType())) {
+                        if (!(mi.getSelect() instanceof J.Identifier) ||
+                            !TypeUtils.isAssignableTo(JSON_MAPPER, mi.getSelect().getType())) {
                             return mi;
                         }
 
@@ -218,7 +217,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
 
                         // Not eligible for builder migration - add a TODO comment
                         String commentText = String.format(
-                                " TODO %s was removed from ObjectMapper in Jackson 3. " +
+                                " TODO %s was removed from JsonMapper in Jackson 3. " +
                                 "Use mapper.rebuild().%s(...).build() or move to the mapper's instantiation site. ",
                                 mapping.setterName, mapping.builderName);
 
