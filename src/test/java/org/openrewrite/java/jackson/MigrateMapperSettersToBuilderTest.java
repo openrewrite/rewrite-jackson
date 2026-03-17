@@ -188,9 +188,7 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
 
                             class A {
                                 void configure() {
-                                    JsonMapper mapper = new JsonMapper();
-                                    /* TODO disable was removed from JsonMapper in Jackson 3. Use mapper.rebuild().disable(...).build() or move to the mapper's instantiation site. */
-                                    mapper.disable(SerializationFeature.INDENT_OUTPUT);
+                                    JsonMapper mapper = JsonMapper.builder().disable(SerializationFeature.INDENT_OUTPUT).build();
                                     doSomething(mapper);
                                 }
                                 void doSomething(JsonMapper mapper) {}
@@ -230,7 +228,7 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         }
 
         @Test
-        void unknownSetterOnVariable() {
+        void knownSetterBeforeUnknownGoesToBuilder() {
             rewriteRun(
                     java(
                             """
@@ -252,10 +250,43 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
 
                             class A {
                                 JsonMapper create() {
+                                    JsonMapper mapper = JsonMapper.builder().disable(SerializationFeature.INDENT_OUTPUT).build();
+                                    mapper.setSerializationInclusion(null);
+                                    return mapper;
+                                }
+                            }
+                            """
+                    )
+            );
+        }
+
+        @Test
+        void knownSetterAfterUnknownGetsComment() {
+            rewriteRun(
+                    java(
+                            """
+                            import com.fasterxml.jackson.databind.SerializationFeature;
+                            import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                            class A {
+                                JsonMapper create() {
                                     JsonMapper mapper = new JsonMapper();
+                                    mapper.setSerializationInclusion(null);
+                                    mapper.disable(SerializationFeature.INDENT_OUTPUT);
+                                    return mapper;
+                                }
+                            }
+                            """,
+                            """
+                            import com.fasterxml.jackson.databind.SerializationFeature;
+                            import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                            class A {
+                                JsonMapper create() {
+                                    JsonMapper mapper = new JsonMapper();
+                                    mapper.setSerializationInclusion(null);
                                     /* TODO disable was removed from JsonMapper in Jackson 3. Use mapper.rebuild().disable(...).build() or move to the mapper's instantiation site. */
                                     mapper.disable(SerializationFeature.INDENT_OUTPUT);
-                                    mapper.setSerializationInclusion(null);
                                     return mapper;
                                 }
                             }

@@ -111,9 +111,11 @@ public class MigrateMapperSettersToBuilder extends Recipe {
 
                         String varName = namedVar.getSimpleName();
 
-                        // Collect setter calls and check eligibility
-                        List<J.MethodInvocation> knownSetters = new ArrayList<>();
-                        boolean eligible = true;
+                        // Collect consecutive known setter calls from the top of the block.
+                        // Stop collecting when we hit an unknown call or other variable reference,
+                        // but still migrate the prefix that was collected so far.
+                        List<J.MethodInvocation> builderSetters = new ArrayList<>();
+                        boolean collecting = true;
 
                         for (Statement stmt : block.getStatements()) {
                             if (stmt instanceof J.VariableDeclarations) {
@@ -136,20 +138,22 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                 if (isCallOnVariable(mi, varName)) {
                                     SetterToBuilderMapping mapping = SetterToBuilderMapping.fromSetter(mi.getName().getSimpleName());
                                     if (mapping != null) {
-                                        knownSetters.add(mi);
+                                        if (collecting) {
+                                            builderSetters.add(mi);
+                                        }
                                         continue;
                                     }
-                                    eligible = false;
+                                    collecting = false;
                                     continue;
                                 }
                             }
 
                             if (referencesVariable(stmt, varName)) {
-                                eligible = false;
+                                collecting = false;
                             }
                         }
 
-                        if (!eligible || knownSetters.isEmpty()) {
+                        if (builderSetters.isEmpty()) {
                             return nc;
                         }
 
@@ -157,7 +161,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         StringBuilder templateCode = new StringBuilder("JsonMapper.builder()");
                         List<Expression> templateArgs = new ArrayList<>();
 
-                        for (J.MethodInvocation mi : knownSetters) {
+                        for (J.MethodInvocation mi : builderSetters) {
                             SetterToBuilderMapping mapping = SetterToBuilderMapping.fromSetter(mi.getName().getSimpleName());
                             assert mapping != null;
                             templateCode.append(".").append(mapping.builderName).append("(");
@@ -179,7 +183,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             toRemove = new HashSet<>();
                             blockCursor.putMessage(INVOCATIONS_TO_REMOVE, toRemove);
                         }
-                        for (J.MethodInvocation mi : knownSetters) {
+                        for (J.MethodInvocation mi : builderSetters) {
                             toRemove.add(mi.getId());
                         }
 
