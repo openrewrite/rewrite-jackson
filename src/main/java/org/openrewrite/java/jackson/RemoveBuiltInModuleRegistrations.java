@@ -40,6 +40,7 @@ public class RemoveBuiltInModuleRegistrations extends Recipe {
 
     private static final String OBJECT_MAPPER_TYPE = "com.fasterxml.jackson.databind.ObjectMapper";
     private static final MethodMatcher REGISTER_MODULE = new MethodMatcher(OBJECT_MAPPER_TYPE + " registerModule*(..)");
+    private static final MethodMatcher OBJECT_MAPPER_ADD_MODULE = new MethodMatcher(OBJECT_MAPPER_TYPE + " addModule*(..)");
     private static final String OBJECT_MAPPER_BUILDER_TYPE = "com.fasterxml.jackson.databind.cfg.MapperBuilder";
     private static final MethodMatcher ADD_MODULE = new MethodMatcher(OBJECT_MAPPER_BUILDER_TYPE + " addModule*(..)");
 
@@ -62,10 +63,10 @@ public class RemoveBuiltInModuleRegistrations extends Recipe {
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
-        return Preconditions.check(Preconditions.or(new UsesMethod<>(REGISTER_MODULE), new UsesMethod<>(ADD_MODULE)), new JavaVisitor<ExecutionContext>() {
+        return Preconditions.check(Preconditions.or(new UsesMethod<>(REGISTER_MODULE), new UsesMethod<>(OBJECT_MAPPER_ADD_MODULE), new UsesMethod<>(ADD_MODULE)), new JavaVisitor<ExecutionContext>() {
                     @Override
                     public @Nullable J visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
-                        if ((REGISTER_MODULE.matches(method) || ADD_MODULE.matches(method)) &&
+                        if ((REGISTER_MODULE.matches(method) || OBJECT_MAPPER_ADD_MODULE.matches(method) || ADD_MODULE.matches(method)) &&
                                 method.getArguments().stream().anyMatch(this::isBuiltInModuleInstantiation)) {
                             for (String module : BUILT_IN_MODULES) {
                                 maybeRemoveImport(module);

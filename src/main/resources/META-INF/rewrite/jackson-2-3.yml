@@ -330,6 +330,7 @@ recipeList:
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_JsonGeneratorMethodRenames
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_JsonParserMethodRenames
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_JsonNodeMethodRenames
+  - org.openrewrite.java.jackson.UpgradeJackson_2_3_ObjectMapperMethodRenames
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: com.fasterxml.jackson.databind.type.TypeFactory defaultInstance()
       newMethodName: createDefaultInstance
@@ -570,3 +571,18 @@ recipeList:
       oldPackageName: com.fasterxml.jackson.datatype
       newPackageName: tools.jackson.datatype
       recursive: true
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.jackson.UpgradeJackson_2_3_ObjectMapperMethodRenames
+displayName: Rename Jackson 2.x methods to 3.x equivalents for ObjectMapper
+description: Rename ObjectMapper methods that were renamed in 3.x (e.g., `setDateFormat()` to `defaultDateFormat()`, `registerModule()` to `addModule()`).
+tags:
+  - jackson-3
+recipeList:
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.databind.ObjectMapper setDateFormat(..)
+      newMethodName: defaultDateFormat
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.databind.ObjectMapper registerModule(..)
+      newMethodName: addModule

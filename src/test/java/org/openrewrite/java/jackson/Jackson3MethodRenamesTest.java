@@ -367,6 +367,64 @@ class Jackson3MethodRenamesTest implements RewriteTest {
     }
 
     @Test
+    void objectMapperSetDateFormat() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import java.text.SimpleDateFormat;
+
+              class Test {
+                  void test(ObjectMapper mapper) {
+                      mapper.setDateFormat(new SimpleDateFormat("yyyy-MM-dd"));
+                  }
+              }
+              """,
+            """
+              import tools.jackson.databind.ObjectMapper;
+              import java.text.SimpleDateFormat;
+
+              class Test {
+                  void test(ObjectMapper mapper) {
+                      mapper.defaultDateFormat(new SimpleDateFormat("yyyy-MM-dd"));
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void objectMapperRegisterModule() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.Module;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void test(ObjectMapper mapper, Module module) {
+                      mapper.registerModule(module);
+                  }
+              }
+              """,
+            """
+              import tools.jackson.databind.ObjectMapper;
+              import tools.jackson.databind.JacksonModule;
+
+              class Test {
+                  void test(ObjectMapper mapper, JacksonModule module) {
+                      mapper.addModule(module);
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void jsonNodeMethods() {
         rewriteRun(
           //language=java
