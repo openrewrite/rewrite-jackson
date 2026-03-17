@@ -111,9 +111,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
 
                         String varName = namedVar.getSimpleName();
 
-                        // Collect consecutive known setter calls from the top of the block.
-                        // Stop collecting when we hit an unknown call or other variable reference,
-                        // but still migrate the prefix that was collected so far.
+                        // Collect known setter calls that appear before any unknown mapper
+                        // usage (unknown call on the variable, or variable passed elsewhere).
                         List<J.MethodInvocation> builderSetters = new ArrayList<>();
                         boolean collecting = true;
 
