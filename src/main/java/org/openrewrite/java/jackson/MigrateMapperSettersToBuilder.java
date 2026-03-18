@@ -172,7 +172,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         return JavaTemplate.builder(templateCode.toString())
                                 .imports(JSON_MAPPER)
                                 .javaParser(JavaParser.fromJavaVersion()
-                                        .classpathFromResources(ctx, "jackson-annotations-2", "jackson-core-2", "jackson-databind-2"))
+                                        .classpathFromResources(ctx, "jackson-core-2", "jackson-databind-2"))
                                 .build()
                                 .apply(getCursor(), nc.getCoordinates().replace(), templateArgs.toArray());
                     }
@@ -227,8 +227,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                     }
 
                     private boolean referencesVariable(Statement stmt, String varName) {
-                        Set<String> refs = new HashSet<>();
-                        new JavaIsoVisitor<Set<String>>() {
+                        return !new JavaIsoVisitor<Set<String>>() {
                             @Override
                             public J.Identifier visitIdentifier(J.Identifier ident, Set<String> set) {
                                 if (varName.equals(ident.getSimpleName()) &&
@@ -237,8 +236,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                 }
                                 return ident;
                             }
-                        }.visit(stmt, refs);
-                        return !refs.isEmpty();
+                        }.reduce(stmt, new HashSet<>()).isEmpty();
                     }
                 }
         );
