@@ -21,6 +21,7 @@ import org.jspecify.annotations.Nullable;
 import org.openrewrite.*;
 import org.openrewrite.internal.ListUtils;
 import org.openrewrite.java.*;
+import org.openrewrite.java.search.SemanticallyEqual;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.*;
 import org.openrewrite.marker.Markers;
@@ -33,7 +34,6 @@ import static java.util.Collections.singleton;
 @Getter
 public class MigrateMapperSettersToBuilder extends Recipe {
 
-    private static final String OBJECT_MAPPER = "com.fasterxml.jackson.databind.ObjectMapper";
     private static final String JSON_MAPPER = "com.fasterxml.jackson.databind.json.JsonMapper";
 
     private static final MethodMatcher JSON_MAPPER_NO_ARG_CTOR = new MethodMatcher(JSON_MAPPER + " <constructor>()");
@@ -84,14 +84,14 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             return nc;
                         }
 
-                        // Determine variable name from local declaration or field assignment
-                        String varName;
+                        // Determine variable identifier from local declaration or field assignment
+                        J.Identifier varIdent;
                         J.VariableDeclarations.NamedVariable namedVar = getCursor().firstEnclosing(J.VariableDeclarations.NamedVariable.class);
                         J.Assignment assignment = getCursor().firstEnclosing(J.Assignment.class);
                         if (namedVar != null) {
-                            varName = namedVar.getSimpleName();
+                            varIdent = namedVar.getName();
                         } else if (assignment != null && assignment.getVariable() instanceof J.Identifier) {
-                            varName = ((J.Identifier) assignment.getVariable()).getSimpleName();
+                            varIdent = (J.Identifier) assignment.getVariable();
                         } else {
                             return nc;
                         }
@@ -114,21 +114,21 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             // Skip the declaration or assignment that contains the constructor
                             if (stmt instanceof J.VariableDeclarations) {
                                 J.VariableDeclarations vd = (J.VariableDeclarations) stmt;
-                                if (vd.getVariables().stream().anyMatch(v -> v.getSimpleName().equals(varName))) {
+                                if (vd.getVariables().stream().anyMatch(v -> SemanticallyEqual.areEqual(v.getName(), varIdent))) {
                                     continue;
                                 }
                             }
                             if (stmt instanceof J.Assignment) {
                                 J.Assignment a = (J.Assignment) stmt;
                                 if (a.getVariable() instanceof J.Identifier &&
-                                        varName.equals(((J.Identifier) a.getVariable()).getSimpleName())) {
+                                        SemanticallyEqual.areEqual(a.getVariable(), varIdent)) {
                                     continue;
                                 }
                             }
 
                             if (stmt instanceof J.MethodInvocation) {
                                 J.MethodInvocation mi = (J.MethodInvocation) stmt;
-                                if (isCallOnVariable(mi, varName)) {
+                                if (isCallOnVariable(mi, varIdent)) {
                                     SetterToBuilderMapping mapping = SetterToBuilderMapping.fromSetter(mi.getName().getSimpleName());
                                     if (mapping != null) {
                                         builderSetters.add(mi);
@@ -139,7 +139,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                 }
                             }
 
-                            if (referencesVariable(stmt, varName)) {
+                            if (referencesVariable(stmt, varIdent)) {
                                 collecting = false;
                             }
                         }
@@ -233,19 +233,17 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                 .anyMatch(t -> t.equals(commentText.trim()));
                     }
 
-                    private boolean isCallOnVariable(J.MethodInvocation mi, String varName) {
+                    private boolean isCallOnVariable(J.MethodInvocation mi, J.Identifier varIdent) {
                         return mi.getSelect() instanceof J.Identifier &&
-                                varName.equals(((J.Identifier) mi.getSelect()).getSimpleName()) &&
-                                TypeUtils.isAssignableTo(OBJECT_MAPPER, mi.getSelect().getType());
+                                SemanticallyEqual.areEqual(mi.getSelect(), varIdent);
                     }
 
-                    private boolean referencesVariable(Statement stmt, String varName) {
-                        return !new JavaIsoVisitor<Set<String>>() {
+                    private boolean referencesVariable(Statement stmt, J.Identifier varIdent) {
+                        return !new JavaIsoVisitor<Set<Boolean>>() {
                             @Override
-                            public J.Identifier visitIdentifier(J.Identifier ident, Set<String> set) {
-                                if (varName.equals(ident.getSimpleName()) &&
-                                        TypeUtils.isAssignableTo(OBJECT_MAPPER, ident.getType())) {
-                                    set.add(varName);
+                            public J.Identifier visitIdentifier(J.Identifier ident, Set<Boolean> set) {
+                                if (SemanticallyEqual.areEqual(ident, varIdent)) {
+                                    set.add(true);
                                 }
                                 return ident;
                             }
