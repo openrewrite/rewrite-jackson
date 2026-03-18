@@ -142,7 +142,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         for (J.MethodInvocation mi : builderSetters) {
                             SetterToBuilderMapping mapping = SetterToBuilderMapping.fromSetter(mi.getName().getSimpleName());
                             assert mapping != null;
-                            templateCode.append(".").append(mapping.builderName).append("(");
+                            templateCode.append("\n.").append(mapping.builderName).append("(");
                             for (int i = 0; i < mi.getArguments().size(); i++) {
                                 if (i > 0) {
                                     templateCode.append(", ");
@@ -152,7 +152,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             }
                             templateCode.append(")");
                         }
-                        templateCode.append(".build()");
+                        templateCode.append("\n.build()");
 
                         // Mark setter invocations for removal
                         Cursor blockCursor = getCursor().dropParentUntil(J.Block.class::isInstance);

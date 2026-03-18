@@ -248,7 +248,9 @@ class UpgradeJackson_2_3Test implements RewriteTest {
 
               class Test {
                   JsonMapper create() {
-                      return JsonMapper.builder().disable(SerializationFeature.INDENT_OUTPUT).build();
+                      return JsonMapper.builder()
+                              .disable(SerializationFeature.INDENT_OUTPUT)
+                              .build();
                   }
               }
               """

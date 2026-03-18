@@ -29,42 +29,44 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
     public void defaults(RecipeSpec spec) {
         spec.recipe(new MigrateMapperSettersToBuilder())
           .parser(org.openrewrite.java.JavaParser.fromJavaVersion()
-            .classpath("jackson-core", "jackson-databind", "jackson-annotations"));
+            .classpath("jackson-core", "jackson-databind"));
+    }
+
+    @DocumentExample
+    @Test
+    void singleDisable() {
+        rewriteRun(
+          java(
+            """
+              import com.fasterxml.jackson.databind.SerializationFeature;
+              import com.fasterxml.jackson.databind.json.JsonMapper;
+
+              class A {
+                  JsonMapper create() {
+                      JsonMapper mapper = new JsonMapper();
+                      mapper.disable(SerializationFeature.INDENT_OUTPUT);
+                      return mapper;
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.SerializationFeature;
+              import com.fasterxml.jackson.databind.json.JsonMapper;
+
+              class A {
+                  JsonMapper create() {
+                      return JsonMapper.builder()
+                              .disable(SerializationFeature.INDENT_OUTPUT)
+                              .build();
+                  }
+              }
+              """
+          )
+        );
     }
 
     @Nested
     class BuilderMigration {
-
-        @DocumentExample
-        @Test
-        void singleDisable() {
-            rewriteRun(
-              java(
-                """
-                  import com.fasterxml.jackson.databind.SerializationFeature;
-                  import com.fasterxml.jackson.databind.json.JsonMapper;
-
-                  class A {
-                      JsonMapper create() {
-                          JsonMapper mapper = new JsonMapper();
-                          mapper.disable(SerializationFeature.INDENT_OUTPUT);
-                          return mapper;
-                      }
-                  }
-                  """,
-                """
-                  import com.fasterxml.jackson.databind.SerializationFeature;
-                  import com.fasterxml.jackson.databind.json.JsonMapper;
-
-                  class A {
-                      JsonMapper create() {
-                          return JsonMapper.builder().disable(SerializationFeature.INDENT_OUTPUT).build();
-                      }
-                  }
-                  """
-              )
-            );
-        }
 
         @Test
         void multipleSetters() {
@@ -91,7 +93,10 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
 
                   class A {
                       JsonMapper create() {
-                          return JsonMapper.builder().disable(SerializationFeature.INDENT_OUTPUT).enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build();
+                          return JsonMapper.builder()
+                                  .disable(SerializationFeature.INDENT_OUTPUT)
+                                  .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                                  .build();
                       }
                   }
                   """
@@ -121,7 +126,9 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
 
                   class A {
                       JsonMapper create(Module module) {
-                          return JsonMapper.builder().addModule(module).build();
+                          return JsonMapper.builder()
+                                  .addModule(module)
+                                  .build();
                       }
                   }
                   """
@@ -153,7 +160,9 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
 
                   class A {
                       JsonMapper create() {
-                          return JsonMapper.builder().defaultDateFormat(new SimpleDateFormat("yyyy-MM-dd")).build();
+                          return JsonMapper.builder()
+                                  .defaultDateFormat(new SimpleDateFormat("yyyy-MM-dd"))
+                                  .build();
                       }
                   }
                   """
@@ -188,7 +197,9 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
 
                   class A {
                       void configure() {
-                          JsonMapper mapper = JsonMapper.builder().disable(SerializationFeature.INDENT_OUTPUT).build();
+                          JsonMapper mapper = JsonMapper.builder()
+                                  .disable(SerializationFeature.INDENT_OUTPUT)
+                                  .build();
                           doSomething(mapper);
                       }
                       void doSomething(JsonMapper mapper) {}
@@ -290,7 +301,9 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
 
                   class A {
                       JsonMapper create() {
-                          JsonMapper mapper = JsonMapper.builder().disable(SerializationFeature.INDENT_OUTPUT).build();
+                          JsonMapper mapper = JsonMapper.builder()
+                                  .disable(SerializationFeature.INDENT_OUTPUT)
+                                  .build();
                           mapper.setSerializationInclusion(null);
                           return mapper;
                       }
