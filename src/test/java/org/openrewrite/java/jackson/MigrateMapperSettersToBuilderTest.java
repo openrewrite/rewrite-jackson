@@ -346,6 +346,43 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
               )
             );
         }
+
+        @Test
+        void setDateFormatWithAssignment() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  import java.text.SimpleDateFormat;
+
+                  class A {
+                      JsonMapper create() {
+                          JsonMapper mapper = new JsonMapper();
+                          SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+                          mapper.setDateFormat(dateFormat);
+                          return mapper;
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  import java.text.SimpleDateFormat;
+
+                  class A {
+                      JsonMapper create() {
+                          JsonMapper mapper = new JsonMapper();
+                          SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+                          /* TODO setDateFormat was removed from JsonMapper in Jackson 3. Use mapper.rebuild().disable(...).build() or move to the mapper's instantiation site. */
+                          mapper.setDateFormat(dateFormat);
+                          return mapper;
+                      }
+                  }
+                  """
+              )
+            );
+        }
     }
 
     @Nested
