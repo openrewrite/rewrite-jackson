@@ -345,6 +345,40 @@ class RemoveBuiltInModuleRegistrationsTest implements RewriteTest {
         }
 
         @Test
+        void removeChainedBuiltInRegistrations() {
+            rewriteRun(
+              java(
+                // language=java
+                """
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+                  import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+                  import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+
+                  class Test {
+                      void configure() {
+                          JsonMapper.builder()
+                          .addModule(new Jdk8Module())
+                          .addModule(new JavaTimeModule())
+                          .build();
+                      }
+                  }
+                  """,
+                // language=java
+                """
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class Test {
+                      void configure() {
+                          JsonMapper.builder()
+                          .build();
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
         void removeJdk8ModuleRegistration() {
             rewriteRun(
               java(
