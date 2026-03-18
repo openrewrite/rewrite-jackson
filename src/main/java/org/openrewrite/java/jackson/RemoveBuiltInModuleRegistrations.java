@@ -72,7 +72,8 @@ public class RemoveBuiltInModuleRegistrations extends Recipe {
                             }
                             // If it's part of a chain, return the select; otherwise remove the statement
                             if (method.getSelect() instanceof J.MethodInvocation || method.getSelect() instanceof J.NewClass) {
-                                return method.getSelect().withPrefix(method.getPrefix());
+                                J visited = visit(method.getSelect(), ctx);
+                                return visited != null ? visited.withPrefix(method.getPrefix()) : null;
                             }
                             return null;
                         }

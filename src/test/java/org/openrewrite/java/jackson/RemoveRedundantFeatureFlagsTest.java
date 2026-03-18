@@ -574,6 +574,37 @@ class RemoveRedundantFeatureFlagsTest implements RewriteTest {
               )
             );
         }
+        @Test
+        void removeMultipleChainedRedundantFlags() {
+            rewriteRun(
+              //language=java
+              java(
+                """
+                  import com.fasterxml.jackson.databind.MapperFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class Test {
+                      void configure() {
+                          JsonMapper.builder()
+                              .enable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY)
+                              .configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true)
+                              .build();
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class Test {
+                      void configure() {
+                          JsonMapper.builder()
+                              .build();
+                      }
+                  }
+                  """
+              )
+            );
+        }
     }
 
     @Nested
