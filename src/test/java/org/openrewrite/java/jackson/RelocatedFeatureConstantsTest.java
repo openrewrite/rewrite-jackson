@@ -51,7 +51,6 @@ class RelocatedFeatureConstantsTest implements RewriteTest {
               """,
             """
               import com.fasterxml.jackson.databind.ObjectMapper;
-              import com.fasterxml.jackson.databind.SerializationFeature;
               import tools.jackson.databind.cfg.DateTimeFeature;
 
               class Test {
@@ -82,7 +81,6 @@ class RelocatedFeatureConstantsTest implements RewriteTest {
               }
               """,
             """
-              import com.fasterxml.jackson.databind.DeserializationFeature;
               import com.fasterxml.jackson.databind.ObjectMapper;
               import tools.jackson.databind.cfg.DateTimeFeature;
 
@@ -115,7 +113,6 @@ class RelocatedFeatureConstantsTest implements RewriteTest {
               """,
             """
               import com.fasterxml.jackson.databind.ObjectMapper;
-              import com.fasterxml.jackson.databind.SerializationFeature;
               import tools.jackson.databind.cfg.EnumFeature;
 
               class Test {
@@ -146,7 +143,6 @@ class RelocatedFeatureConstantsTest implements RewriteTest {
               }
               """,
             """
-              import com.fasterxml.jackson.databind.DeserializationFeature;
               import com.fasterxml.jackson.databind.ObjectMapper;
               import tools.jackson.databind.cfg.EnumFeature;
 
