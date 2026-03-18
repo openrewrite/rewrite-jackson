@@ -104,6 +104,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         // Collect known setter calls that appear before any unknown mapper
                         // usage (unknown call on the variable, or variable passed elsewhere).
                         List<J.MethodInvocation> builderSetters = new ArrayList<>();
+                        Set<J.Identifier> intermediateVars = new HashSet<>();
                         boolean collecting = true;
 
                         for (Statement stmt : block.getStatements()) {
@@ -116,6 +117,10 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                 J.VariableDeclarations vd = (J.VariableDeclarations) stmt;
                                 if (vd.getVariables().stream().anyMatch(v -> SemanticallyEqual.areEqual(v.getName(), varIdent))) {
                                     continue;
+                                }
+                                // Track variables declared between constructor and setters
+                                for (J.VariableDeclarations.NamedVariable v : vd.getVariables()) {
+                                    intermediateVars.add(v.getName());
                                 }
                             }
                             if (stmt instanceof J.Assignment) {
@@ -131,6 +136,11 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                 if (isCallOnVariable(mi, varIdent)) {
                                     SetterToBuilderMapping mapping = SetterToBuilderMapping.fromSetter(mi.getName().getSimpleName());
                                     if (mapping != null) {
+                                        // Can't fold if arguments reference variables declared after the constructor
+                                        if (argumentReferencesAny(mi, intermediateVars)) {
+                                            collecting = false;
+                                            continue;
+                                        }
                                         builderSetters.add(mi);
                                         continue;
                                     }
@@ -231,6 +241,20 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                 .filter(TextComment.class::isInstance)
                                 .map(c -> ((TextComment) c).getText().trim())
                                 .anyMatch(t -> t.equals(commentText.trim()));
+                    }
+
+                    private boolean argumentReferencesAny(J.MethodInvocation mi, Set<J.Identifier> intermediateVars) {
+                        return !new JavaIsoVisitor<Set<Boolean>>() {
+                            @Override
+                            public J.Identifier visitIdentifier(J.Identifier ident, Set<Boolean> set) {
+                                for (J.Identifier iv : intermediateVars) {
+                                    if (SemanticallyEqual.areEqual(ident, iv)) {
+                                        set.add(true);
+                                    }
+                                }
+                                return ident;
+                            }
+                        }.reduce(mi.getArguments(), new HashSet<>()).isEmpty();
                     }
 
                     private boolean isCallOnVariable(J.MethodInvocation mi, J.Identifier varIdent) {

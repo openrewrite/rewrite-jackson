@@ -374,7 +374,7 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
                       JsonMapper create() {
                           JsonMapper mapper = new JsonMapper();
                           SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-                          /* TODO setDateFormat was removed from JsonMapper in Jackson 3. Use mapper.rebuild().disable(...).build() or move to the mapper's instantiation site. */
+                          /* TODO setDateFormat was removed from JsonMapper in Jackson 3. Use mapper.rebuild().defaultDateFormat(...).build() or move to the mapper's instantiation site. */
                           mapper.setDateFormat(dateFormat);
                           return mapper;
                       }
