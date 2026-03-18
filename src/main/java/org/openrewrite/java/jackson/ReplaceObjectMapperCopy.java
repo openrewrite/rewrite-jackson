@@ -17,7 +17,10 @@ package org.openrewrite.java.jackson;
 
 import lombok.EqualsAndHashCode;
 import lombok.Value;
-import org.openrewrite.*;
+import org.openrewrite.ExecutionContext;
+import org.openrewrite.Preconditions;
+import org.openrewrite.Recipe;
+import org.openrewrite.TreeVisitor;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.java.JavaTemplate;
@@ -37,10 +40,7 @@ public class ReplaceObjectMapperCopy extends Recipe {
             new MethodMatcher("com.fasterxml.jackson.databind.ObjectMapper copy()", true);
 
     String displayName = "Replace `ObjectMapper.copy()` with `rebuild().build()`";
-
-    String description = "In Jackson 3, `ObjectMapper.copy()` was removed. " +
-               "Use `mapper.rebuild().build()` instead.";
-
+    String description = "In Jackson 3, `ObjectMapper.copy()` was removed. Use `mapper.rebuild().build()` instead.";
     Set<String> tags = singleton("jackson-3");
 
     @Override
