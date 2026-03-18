@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 the original author or authors.
+ * Copyright 2026 the original author or authors.
  * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,14 +51,12 @@ public class ReplaceObjectMapperCopy extends Recipe {
                     @Override
                     public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
                         J.MethodInvocation mi = super.visitMethodInvocation(method, ctx);
-                        if (!COPY_MATCHER.matches(mi)) {
+                        if (!COPY_MATCHER.matches(mi) || mi.getSelect() == null) {
                             return mi;
                         }
                         return JavaTemplate
                                 .builder("#{any(tools.jackson.databind.ObjectMapper)}.rebuild().build()")
-                                .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx,
-                                        // the annotation still live in jackson-annotation version 2 for Jackson 3
-                                        "jackson-annotations-2", "jackson-core-3", "jackson-databind-3"))
+                                .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx, "jackson-core-3", "jackson-databind-3"))
                                 .build()
                                 .apply(getCursor(), mi.getCoordinates().replace(), mi.getSelect());
                     }

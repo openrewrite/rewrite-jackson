@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 the original author or authors.
+ * Copyright 2026 the original author or authors.
  * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,9 +28,9 @@ class RenameJsonTokenFieldNameTest implements RewriteTest {
 
     @Override
     public void defaults(RecipeSpec spec) {
-        spec.recipe(new RenameJsonTokenFieldName())
+        spec.recipeFromResources("org.openrewrite.java.jackson.UpgradeJackson_2_3")
           .parser(JavaParser.fromJavaVersion().classpathFromResources(
-            new InMemoryExecutionContext(),"jackson-annotations-2", "jackson-core-2", "jackson-databind-2"));
+            new InMemoryExecutionContext(),"jackson-core-2", "jackson-databind-2"));
     }
 
     @DocumentExample
@@ -44,21 +44,21 @@ class RenameJsonTokenFieldNameTest implements RewriteTest {
               import com.fasterxml.jackson.core.JsonToken;
 
               class Test {
-                  void parse(JsonParser parser) throws Exception {
+                  void parse(JsonParser parser) {
                       if (parser.currentToken() == JsonToken.FIELD_NAME) {
-                          String name = parser.currentName();
+                          System.out.println("It's a field");
                       }
                   }
               }
               """,
             """
-              import com.fasterxml.jackson.core.JsonParser;
-              import com.fasterxml.jackson.core.JsonToken;
+              import tools.jackson.core.JsonParser;
+              import tools.jackson.core.JsonToken;
 
               class Test {
-                  void parse(JsonParser parser) throws Exception {
+                  void parse(JsonParser parser) {
                       if (parser.currentToken() == JsonToken.PROPERTY_NAME) {
-                          String name = parser.currentName();
+                          System.out.println("It's a field");
                       }
                   }
               }
@@ -77,9 +77,21 @@ class RenameJsonTokenFieldNameTest implements RewriteTest {
               import com.fasterxml.jackson.core.JsonToken;
 
               class Test {
-                  void parse(JsonParser parser) throws Exception {
+                  void parse(JsonParser parser) {
                       if (parser.currentToken() == JsonToken.VALUE_STRING) {
-                          String value = parser.getText();
+                          System.out.println("It's a String");
+                      }
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonParser;
+              import tools.jackson.core.JsonToken;
+
+              class Test {
+                  void parse(JsonParser parser) {
+                      if (parser.currentToken() == JsonToken.VALUE_STRING) {
+                          System.out.println("It's a String");
                       }
                   }
               }
@@ -109,8 +121,8 @@ class RenameJsonTokenFieldNameTest implements RewriteTest {
               }
               """,
             """
-              import com.fasterxml.jackson.core.JsonParser;
-              import com.fasterxml.jackson.core.JsonToken;
+              import tools.jackson.core.JsonParser;
+              import tools.jackson.core.JsonToken;
 
               class Test {
                   void parse(JsonParser parser) throws Exception {
@@ -136,6 +148,9 @@ class RenameJsonTokenFieldNameTest implements RewriteTest {
               import com.fasterxml.jackson.core.JsonParser;
               import com.fasterxml.jackson.core.JsonToken;
 
+              import static com.fasterxml.jackson.core.JsonToken.FIELD_NAME;
+              import static com.fasterxml.jackson.core.JsonToken.VALUE_STRING;
+
               class Test {
                   void parse(JsonParser parser) throws Exception {
                       JsonToken token = parser.nextToken();
@@ -151,8 +166,11 @@ class RenameJsonTokenFieldNameTest implements RewriteTest {
               }
               """,
             """
-              import com.fasterxml.jackson.core.JsonParser;
-              import com.fasterxml.jackson.core.JsonToken;
+              import tools.jackson.core.JsonParser;
+              import tools.jackson.core.JsonToken;
+
+              import static tools.jackson.core.JsonToken.PROPERTY_NAME;
+              import static tools.jackson.core.JsonToken.VALUE_STRING;
 
               class Test {
                   void parse(JsonParser parser) throws Exception {

@@ -44,7 +44,9 @@ recipeList:
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_MethodRenames
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_RemoveRedundantFeatureFlags
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_RelocatedFeatureConstants
-  - org.openrewrite.java.jackson.RenameJsonTokenFieldName
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonToken.FIELD_NAME
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.JsonToken.PROPERTY_NAME
   - org.openrewrite.java.jackson.ReplaceObjectMapperCopy
   - org.openrewrite.java.jackson.RemoveBuiltInModuleRegistrations
   - org.openrewrite.java.jackson.UseModernDateTimeSerialization
