@@ -266,11 +266,10 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
                       JsonMapper mapper;
 
                       void configure() {
-                          mapper = new JsonMapper();
-                          /* TODO disable was removed from JsonMapper in Jackson 3. Use mapper.rebuild().disable(...).build() or move to the mapper's instantiation site. */
-                          mapper.disable(SerializationFeature.INDENT_OUTPUT);
-                          /* TODO enable was removed from JsonMapper in Jackson 3. Use mapper.rebuild().enable(...).build() or move to the mapper's instantiation site. */
-                          mapper.enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+                          mapper = JsonMapper.builder()
+                                  .disable(SerializationFeature.INDENT_OUTPUT)
+                                  .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                                  .build();
                       }
                   }
                   """

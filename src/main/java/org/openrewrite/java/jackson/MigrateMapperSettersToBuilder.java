@@ -84,8 +84,15 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             return nc;
                         }
 
+                        // Determine variable name from local declaration or field assignment
+                        String varName;
                         J.VariableDeclarations.NamedVariable namedVar = getCursor().firstEnclosing(J.VariableDeclarations.NamedVariable.class);
-                        if (namedVar == null) {
+                        J.Assignment assignment = getCursor().firstEnclosing(J.Assignment.class);
+                        if (namedVar != null) {
+                            varName = namedVar.getSimpleName();
+                        } else if (assignment != null && assignment.getVariable() instanceof J.Identifier) {
+                            varName = ((J.Identifier) assignment.getVariable()).getSimpleName();
+                        } else {
                             return nc;
                         }
 
@@ -93,8 +100,6 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         if (block == null) {
                             return nc;
                         }
-
-                        String varName = namedVar.getSimpleName();
 
                         // Collect known setter calls that appear before any unknown mapper
                         // usage (unknown call on the variable, or variable passed elsewhere).
@@ -106,9 +111,17 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                 break;
                             }
 
+                            // Skip the declaration or assignment that contains the constructor
                             if (stmt instanceof J.VariableDeclarations) {
                                 J.VariableDeclarations vd = (J.VariableDeclarations) stmt;
                                 if (vd.getVariables().stream().anyMatch(v -> v.getSimpleName().equals(varName))) {
+                                    continue;
+                                }
+                            }
+                            if (stmt instanceof J.Assignment) {
+                                J.Assignment a = (J.Assignment) stmt;
+                                if (a.getVariable() instanceof J.Identifier &&
+                                        varName.equals(((J.Identifier) a.getVariable()).getSimpleName())) {
                                     continue;
                                 }
                             }
