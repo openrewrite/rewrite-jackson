@@ -228,6 +228,46 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         }
 
         @Test
+        void fieldAssignedInMethod() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      JsonMapper mapper;
+
+                      void configure() {
+                          mapper = new JsonMapper();
+                          mapper.disable(SerializationFeature.INDENT_OUTPUT);
+                          mapper.enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      JsonMapper mapper;
+
+                      void configure() {
+                          mapper = new JsonMapper();
+                          /* TODO disable was removed from JsonMapper in Jackson 3. Use mapper.rebuild().disable(...).build() or move to the mapper's instantiation site. */
+                          mapper.disable(SerializationFeature.INDENT_OUTPUT);
+                          /* TODO enable was removed from JsonMapper in Jackson 3. Use mapper.rebuild().enable(...).build() or move to the mapper's instantiation site. */
+                          mapper.enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
         void knownSetterBeforeUnknownGoesToBuilder() {
             rewriteRun(
               java(

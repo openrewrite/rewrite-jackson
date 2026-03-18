@@ -16,6 +16,7 @@
 package org.openrewrite.java.jackson;
 
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.*;
 import org.openrewrite.internal.ListUtils;
@@ -29,6 +30,7 @@ import java.util.*;
 
 import static java.util.Collections.singleton;
 
+@Getter
 public class MigrateMapperSettersToBuilder extends Recipe {
 
     private static final String OBJECT_MAPPER = "com.fasterxml.jackson.databind.ObjectMapper";
@@ -38,6 +40,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
 
     private static final String INVOCATIONS_TO_REMOVE = "INVOCATIONS_TO_REMOVE";
 
+    @RequiredArgsConstructor
     enum SetterToBuilderMapping {
         SET_FILTER_PROVIDER("setFilterProvider", "filterProvider"),
         ADD_MIX_IN("addMixIn", "addMixIn"),
@@ -50,11 +53,6 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         final String setterName;
         final String builderName;
 
-        SetterToBuilderMapping(String setterName, String builderName) {
-            this.setterName = setterName;
-            this.builderName = builderName;
-        }
-
         static @Nullable SetterToBuilderMapping fromSetter(String name) {
             for (SetterToBuilderMapping m : values()) {
                 if (m.setterName.equals(name)) {
@@ -65,16 +63,11 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         }
     }
 
-    @Getter
     final String displayName = "Migrate `JsonMapper` setter calls to builder pattern";
-
-    @Getter
     final String description = "In Jackson 3, `JsonMapper` is immutable. " +
             "Configuration methods like `setFilterProvider`, `addMixIn`, `disable`, `enable`, etc. " +
             "must be called on the builder instead. This recipe migrates setter calls to the builder " +
             "pattern when safe, or adds TODO comments when automatic migration is not possible.";
-
-    @Getter
     final Set<String> tags = singleton("jackson-3");
 
     @Override
