@@ -17,17 +17,9 @@ package org.openrewrite.java.jackson;
 
 import lombok.Getter;
 import org.jspecify.annotations.Nullable;
-import org.openrewrite.Cursor;
-import org.openrewrite.ExecutionContext;
-import org.openrewrite.Preconditions;
-import org.openrewrite.Recipe;
-import org.openrewrite.TreeVisitor;
+import org.openrewrite.*;
 import org.openrewrite.internal.ListUtils;
-import org.openrewrite.java.JavaIsoVisitor;
-import org.openrewrite.java.JavaParser;
-import org.openrewrite.java.JavaTemplate;
-import org.openrewrite.java.JavaVisitor;
-import org.openrewrite.java.MethodMatcher;
+import org.openrewrite.java.*;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.*;
 import org.openrewrite.marker.Markers;
@@ -197,7 +189,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         J.MethodInvocation mi = (J.MethodInvocation) super.visitMethodInvocation(method, ctx);
 
                         if (!(mi.getSelect() instanceof J.Identifier) ||
-                            !TypeUtils.isAssignableTo(JSON_MAPPER, mi.getSelect().getType())) {
+                                !TypeUtils.isAssignableTo(JSON_MAPPER, mi.getSelect().getType())) {
                             return mi;
                         }
 
@@ -215,7 +207,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         // Not eligible for builder migration - add a TODO comment
                         String commentText = String.format(
                                 " TODO %s was removed from JsonMapper in Jackson 3. " +
-                                "Use mapper.rebuild().%s(...).build() or move to the mapper's instantiation site. ",
+                                        "Use mapper.rebuild().%s(...).build() or move to the mapper's instantiation site. ",
                                 mapping.setterName, mapping.builderName);
 
                         if (hasComment(mi, commentText)) {
@@ -237,8 +229,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
 
                     private boolean isCallOnVariable(J.MethodInvocation mi, String varName) {
                         return mi.getSelect() instanceof J.Identifier &&
-                               varName.equals(((J.Identifier) mi.getSelect()).getSimpleName()) &&
-                               TypeUtils.isAssignableTo(OBJECT_MAPPER, mi.getSelect().getType());
+                                varName.equals(((J.Identifier) mi.getSelect()).getSimpleName()) &&
+                                TypeUtils.isAssignableTo(OBJECT_MAPPER, mi.getSelect().getType());
                     }
 
                     private boolean referencesVariable(Statement stmt, String varName) {
@@ -247,7 +239,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             @Override
                             public J.Identifier visitIdentifier(J.Identifier ident, Set<String> set) {
                                 if (varName.equals(ident.getSimpleName()) &&
-                                    TypeUtils.isAssignableTo(OBJECT_MAPPER, ident.getType())) {
+                                        TypeUtils.isAssignableTo(OBJECT_MAPPER, ident.getType())) {
                                     set.add(varName);
                                 }
                                 return ident;
