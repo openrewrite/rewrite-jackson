@@ -117,17 +117,13 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         boolean collecting = true;
 
                         for (Statement stmt : block.getStatements()) {
+                            if (!collecting) {
+                                break;
+                            }
+
                             if (stmt instanceof J.VariableDeclarations) {
                                 J.VariableDeclarations vd = (J.VariableDeclarations) stmt;
                                 if (vd.getVariables().stream().anyMatch(v -> v.getSimpleName().equals(varName))) {
-                                    continue;
-                                }
-                            }
-
-                            if (stmt instanceof J.Return) {
-                                J.Return ret = (J.Return) stmt;
-                                if (ret.getExpression() instanceof J.Identifier &&
-                                    varName.equals(((J.Identifier) ret.getExpression()).getSimpleName())) {
                                     continue;
                                 }
                             }
@@ -137,9 +133,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                 if (isCallOnVariable(mi, varName)) {
                                     SetterToBuilderMapping mapping = SetterToBuilderMapping.fromSetter(mi.getName().getSimpleName());
                                     if (mapping != null) {
-                                        if (collecting) {
-                                            builderSetters.add(mi);
-                                        }
+                                        builderSetters.add(mi);
                                         continue;
                                     }
                                     collecting = false;
