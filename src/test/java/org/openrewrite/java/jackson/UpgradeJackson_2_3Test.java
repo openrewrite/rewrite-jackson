@@ -225,6 +225,37 @@ class UpgradeJackson_2_3Test implements RewriteTest {
         );
     }
 
+    @Test
+    void mapperSettersMigratedToBuilder() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.SerializationFeature;
+              import com.fasterxml.jackson.databind.json.JsonMapper;
+
+              class Test {
+                  JsonMapper create() {
+                      JsonMapper mapper = new JsonMapper();
+                      mapper.disable(SerializationFeature.INDENT_OUTPUT);
+                      return mapper;
+                  }
+              }
+              """,
+            """
+              import tools.jackson.databind.SerializationFeature;
+              import tools.jackson.databind.json.JsonMapper;
+
+              class Test {
+                  JsonMapper create() {
+                      return JsonMapper.builder().disable(SerializationFeature.INDENT_OUTPUT).build();
+                  }
+              }
+              """
+          )
+        );
+    }
+
     @Issue("https://github.com/openrewrite/rewrite-jackson/issues/89")
     @Test
     void chainedConfigurationOnNewObjectMapper() {
