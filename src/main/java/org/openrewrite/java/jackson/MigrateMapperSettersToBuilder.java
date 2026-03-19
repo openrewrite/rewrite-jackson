@@ -42,13 +42,62 @@ public class MigrateMapperSettersToBuilder extends Recipe {
 
     @RequiredArgsConstructor
     enum SetterToBuilderMapping {
-        SET_FILTER_PROVIDER("setFilterProvider", "filterProvider"),
-        ADD_MIX_IN("addMixIn", "addMixIn"),
-        SET_DATE_FORMAT("setDateFormat", "defaultDateFormat"),
-        ADD_HANDLER("addHandler", "addHandler"),
+        // Feature enable/disable/configure (covers all feature types via overloading)
+        CONFIGURE("configure", "configure"),
         DISABLE("disable", "disable"),
         ENABLE("enable", "enable"),
-        REGISTER_MODULE("registerModule", "addModule");
+
+        // Module registration
+        REGISTER_MODULE("registerModule", "addModule"),
+        REGISTER_MODULES("registerModules", "addModules"),
+        FIND_AND_REGISTER_MODULES("findAndRegisterModules", "findAndAddModules"),
+
+        // Mix-in & subtype registration
+        ADD_MIX_IN("addMixIn", "addMixIn"),
+        REGISTER_SUBTYPES("registerSubtypes", "registerSubtypes"),
+
+        // Deserialization problem handlers
+        ADD_HANDLER("addHandler", "addHandler"),
+        CLEAR_PROBLEM_HANDLERS("clearProblemHandlers", "clearProblemHandlers"),
+
+        // Default typing
+        ACTIVATE_DEFAULT_TYPING("activateDefaultTyping", "activateDefaultTyping"),
+        ACTIVATE_DEFAULT_TYPING_AS_PROPERTY("activateDefaultTypingAsProperty", "activateDefaultTypingAsProperty"),
+        DEACTIVATE_DEFAULT_TYPING("deactivateDefaultTyping", "deactivateDefaultTyping"),
+        SET_DEFAULT_TYPING("setDefaultTyping", "setDefaultTyping"),
+
+        // Serialization settings
+        SET_FILTER_PROVIDER("setFilterProvider", "filterProvider"),
+        SET_SERIALIZER_FACTORY("setSerializerFactory", "serializerFactory"),
+        SET_DEFAULT_PRETTY_PRINTER("setDefaultPrettyPrinter", "defaultPrettyPrinter"),
+
+        // Deserialization settings
+        SET_INJECTABLE_VALUES("setInjectableValues", "injectableValues"),
+        SET_NODE_FACTORY("setNodeFactory", "nodeFactory"),
+        SET_CONSTRUCTOR_DETECTOR("setConstructorDetector", "constructorDetector"),
+        SET_CACHE_PROVIDER("setCacheProvider", "cacheProvider"),
+
+        // Introspection & naming
+        SET_ANNOTATION_INTROSPECTOR("setAnnotationIntrospector", "annotationIntrospector"),
+        SET_TYPE_FACTORY("setTypeFactory", "typeFactory"),
+        SET_SUBTYPES_RESOLVER("setSubtypeResolver", "subtypeResolver"),
+        SET_VISIBILITY("setVisibility", "visibility"),
+        SET_HANDLER_INSTANTIATOR("setHandlerInstantiator", "handlerInstantiator"),
+        SET_PROPERTY_NAMING_STRATEGY("setPropertyNamingStrategy", "propertyNamingStrategy"),
+        SET_ENUM_NAMING_STRATEGY("setEnumNamingStrategy", "enumNamingStrategy"),
+        SET_ACCESSOR_NAMING("setAccessorNaming", "accessorNaming"),
+        SET_POLYMORPHIC_TYPE_VALIDATOR("setPolymorphicTypeValidator", "polymorphicTypeValidator"),
+
+        // Global defaults
+        SET_DATE_FORMAT("setDateFormat", "defaultDateFormat"),
+        SET_TIME_ZONE("setTimeZone", "defaultTimeZone"),
+        SET_LOCALE("setLocale", "defaultLocale"),
+        SET_BASE64_VARIANT("setBase64Variant", "defaultBase64Variant"),
+        SET_DEFAULT_ATTRIBUTES("setDefaultAttributes", "defaultAttributes"),
+        SET_DEFAULT_PROPERTY_INCLUSION("setDefaultPropertyInclusion", "defaultPropertyInclusion"),
+        SET_DEFAULT_SETTER_INFO("setDefaultSetterInfo", "defaultSetterInfo"),
+        SET_DEFAULT_MERGEABLE("setDefaultMergeable", "defaultMergeable"),
+        SET_DEFAULT_LENIENCY("setDefaultLeniency", "defaultLeniency");
 
         final String setterName;
         final String builderName;
@@ -166,12 +215,17 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             SetterToBuilderMapping mapping = SetterToBuilderMapping.fromSetter(mi.getName().getSimpleName());
                             assert mapping != null;
                             templateCode.append("\n.").append(mapping.builderName).append("(");
-                            for (int i = 0; i < mi.getArguments().size(); i++) {
-                                if (i > 0) {
+                            boolean first = true;
+                            for (Expression arg : mi.getArguments()) {
+                                if (arg instanceof J.Empty) {
+                                    continue;
+                                }
+                                if (!first) {
                                     templateCode.append(", ");
                                 }
+                                first = false;
                                 templateCode.append("#{any()}");
-                                templateArgs.add(mi.getArguments().get(i));
+                                templateArgs.add(arg);
                             }
                             templateCode.append(")");
                         }
@@ -195,7 +249,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         return JavaTemplate.builder(templateCode.toString())
                                 .imports(JSON_MAPPER)
                                 .javaParser(JavaParser.fromJavaVersion()
-                                        .classpathFromResources(ctx, "jackson-core-2", "jackson-databind-2"))
+                                        .classpathFromResources(ctx, "jackson-annotations-2", "jackson-core-2", "jackson-databind-2"))
                                 .build()
                                 .apply(getCursor(), nc.getCoordinates().replace(), templateArgs.toArray());
                     }
