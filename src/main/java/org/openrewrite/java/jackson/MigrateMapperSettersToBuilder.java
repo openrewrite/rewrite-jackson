@@ -215,12 +215,17 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             SetterToBuilderMapping mapping = SetterToBuilderMapping.fromSetter(mi.getName().getSimpleName());
                             assert mapping != null;
                             templateCode.append("\n.").append(mapping.builderName).append("(");
-                            for (int i = 0; i < mi.getArguments().size(); i++) {
-                                if (i > 0) {
+                            boolean first = true;
+                            for (Expression arg : mi.getArguments()) {
+                                if (arg instanceof J.Empty) {
+                                    continue;
+                                }
+                                if (!first) {
                                     templateCode.append(", ");
                                 }
+                                first = false;
                                 templateCode.append("#{any()}");
-                                templateArgs.add(mi.getArguments().get(i));
+                                templateArgs.add(arg);
                             }
                             templateCode.append(")");
                         }
@@ -244,7 +249,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         return JavaTemplate.builder(templateCode.toString())
                                 .imports(JSON_MAPPER)
                                 .javaParser(JavaParser.fromJavaVersion()
-                                        .classpathFromResources(ctx, "jackson-core-2", "jackson-databind-2"))
+                                        .classpathFromResources(ctx, "jackson-annotations-2", "jackson-core-2", "jackson-databind-2"))
                                 .build()
                                 .apply(getCursor(), nc.getCoordinates().replace(), templateArgs.toArray());
                     }
