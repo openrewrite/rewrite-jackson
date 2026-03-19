@@ -204,6 +204,12 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                     public J visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
                         J.MethodInvocation mi = (J.MethodInvocation) super.visitMethodInvocation(method, ctx);
 
+                        // Check if this invocation should be removed (builder migration case)
+                        Set<UUID> toRemove = getCursor().getNearestMessage(INVOCATIONS_TO_REMOVE);
+                        if (toRemove != null && toRemove.contains(mi.getId())) {
+                            return null;
+                        }
+
                         if (!(mi.getSelect() instanceof J.Identifier) ||
                                 !TypeUtils.isAssignableTo(JSON_MAPPER, mi.getSelect().getType())) {
                             return mi;
@@ -212,12 +218,6 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         SetterToBuilderMapping mapping = SetterToBuilderMapping.fromSetter(mi.getName().getSimpleName());
                         if (mapping == null) {
                             return mi;
-                        }
-
-                        // Check if this invocation should be removed (builder migration case)
-                        Set<UUID> toRemove = getCursor().getNearestMessage(INVOCATIONS_TO_REMOVE);
-                        if (toRemove != null && toRemove.contains(mi.getId())) {
-                            return null;
                         }
 
                         // Not eligible for builder migration - add a TODO comment
