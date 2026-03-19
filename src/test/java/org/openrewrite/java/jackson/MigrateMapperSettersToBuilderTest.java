@@ -32,7 +32,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
             .classpath("jackson-core", "jackson-databind"));
     }
 
-    @DocumentExample
     @Test
     void singleDisable() {
         rewriteRun(
@@ -136,6 +135,7 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
             );
         }
 
+        @DocumentExample
         @Test
         void allSettersMigratedToBuilder() {
             rewriteRun(
