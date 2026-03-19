@@ -32,6 +32,209 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
             .classpath("jackson-core", "jackson-databind"));
     }
 
+    @DocumentExample
+    @Test
+    void allSettersMigratedToBuilder() {
+        rewriteRun(
+          spec -> spec.parser(org.openrewrite.java.JavaParser.fromJavaVersion()
+            .classpath("jackson-core", "jackson-databind", "jackson-annotations")),
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonAutoDetect;
+              import com.fasterxml.jackson.annotation.JsonInclude;
+              import com.fasterxml.jackson.annotation.JsonSetter;
+              import com.fasterxml.jackson.annotation.PropertyAccessor;
+              import com.fasterxml.jackson.core.Base64Variants;
+              import com.fasterxml.jackson.core.PrettyPrinter;
+              import com.fasterxml.jackson.databind.AnnotationIntrospector;
+              import com.fasterxml.jackson.databind.DeserializationFeature;
+              import com.fasterxml.jackson.databind.InjectableValues;
+              import com.fasterxml.jackson.databind.MapperFeature;
+              import com.fasterxml.jackson.databind.Module;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.databind.PropertyNamingStrategy;
+              import com.fasterxml.jackson.databind.SerializationFeature;
+              import com.fasterxml.jackson.databind.cfg.CacheProvider;
+              import com.fasterxml.jackson.databind.cfg.ConstructorDetector;
+              import com.fasterxml.jackson.databind.cfg.ContextAttributes;
+              import com.fasterxml.jackson.databind.cfg.HandlerInstantiator;
+              import com.fasterxml.jackson.databind.deser.DeserializationProblemHandler;
+              import com.fasterxml.jackson.databind.introspect.AccessorNamingStrategy;
+              import com.fasterxml.jackson.databind.json.JsonMapper;
+              import com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator;
+              import com.fasterxml.jackson.databind.jsontype.SubtypeResolver;
+              import com.fasterxml.jackson.databind.jsontype.TypeResolverBuilder;
+              import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+              import com.fasterxml.jackson.databind.ser.FilterProvider;
+              import com.fasterxml.jackson.databind.ser.SerializerFactory;
+              import com.fasterxml.jackson.databind.type.TypeFactory;
+
+              import java.text.SimpleDateFormat;
+              import java.util.Locale;
+              import java.util.TimeZone;
+
+              class A {
+                  JsonMapper create(
+                          Module module,
+                          DeserializationProblemHandler handler,
+                          PolymorphicTypeValidator validator,
+                          TypeResolverBuilder<?> typeResolver,
+                          FilterProvider filterProvider,
+                          SerializerFactory serializerFactory,
+                          PrettyPrinter prettyPrinter,
+                          InjectableValues injectableValues,
+                          ConstructorDetector constructorDetector,
+                          CacheProvider cacheProvider,
+                          AnnotationIntrospector introspector,
+                          SubtypeResolver subtypeResolver,
+                          HandlerInstantiator handlerInstantiator,
+                          PropertyNamingStrategy namingStrategy,
+                          AccessorNamingStrategy.Provider accessorNaming,
+                          ContextAttributes attributes
+                  ) {
+                      JsonMapper mapper = new JsonMapper();
+                      mapper.configure(MapperFeature.AUTO_DETECT_FIELDS, true);
+                      mapper.disable(SerializationFeature.INDENT_OUTPUT);
+                      mapper.enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+                      mapper.registerModule(module);
+                      mapper.registerModules(module);
+                      mapper.findAndRegisterModules();
+                      mapper.addMixIn(Object.class, Comparable.class);
+                      mapper.registerSubtypes(Object.class);
+                      mapper.addHandler(handler);
+                      mapper.clearProblemHandlers();
+                      mapper.activateDefaultTyping(validator);
+                      mapper.activateDefaultTypingAsProperty(validator, ObjectMapper.DefaultTyping.NON_FINAL, "@type");
+                      mapper.deactivateDefaultTyping();
+                      mapper.setDefaultTyping(typeResolver);
+                      mapper.setFilterProvider(filterProvider);
+                      mapper.setSerializerFactory(serializerFactory);
+                      mapper.setDefaultPrettyPrinter(prettyPrinter);
+                      mapper.setInjectableValues(injectableValues);
+                      mapper.setNodeFactory(JsonNodeFactory.instance);
+                      mapper.setConstructorDetector(constructorDetector);
+                      mapper.setCacheProvider(cacheProvider);
+                      mapper.setAnnotationIntrospector(introspector);
+                      mapper.setTypeFactory(TypeFactory.defaultInstance());
+                      mapper.setSubtypeResolver(subtypeResolver);
+                      mapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
+                      mapper.setHandlerInstantiator(handlerInstantiator);
+                      mapper.setPropertyNamingStrategy(namingStrategy);
+                      mapper.setAccessorNaming(accessorNaming);
+                      mapper.setPolymorphicTypeValidator(validator);
+                      mapper.setDateFormat(new SimpleDateFormat("yyyy-MM-dd"));
+                      mapper.setTimeZone(TimeZone.getDefault());
+                      mapper.setLocale(Locale.US);
+                      mapper.setBase64Variant(Base64Variants.MIME);
+                      mapper.setDefaultAttributes(attributes);
+                      mapper.setDefaultPropertyInclusion(JsonInclude.Value.empty());
+                      mapper.setDefaultSetterInfo(JsonSetter.Value.empty());
+                      mapper.setDefaultMergeable(Boolean.TRUE);
+                      mapper.setDefaultLeniency(Boolean.TRUE);
+                      return mapper;
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonAutoDetect;
+              import com.fasterxml.jackson.annotation.JsonInclude;
+              import com.fasterxml.jackson.annotation.JsonSetter;
+              import com.fasterxml.jackson.annotation.PropertyAccessor;
+              import com.fasterxml.jackson.core.Base64Variants;
+              import com.fasterxml.jackson.core.PrettyPrinter;
+              import com.fasterxml.jackson.databind.AnnotationIntrospector;
+              import com.fasterxml.jackson.databind.DeserializationFeature;
+              import com.fasterxml.jackson.databind.InjectableValues;
+              import com.fasterxml.jackson.databind.MapperFeature;
+              import com.fasterxml.jackson.databind.Module;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.databind.PropertyNamingStrategy;
+              import com.fasterxml.jackson.databind.SerializationFeature;
+              import com.fasterxml.jackson.databind.cfg.CacheProvider;
+              import com.fasterxml.jackson.databind.cfg.ConstructorDetector;
+              import com.fasterxml.jackson.databind.cfg.ContextAttributes;
+              import com.fasterxml.jackson.databind.cfg.HandlerInstantiator;
+              import com.fasterxml.jackson.databind.deser.DeserializationProblemHandler;
+              import com.fasterxml.jackson.databind.introspect.AccessorNamingStrategy;
+              import com.fasterxml.jackson.databind.json.JsonMapper;
+              import com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator;
+              import com.fasterxml.jackson.databind.jsontype.SubtypeResolver;
+              import com.fasterxml.jackson.databind.jsontype.TypeResolverBuilder;
+              import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+              import com.fasterxml.jackson.databind.ser.FilterProvider;
+              import com.fasterxml.jackson.databind.ser.SerializerFactory;
+              import com.fasterxml.jackson.databind.type.TypeFactory;
+
+              import java.text.SimpleDateFormat;
+              import java.util.Locale;
+              import java.util.TimeZone;
+
+              class A {
+                  JsonMapper create(
+                          Module module,
+                          DeserializationProblemHandler handler,
+                          PolymorphicTypeValidator validator,
+                          TypeResolverBuilder<?> typeResolver,
+                          FilterProvider filterProvider,
+                          SerializerFactory serializerFactory,
+                          PrettyPrinter prettyPrinter,
+                          InjectableValues injectableValues,
+                          ConstructorDetector constructorDetector,
+                          CacheProvider cacheProvider,
+                          AnnotationIntrospector introspector,
+                          SubtypeResolver subtypeResolver,
+                          HandlerInstantiator handlerInstantiator,
+                          PropertyNamingStrategy namingStrategy,
+                          AccessorNamingStrategy.Provider accessorNaming,
+                          ContextAttributes attributes
+                  ) {
+                      return JsonMapper.builder()
+                              .configure(MapperFeature.AUTO_DETECT_FIELDS, true)
+                              .disable(SerializationFeature.INDENT_OUTPUT)
+                              .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                              .addModule(module)
+                              .addModules(module)
+                              .findAndAddModules()
+                              .addMixIn(Object.class, Comparable.class)
+                              .registerSubtypes(Object.class)
+                              .addHandler(handler)
+                              .clearProblemHandlers()
+                              .activateDefaultTyping(validator)
+                              .activateDefaultTypingAsProperty(validator, ObjectMapper.DefaultTyping.NON_FINAL, "@type")
+                              .deactivateDefaultTyping()
+                              .setDefaultTyping(typeResolver)
+                              .filterProvider(filterProvider)
+                              .serializerFactory(serializerFactory)
+                              .defaultPrettyPrinter(prettyPrinter)
+                              .injectableValues(injectableValues)
+                              .nodeFactory(JsonNodeFactory.instance)
+                              .constructorDetector(constructorDetector)
+                              .cacheProvider(cacheProvider)
+                              .annotationIntrospector(introspector)
+                              .typeFactory(TypeFactory.defaultInstance())
+                              .subtypeResolver(subtypeResolver)
+                              .visibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY)
+                              .handlerInstantiator(handlerInstantiator)
+                              .propertyNamingStrategy(namingStrategy)
+                              .accessorNaming(accessorNaming)
+                              .polymorphicTypeValidator(validator)
+                              .defaultDateFormat(new SimpleDateFormat("yyyy-MM-dd"))
+                              .defaultTimeZone(TimeZone.getDefault())
+                              .defaultLocale(Locale.US)
+                              .defaultBase64Variant(Base64Variants.MIME)
+                              .defaultAttributes(attributes)
+                              .defaultPropertyInclusion(JsonInclude.Value.empty())
+                              .defaultSetterInfo(JsonSetter.Value.empty())
+                              .defaultMergeable(Boolean.TRUE)
+                              .defaultLeniency(Boolean.TRUE)
+                              .build();
+                  }
+              }
+              """
+          )
+        );
+    }
+
     @Test
     void singleDisable() {
         rewriteRun(
@@ -127,209 +330,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
                       JsonMapper create(Module module) {
                           return JsonMapper.builder()
                                   .addModule(module)
-                                  .build();
-                      }
-                  }
-                  """
-              )
-            );
-        }
-
-        @DocumentExample
-        @Test
-        void allSettersMigratedToBuilder() {
-            rewriteRun(
-              spec -> spec.parser(org.openrewrite.java.JavaParser.fromJavaVersion()
-                .classpath("jackson-core", "jackson-databind", "jackson-annotations")),
-              java(
-                """
-                  import com.fasterxml.jackson.annotation.JsonAutoDetect;
-                  import com.fasterxml.jackson.annotation.JsonInclude;
-                  import com.fasterxml.jackson.annotation.JsonSetter;
-                  import com.fasterxml.jackson.annotation.PropertyAccessor;
-                  import com.fasterxml.jackson.core.Base64Variants;
-                  import com.fasterxml.jackson.core.PrettyPrinter;
-                  import com.fasterxml.jackson.databind.AnnotationIntrospector;
-                  import com.fasterxml.jackson.databind.DeserializationFeature;
-                  import com.fasterxml.jackson.databind.InjectableValues;
-                  import com.fasterxml.jackson.databind.MapperFeature;
-                  import com.fasterxml.jackson.databind.Module;
-                  import com.fasterxml.jackson.databind.ObjectMapper;
-                  import com.fasterxml.jackson.databind.PropertyNamingStrategy;
-                  import com.fasterxml.jackson.databind.SerializationFeature;
-                  import com.fasterxml.jackson.databind.cfg.CacheProvider;
-                  import com.fasterxml.jackson.databind.cfg.ConstructorDetector;
-                  import com.fasterxml.jackson.databind.cfg.ContextAttributes;
-                  import com.fasterxml.jackson.databind.cfg.HandlerInstantiator;
-                  import com.fasterxml.jackson.databind.deser.DeserializationProblemHandler;
-                  import com.fasterxml.jackson.databind.introspect.AccessorNamingStrategy;
-                  import com.fasterxml.jackson.databind.json.JsonMapper;
-                  import com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator;
-                  import com.fasterxml.jackson.databind.jsontype.SubtypeResolver;
-                  import com.fasterxml.jackson.databind.jsontype.TypeResolverBuilder;
-                  import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-                  import com.fasterxml.jackson.databind.ser.FilterProvider;
-                  import com.fasterxml.jackson.databind.ser.SerializerFactory;
-                  import com.fasterxml.jackson.databind.type.TypeFactory;
-
-                  import java.text.SimpleDateFormat;
-                  import java.util.Locale;
-                  import java.util.TimeZone;
-
-                  class A {
-                      JsonMapper create(
-                              Module module,
-                              DeserializationProblemHandler handler,
-                              PolymorphicTypeValidator validator,
-                              TypeResolverBuilder<?> typeResolver,
-                              FilterProvider filterProvider,
-                              SerializerFactory serializerFactory,
-                              PrettyPrinter prettyPrinter,
-                              InjectableValues injectableValues,
-                              ConstructorDetector constructorDetector,
-                              CacheProvider cacheProvider,
-                              AnnotationIntrospector introspector,
-                              SubtypeResolver subtypeResolver,
-                              HandlerInstantiator handlerInstantiator,
-                              PropertyNamingStrategy namingStrategy,
-                              AccessorNamingStrategy.Provider accessorNaming,
-                              ContextAttributes attributes
-                      ) {
-                          JsonMapper mapper = new JsonMapper();
-                          mapper.configure(MapperFeature.AUTO_DETECT_FIELDS, true);
-                          mapper.disable(SerializationFeature.INDENT_OUTPUT);
-                          mapper.enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
-                          mapper.registerModule(module);
-                          mapper.registerModules(module);
-                          mapper.findAndRegisterModules();
-                          mapper.addMixIn(Object.class, Comparable.class);
-                          mapper.registerSubtypes(Object.class);
-                          mapper.addHandler(handler);
-                          mapper.clearProblemHandlers();
-                          mapper.activateDefaultTyping(validator);
-                          mapper.activateDefaultTypingAsProperty(validator, ObjectMapper.DefaultTyping.NON_FINAL, "@type");
-                          mapper.deactivateDefaultTyping();
-                          mapper.setDefaultTyping(typeResolver);
-                          mapper.setFilterProvider(filterProvider);
-                          mapper.setSerializerFactory(serializerFactory);
-                          mapper.setDefaultPrettyPrinter(prettyPrinter);
-                          mapper.setInjectableValues(injectableValues);
-                          mapper.setNodeFactory(JsonNodeFactory.instance);
-                          mapper.setConstructorDetector(constructorDetector);
-                          mapper.setCacheProvider(cacheProvider);
-                          mapper.setAnnotationIntrospector(introspector);
-                          mapper.setTypeFactory(TypeFactory.defaultInstance());
-                          mapper.setSubtypeResolver(subtypeResolver);
-                          mapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
-                          mapper.setHandlerInstantiator(handlerInstantiator);
-                          mapper.setPropertyNamingStrategy(namingStrategy);
-                          mapper.setAccessorNaming(accessorNaming);
-                          mapper.setPolymorphicTypeValidator(validator);
-                          mapper.setDateFormat(new SimpleDateFormat("yyyy-MM-dd"));
-                          mapper.setTimeZone(TimeZone.getDefault());
-                          mapper.setLocale(Locale.US);
-                          mapper.setBase64Variant(Base64Variants.MIME);
-                          mapper.setDefaultAttributes(attributes);
-                          mapper.setDefaultPropertyInclusion(JsonInclude.Value.empty());
-                          mapper.setDefaultSetterInfo(JsonSetter.Value.empty());
-                          mapper.setDefaultMergeable(Boolean.TRUE);
-                          mapper.setDefaultLeniency(Boolean.TRUE);
-                          return mapper;
-                      }
-                  }
-                  """,
-                """
-                  import com.fasterxml.jackson.annotation.JsonAutoDetect;
-                  import com.fasterxml.jackson.annotation.JsonInclude;
-                  import com.fasterxml.jackson.annotation.JsonSetter;
-                  import com.fasterxml.jackson.annotation.PropertyAccessor;
-                  import com.fasterxml.jackson.core.Base64Variants;
-                  import com.fasterxml.jackson.core.PrettyPrinter;
-                  import com.fasterxml.jackson.databind.AnnotationIntrospector;
-                  import com.fasterxml.jackson.databind.DeserializationFeature;
-                  import com.fasterxml.jackson.databind.InjectableValues;
-                  import com.fasterxml.jackson.databind.MapperFeature;
-                  import com.fasterxml.jackson.databind.Module;
-                  import com.fasterxml.jackson.databind.ObjectMapper;
-                  import com.fasterxml.jackson.databind.PropertyNamingStrategy;
-                  import com.fasterxml.jackson.databind.SerializationFeature;
-                  import com.fasterxml.jackson.databind.cfg.CacheProvider;
-                  import com.fasterxml.jackson.databind.cfg.ConstructorDetector;
-                  import com.fasterxml.jackson.databind.cfg.ContextAttributes;
-                  import com.fasterxml.jackson.databind.cfg.HandlerInstantiator;
-                  import com.fasterxml.jackson.databind.deser.DeserializationProblemHandler;
-                  import com.fasterxml.jackson.databind.introspect.AccessorNamingStrategy;
-                  import com.fasterxml.jackson.databind.json.JsonMapper;
-                  import com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator;
-                  import com.fasterxml.jackson.databind.jsontype.SubtypeResolver;
-                  import com.fasterxml.jackson.databind.jsontype.TypeResolverBuilder;
-                  import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-                  import com.fasterxml.jackson.databind.ser.FilterProvider;
-                  import com.fasterxml.jackson.databind.ser.SerializerFactory;
-                  import com.fasterxml.jackson.databind.type.TypeFactory;
-
-                  import java.text.SimpleDateFormat;
-                  import java.util.Locale;
-                  import java.util.TimeZone;
-
-                  class A {
-                      JsonMapper create(
-                              Module module,
-                              DeserializationProblemHandler handler,
-                              PolymorphicTypeValidator validator,
-                              TypeResolverBuilder<?> typeResolver,
-                              FilterProvider filterProvider,
-                              SerializerFactory serializerFactory,
-                              PrettyPrinter prettyPrinter,
-                              InjectableValues injectableValues,
-                              ConstructorDetector constructorDetector,
-                              CacheProvider cacheProvider,
-                              AnnotationIntrospector introspector,
-                              SubtypeResolver subtypeResolver,
-                              HandlerInstantiator handlerInstantiator,
-                              PropertyNamingStrategy namingStrategy,
-                              AccessorNamingStrategy.Provider accessorNaming,
-                              ContextAttributes attributes
-                      ) {
-                          return JsonMapper.builder()
-                                  .configure(MapperFeature.AUTO_DETECT_FIELDS, true)
-                                  .disable(SerializationFeature.INDENT_OUTPUT)
-                                  .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-                                  .addModule(module)
-                                  .addModules(module)
-                                  .findAndAddModules()
-                                  .addMixIn(Object.class, Comparable.class)
-                                  .registerSubtypes(Object.class)
-                                  .addHandler(handler)
-                                  .clearProblemHandlers()
-                                  .activateDefaultTyping(validator)
-                                  .activateDefaultTypingAsProperty(validator, ObjectMapper.DefaultTyping.NON_FINAL, "@type")
-                                  .deactivateDefaultTyping()
-                                  .setDefaultTyping(typeResolver)
-                                  .filterProvider(filterProvider)
-                                  .serializerFactory(serializerFactory)
-                                  .defaultPrettyPrinter(prettyPrinter)
-                                  .injectableValues(injectableValues)
-                                  .nodeFactory(JsonNodeFactory.instance)
-                                  .constructorDetector(constructorDetector)
-                                  .cacheProvider(cacheProvider)
-                                  .annotationIntrospector(introspector)
-                                  .typeFactory(TypeFactory.defaultInstance())
-                                  .subtypeResolver(subtypeResolver)
-                                  .visibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY)
-                                  .handlerInstantiator(handlerInstantiator)
-                                  .propertyNamingStrategy(namingStrategy)
-                                  .accessorNaming(accessorNaming)
-                                  .polymorphicTypeValidator(validator)
-                                  .defaultDateFormat(new SimpleDateFormat("yyyy-MM-dd"))
-                                  .defaultTimeZone(TimeZone.getDefault())
-                                  .defaultLocale(Locale.US)
-                                  .defaultBase64Variant(Base64Variants.MIME)
-                                  .defaultAttributes(attributes)
-                                  .defaultPropertyInclusion(JsonInclude.Value.empty())
-                                  .defaultSetterInfo(JsonSetter.Value.empty())
-                                  .defaultMergeable(Boolean.TRUE)
-                                  .defaultLeniency(Boolean.TRUE)
                                   .build();
                       }
                   }
