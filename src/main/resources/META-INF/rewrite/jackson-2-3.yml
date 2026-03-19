@@ -39,6 +39,7 @@ recipeList:
   - org.openrewrite.java.jackson.LombokJacksonizedConfig
   - org.openrewrite.java.jackson.UpdateSerializationInclusionConfiguration
   - org.openrewrite.java.jackson.UseFormatAlignedObjectMappers
+  - org.openrewrite.java.jackson.MigrateMapperSettersToBuilder
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_Dependencies
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_TypeChanges
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_MethodRenames

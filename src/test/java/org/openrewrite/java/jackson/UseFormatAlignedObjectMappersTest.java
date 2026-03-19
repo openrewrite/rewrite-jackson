@@ -85,7 +85,7 @@ class UseFormatAlignedObjectMappersTest implements RewriteTest {
     }
 
     @Test
-    void keepObjectMapper() {
+    void noArgObjectMapperToJsonMapper() {
         rewriteRun(
           java(
             """
@@ -93,6 +93,14 @@ class UseFormatAlignedObjectMappersTest implements RewriteTest {
 
               class A {
                   ObjectMapper mapper = new ObjectMapper();
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.databind.json.JsonMapper;
+
+              class A {
+                  ObjectMapper mapper = new JsonMapper();
               }
               """
           )

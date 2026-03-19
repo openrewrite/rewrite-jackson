@@ -24,7 +24,7 @@ import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.java.JavaTemplate;
 import org.openrewrite.java.MethodMatcher;
-import org.openrewrite.java.search.UsesMethod;
+import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.J;
 
 import java.util.HashMap;
@@ -32,7 +32,11 @@ import java.util.Map;
 
 public class UseFormatAlignedObjectMappers extends Recipe {
 
-    private static final MethodMatcher OBJECT_MAPPER_FACTORY = new MethodMatcher("com.fasterxml.jackson.databind.ObjectMapper <constructor>(com.fasterxml.jackson.core.JsonFactory)");
+    private static final String OBJECT_MAPPER = "com.fasterxml.jackson.databind.ObjectMapper";
+    private static final String JSON_MAPPER = "com.fasterxml.jackson.databind.json.JsonMapper";
+
+    private static final MethodMatcher OBJECT_MAPPER_FACTORY = new MethodMatcher(OBJECT_MAPPER + " <constructor>(com.fasterxml.jackson.core.JsonFactory)");
+    private static final MethodMatcher OBJECT_MAPPER_NO_ARG = new MethodMatcher(OBJECT_MAPPER + " <constructor>()");
 
     @Getter
     final String displayName = "Use format alignment `ObjectMappers`";
@@ -41,7 +45,7 @@ public class UseFormatAlignedObjectMappers extends Recipe {
     final String description = "Replace wrapping `ObjectMapper` calls with their format aligned implementation.";
 
     private static final Map<String, String> FACTORY_TO_MAPPER = new HashMap<String, String>() {{
-        put("com.fasterxml.jackson.core.JsonFactory", "com.fasterxml.jackson.databind.json.JsonMapper");
+        put("com.fasterxml.jackson.core.JsonFactory", JSON_MAPPER);
         put("com.fasterxml.jackson.dataformat.avro.AvroFactory", "com.fasterxml.jackson.dataformat.avro.AvroMapper");
         put("com.fasterxml.jackson.dataformat.cbor.CBORFactory", "com.fasterxml.jackson.dataformat.cbor.CBORMapper");
         put("com.fasterxml.jackson.dataformat.csv.CsvFactory", "com.fasterxml.jackson.dataformat.csv.CsvMapper");
@@ -53,10 +57,15 @@ public class UseFormatAlignedObjectMappers extends Recipe {
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
-        return Preconditions.check(new UsesMethod<>(OBJECT_MAPPER_FACTORY), new JavaIsoVisitor<ExecutionContext>() {
+        return Preconditions.check(new UsesType<>(OBJECT_MAPPER, false), new JavaIsoVisitor<ExecutionContext>() {
             @Override
             public J.NewClass visitNewClass(J.NewClass newClass, ExecutionContext ctx) {
                 J.NewClass nc = super.visitNewClass(newClass, ctx);
+
+                if (OBJECT_MAPPER_NO_ARG.matches(nc)) {
+                    maybeAddImport(JSON_MAPPER);
+                    return replaceWithMapper(nc, JSON_MAPPER);
+                }
 
                 if (!OBJECT_MAPPER_FACTORY.matches(nc)) {
                     return nc;
@@ -67,21 +76,25 @@ public class UseFormatAlignedObjectMappers extends Recipe {
                 if (target != null) {
                     maybeRemoveImport(source);
                     maybeAddImport(target);
-                    int lastDotIndex = target.lastIndexOf('.');
-                    String packageName = target.substring(0, lastDotIndex);
-                    String simpleName = target.substring(lastDotIndex + 1);
-                    return JavaTemplate.builder("new " + target + "()")
-                            .javaParser(JavaParser.fromJavaVersion().dependsOn(
-                                    "package " + packageName + ";\n" +
-                                            "public class " + simpleName + " extends com.fasterxml.jackson.databind.ObjectMapper {\n" +
-                                            "    public " + simpleName + "() {}\n" +
-                                            "}\n"
-                            ))
-                            .build()
-                            .apply(getCursor(), nc.getCoordinates().replace());
+                    return replaceWithMapper(nc, target);
                 }
 
                 return nc; // unsupported factory type
+            }
+
+            private J.NewClass replaceWithMapper(J.NewClass nc, String target) {
+                int lastDotIndex = target.lastIndexOf('.');
+                String packageName = target.substring(0, lastDotIndex);
+                String simpleName = target.substring(lastDotIndex + 1);
+                return JavaTemplate.builder("new " + target + "()")
+                        .javaParser(JavaParser.fromJavaVersion().dependsOn(
+                                "package " + packageName + ";\n" +
+                                        "public class " + simpleName + " extends com.fasterxml.jackson.databind.ObjectMapper {\n" +
+                                        "    public " + simpleName + "() {}\n" +
+                                        "}\n"
+                        ))
+                        .build()
+                        .apply(getCursor(), nc.getCoordinates().replace());
             }
         });
     }

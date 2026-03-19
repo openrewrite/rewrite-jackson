@@ -225,6 +225,73 @@ class UpgradeJackson_2_3Test implements RewriteTest {
         );
     }
 
+    @Test
+    void mapperSettersMigratedToBuilder() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.SerializationFeature;
+              import com.fasterxml.jackson.databind.json.JsonMapper;
+
+              class Test {
+                  JsonMapper create() {
+                      JsonMapper mapper = new JsonMapper();
+                      mapper.disable(SerializationFeature.INDENT_OUTPUT);
+                      return mapper;
+                  }
+              }
+              """,
+            """
+              import tools.jackson.databind.SerializationFeature;
+              import tools.jackson.databind.json.JsonMapper;
+
+              class Test {
+                  JsonMapper create() {
+                      return JsonMapper.builder()
+                              .disable(SerializationFeature.INDENT_OUTPUT)
+                              .build();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void objectMapperSettersMigratedToBuilder() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.SerializationFeature;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  ObjectMapper create() {
+                      ObjectMapper mapper = new ObjectMapper();
+                      mapper.disable(SerializationFeature.INDENT_OUTPUT);
+                      return mapper;
+                  }
+              }
+              """,
+            """
+              import tools.jackson.databind.SerializationFeature;
+              import tools.jackson.databind.json.JsonMapper;
+              import tools.jackson.databind.ObjectMapper;
+
+              class Test {
+                  ObjectMapper create() {
+                      return JsonMapper.builder()
+                              .disable(SerializationFeature.INDENT_OUTPUT)
+                              .build();
+                  }
+              }
+              """
+          )
+        );
+    }
+
     @Issue("https://github.com/openrewrite/rewrite-jackson/issues/89")
     @Test
     void chainedConfigurationOnNewObjectMapper() {
@@ -254,12 +321,13 @@ class UpgradeJackson_2_3Test implements RewriteTest {
             """
               import com.fasterxml.jackson.annotation.JsonInclude;
               import tools.jackson.databind.ObjectMapper;
+              import tools.jackson.databind.json.JsonMapper;
 
               import java.util.TimeZone;
 
               class Test {
                   ObjectMapper objectMapper() {
-                      return new ObjectMapper()
+                      return new JsonMapper()
                               .setTimeZone(TimeZone.getDefault())
                               .setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL);
                   }
@@ -296,10 +364,11 @@ class UpgradeJackson_2_3Test implements RewriteTest {
               import java.io.FileInputStream;
               import java.io.IOException;
               import tools.jackson.databind.ObjectMapper;
+              import tools.jackson.databind.json.JsonMapper;
 
               class Test {
                   void readAndDeserialize() {
-                      ObjectMapper mapper = new ObjectMapper();
+                      ObjectMapper mapper = new JsonMapper();
                       try {
                           byte[] data = new FileInputStream("data.json").readAllBytes();
                           mapper.readValue(data, String.class);
