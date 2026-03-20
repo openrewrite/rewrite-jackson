@@ -214,18 +214,6 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             return nc;
                         }
 
-                        // Build template with #{any()} placeholders
-                        StringBuilder templateCode = new StringBuilder("JsonMapper.builder()");
-                        List<Expression> templateArgs = new ArrayList<>();
-                        boolean needsJsonIncludeImport = false;
-
-                        for (J.MethodInvocation setter : builderSetters) {
-                            SetterToBuilderMapping mapping = SetterToBuilderMapping.fromSetter(setter.getName().getSimpleName());
-                            assert mapping != null;
-                            needsJsonIncludeImport |= appendBuilderCall(setter, mapping, templateCode, templateArgs);
-                        }
-                        templateCode.append("\n.build()");
-
                         // Mark setter invocations for removal
                         Cursor blockCursor = getCursor().dropParentUntil(J.Block.class::isInstance);
                         Set<UUID> toRemove = blockCursor.getMessage(INVOCATIONS_TO_REMOVE);
@@ -237,19 +225,9 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             toRemove.add(setter.getId());
                         }
 
-                        maybeAddImport(JSON_MAPPER);
-                        if (needsJsonIncludeImport) {
-                            maybeAddImport(JSON_INCLUDE);
-                        }
-
                         doAfterVisit(new InlineVariable().getVisitor());
 
-                        return JavaTemplate.builder(templateCode.toString())
-                                .imports(JSON_MAPPER, JSON_INCLUDE)
-                                .javaParser(JavaParser.fromJavaVersion()
-                                        .classpathFromResources(ctx, "jackson-annotations-2", "jackson-core-2", "jackson-databind-2"))
-                                .build()
-                                .apply(getCursor(), nc.getCoordinates().replace(), templateArgs.toArray());
+                        return applyBuilderTemplate(builderSetters, nc.getCoordinates().replace(), ctx);
                     }
 
                     @Override
@@ -363,14 +341,22 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             }
                         }
 
+                        return applyBuilderTemplate(chainCalls, mi.getCoordinates().replace(), ctx);
+                    }
+
+                    /**
+                     * Builds and applies the {@code JsonMapper.builder()...build()} template for a list of setter calls.
+                     */
+                    private J applyBuilderTemplate(List<J.MethodInvocation> setters,
+                                                   JavaCoordinates coordinates, ExecutionContext ctx) {
                         StringBuilder templateCode = new StringBuilder("JsonMapper.builder()");
                         List<Expression> templateArgs = new ArrayList<>();
                         boolean needsJsonIncludeImport = false;
 
-                        for (J.MethodInvocation call : chainCalls) {
-                            SetterToBuilderMapping mapping = SetterToBuilderMapping.fromSetter(call.getName().getSimpleName());
+                        for (J.MethodInvocation setter : setters) {
+                            SetterToBuilderMapping mapping = SetterToBuilderMapping.fromSetter(setter.getName().getSimpleName());
                             assert mapping != null;
-                            needsJsonIncludeImport |= appendBuilderCall(call, mapping, templateCode, templateArgs);
+                            needsJsonIncludeImport |= appendBuilderCall(setter, mapping, templateCode, templateArgs);
                         }
                         templateCode.append("\n.build()");
 
@@ -384,7 +370,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                 .javaParser(JavaParser.fromJavaVersion()
                                         .classpathFromResources(ctx, "jackson-annotations-2", "jackson-core-2", "jackson-databind-2"))
                                 .build()
-                                .apply(getCursor(), mi.getCoordinates().replace(), templateArgs.toArray());
+                                .apply(getCursor(), coordinates, templateArgs.toArray());
                     }
                 }
         );
