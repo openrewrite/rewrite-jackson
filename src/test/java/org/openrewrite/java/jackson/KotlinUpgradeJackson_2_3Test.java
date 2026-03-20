@@ -120,7 +120,11 @@ class KotlinUpgradeJackson_2_3Test implements RewriteTest {
     @Test
     void fullPipelineChainedConfigurationOnObjectMapper() {
         rewriteRun(
-          spec -> spec.recipeFromResources("org.openrewrite.java.jackson.UpgradeJackson_2_3"),
+          spec -> spec
+            .parser(KotlinParser.builder()
+              .classpath("jackson-annotations", "jackson-core", "jackson-databind",
+                "jackson-datatype-jsr310"))
+            .recipeFromResources("org.openrewrite.java.jackson.UpgradeJackson_2_3"),
           //language=kotlin
           kotlin(
             """
@@ -128,11 +132,13 @@ class KotlinUpgradeJackson_2_3Test implements RewriteTest {
               import com.fasterxml.jackson.databind.DeserializationFeature
               import com.fasterxml.jackson.databind.ObjectMapper
               import com.fasterxml.jackson.databind.SerializationFeature
+              import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
               import java.util.TimeZone
 
               class Test {
                   fun objectMapper(): ObjectMapper {
                       return ObjectMapper()
+                              .registerModule(JavaTimeModule())
                               .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
                               .setTimeZone(TimeZone.getDefault())
                               .setSerializationInclusion(JsonInclude.Include.NON_NULL)
@@ -144,7 +150,6 @@ class KotlinUpgradeJackson_2_3Test implements RewriteTest {
               import com.fasterxml.jackson.annotation.JsonInclude
               import tools.jackson.databind.ObjectMapper
               import tools.jackson.databind.json.JsonMapper
-
               import java.util.TimeZone
 
               class Test {
