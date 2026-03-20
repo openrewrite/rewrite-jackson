@@ -118,6 +118,49 @@ class KotlinUpgradeJackson_2_3Test implements RewriteTest {
     }
 
     @Test
+    void fullPipelineChainedConfigurationOnObjectMapper() {
+        rewriteRun(
+          spec -> spec.recipeFromResources("org.openrewrite.java.jackson.UpgradeJackson_2_3"),
+          //language=kotlin
+          kotlin(
+            """
+              import com.fasterxml.jackson.annotation.JsonInclude
+              import com.fasterxml.jackson.databind.DeserializationFeature
+              import com.fasterxml.jackson.databind.ObjectMapper
+              import com.fasterxml.jackson.databind.SerializationFeature
+              import java.util.TimeZone
+
+              class Test {
+                  fun objectMapper(): ObjectMapper {
+                      return ObjectMapper()
+                              .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+                              .setTimeZone(TimeZone.getDefault())
+                              .setSerializationInclusion(JsonInclude.Include.NON_NULL)
+                              .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonInclude
+              import tools.jackson.databind.ObjectMapper
+              import tools.jackson.databind.json.JsonMapper
+
+              import java.util.TimeZone
+
+              class Test {
+                  fun objectMapper(): ObjectMapper {
+                      return JsonMapper.builder()
+                          .defaultTimeZone(TimeZone.getDefault())
+                          .defaultPropertyInclusion(JsonInclude.Value.construct(JsonInclude.Include.NON_NULL, JsonInclude.Include.NON_NULL))
+                          .build()
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void updateSerializationInclusionOnBuilder() {
         rewriteRun(
           spec -> spec.recipe(new UpdateSerializationInclusionConfiguration()),
