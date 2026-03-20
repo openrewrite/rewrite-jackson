@@ -588,6 +588,168 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
     }
 
     @Nested
+    class FluentChain {
+
+        @Test
+        void fluentChainReturnStatement() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      JsonMapper create() {
+                          return new JsonMapper()
+                                  .disable(SerializationFeature.INDENT_OUTPUT)
+                                  .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      JsonMapper create() {
+                          return JsonMapper.builder()
+                                  .disable(SerializationFeature.INDENT_OUTPUT)
+                                  .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                                  .build();
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void fluentChainFieldInitializer() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      JsonMapper mapper = new JsonMapper()
+                              .disable(SerializationFeature.INDENT_OUTPUT);
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      JsonMapper mapper = JsonMapper.builder()
+                              .disable(SerializationFeature.INDENT_OUTPUT)
+                              .build();
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void fluentChainWithSetTimeZone() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  import java.util.TimeZone;
+
+                  class A {
+                      JsonMapper create() {
+                          return new JsonMapper()
+                                  .disable(SerializationFeature.INDENT_OUTPUT)
+                                  .setTimeZone(TimeZone.getDefault());
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  import java.util.TimeZone;
+
+                  class A {
+                      JsonMapper create() {
+                          return JsonMapper.builder()
+                                  .disable(SerializationFeature.INDENT_OUTPUT)
+                                  .defaultTimeZone(TimeZone.getDefault())
+                                  .build();
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void fluentChainSetDefaultPropertyInclusionWithRawInclude() {
+            rewriteRun(
+              spec -> spec.parser(org.openrewrite.java.JavaParser.fromJavaVersion()
+                .classpath("jackson-core", "jackson-databind", "jackson-annotations")),
+              java(
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  import java.util.TimeZone;
+
+                  class A {
+                      JsonMapper create() {
+                          return new JsonMapper()
+                                  .setTimeZone(TimeZone.getDefault())
+                                  .setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL);
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  import java.util.TimeZone;
+
+                  class A {
+                      JsonMapper create() {
+                          return JsonMapper.builder()
+                                  .defaultTimeZone(TimeZone.getDefault())
+                                  .defaultPropertyInclusion(JsonInclude.Value.construct(JsonInclude.Include.NON_NULL, JsonInclude.Include.NON_NULL))
+                                  .build();
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void fluentChainWithUnknownMethodNoChange() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      String create() {
+                          return new JsonMapper()
+                                  .disable(SerializationFeature.INDENT_OUTPUT)
+                                  .writeValueAsString("test");
+                      }
+                  }
+                  """
+              )
+            );
+        }
+    }
+
+    @Nested
     class NoChange {
 
         @Test
