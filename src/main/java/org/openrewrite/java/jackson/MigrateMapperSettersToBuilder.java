@@ -104,13 +104,18 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         final String setterName;
         final String builderName;
 
-        static @Nullable SetterToBuilderMapping fromSetter(String name) {
+        private static final Map<String, SetterToBuilderMapping> BY_SETTER_NAME;
+
+        static {
+            Map<String, SetterToBuilderMapping> map = new HashMap<>();
             for (SetterToBuilderMapping m : values()) {
-                if (m.setterName.equals(name)) {
-                    return m;
-                }
+                map.put(m.setterName, m);
             }
-            return null;
+            BY_SETTER_NAME = map;
+        }
+
+        static @Nullable SetterToBuilderMapping fromSetter(String name) {
+            return BY_SETTER_NAME.get(name);
         }
     }
 
@@ -227,7 +232,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
 
                         doAfterVisit(new InlineVariable().getVisitor());
 
-                        return applyBuilderTemplate(builderSetters, nc.getCoordinates().replace(), ctx);
+                        return applyBuilderTemplate(builderSetters, null, nc.getCoordinates().replace(), ctx);
                     }
 
                     @Override
@@ -334,27 +339,34 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             return null;
                         }
 
-                        // Only convert if all chained calls are known setters
+                        // Resolve all mappings up front; bail if any call is unknown
+                        List<SetterToBuilderMapping> mappings = new ArrayList<>(chainCalls.size());
                         for (J.MethodInvocation call : chainCalls) {
-                            if (SetterToBuilderMapping.fromSetter(call.getName().getSimpleName()) == null) {
+                            SetterToBuilderMapping m = SetterToBuilderMapping.fromSetter(call.getName().getSimpleName());
+                            if (m == null) {
                                 return null;
                             }
+                            mappings.add(m);
                         }
 
-                        return applyBuilderTemplate(chainCalls, mi.getCoordinates().replace(), ctx);
+                        return applyBuilderTemplate(chainCalls, mappings, mi.getCoordinates().replace(), ctx);
                     }
 
                     /**
                      * Builds and applies the {@code JsonMapper.builder()...build()} template for a list of setter calls.
                      */
                     private J applyBuilderTemplate(List<J.MethodInvocation> setters,
+                                                   @Nullable List<SetterToBuilderMapping> resolvedMappings,
                                                    JavaCoordinates coordinates, ExecutionContext ctx) {
                         StringBuilder templateCode = new StringBuilder("JsonMapper.builder()");
                         List<Expression> templateArgs = new ArrayList<>();
                         boolean needsJsonIncludeImport = false;
 
-                        for (J.MethodInvocation setter : setters) {
-                            SetterToBuilderMapping mapping = SetterToBuilderMapping.fromSetter(setter.getName().getSimpleName());
+                        for (int i = 0; i < setters.size(); i++) {
+                            J.MethodInvocation setter = setters.get(i);
+                            SetterToBuilderMapping mapping = resolvedMappings != null
+                                    ? resolvedMappings.get(i)
+                                    : SetterToBuilderMapping.fromSetter(setter.getName().getSimpleName());
                             assert mapping != null;
                             needsJsonIncludeImport |= appendBuilderCall(setter, mapping, templateCode, templateArgs);
                         }
