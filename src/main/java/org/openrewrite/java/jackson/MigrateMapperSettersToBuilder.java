@@ -255,7 +255,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                     }
 
                     @Override
-                    public J visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
+                    public @Nullable J visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
                         J.MethodInvocation mi = (J.MethodInvocation) super.visitMethodInvocation(method, ctx);
 
                         // Check if this invocation should be removed (builder migration case)
