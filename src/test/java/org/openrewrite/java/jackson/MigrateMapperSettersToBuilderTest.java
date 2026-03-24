@@ -729,7 +729,7 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         }
 
         @Test
-        void fluentChainWithUnknownMethodNoChange() {
+        void fluentChainWithTrailingNonSetterMethod() {
             rewriteRun(
               java(
                 """
@@ -740,6 +740,19 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
                       String create() {
                           return new JsonMapper()
                                   .disable(SerializationFeature.INDENT_OUTPUT)
+                                  .writeValueAsString("test");
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      String create() {
+                          return JsonMapper.builder()
+                                  .disable(SerializationFeature.INDENT_OUTPUT)
+                                  .build()
                                   .writeValueAsString("test");
                       }
                   }

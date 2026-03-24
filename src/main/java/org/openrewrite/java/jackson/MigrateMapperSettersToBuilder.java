@@ -232,7 +232,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
 
                         doAfterVisit(new InlineVariable().getVisitor());
 
-                        return applyBuilderTemplate(builderSetters, null, nc.getCoordinates().replace(), ctx);
+                        return applyBuilderTemplate(builderSetters, null, Collections.emptyList(),
+                                nc.getCoordinates().replace(), ctx);
                     }
 
                     @Override
@@ -339,17 +340,31 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             return null;
                         }
 
-                        // Resolve all mappings up front; bail if any call is unknown
-                        List<SetterToBuilderMapping> mappings = new ArrayList<>(chainCalls.size());
+                        // Split chain into known setters (prefix) and remaining calls (suffix)
+                        List<J.MethodInvocation> setterCalls = new ArrayList<>();
+                        List<SetterToBuilderMapping> mappings = new ArrayList<>();
+                        List<J.MethodInvocation> suffixCalls = new ArrayList<>();
+                        boolean hitUnknown = false;
                         for (J.MethodInvocation call : chainCalls) {
-                            SetterToBuilderMapping m = SetterToBuilderMapping.fromSetter(call.getName().getSimpleName());
-                            if (m == null) {
-                                return null;
+                            if (!hitUnknown) {
+                                SetterToBuilderMapping m = SetterToBuilderMapping.fromSetter(call.getName().getSimpleName());
+                                if (m != null) {
+                                    setterCalls.add(call);
+                                    mappings.add(m);
+                                    continue;
+                                }
+                                hitUnknown = true;
                             }
-                            mappings.add(m);
+                            suffixCalls.add(call);
                         }
 
-                        return applyBuilderTemplate(chainCalls, mappings, mi.getCoordinates().replace(), ctx);
+                        // Need at least one known setter to migrate
+                        if (setterCalls.isEmpty()) {
+                            return null;
+                        }
+
+                        return applyBuilderTemplate(setterCalls, mappings, suffixCalls,
+                                mi.getCoordinates().replace(), ctx);
                     }
 
                     /**
@@ -357,6 +372,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                      */
                     private J applyBuilderTemplate(List<J.MethodInvocation> setters,
                                                    @Nullable List<SetterToBuilderMapping> resolvedMappings,
+                                                   List<J.MethodInvocation> suffixCalls,
                                                    JavaCoordinates coordinates, ExecutionContext ctx) {
                         StringBuilder templateCode = new StringBuilder("JsonMapper.builder()");
                         List<Expression> templateArgs = new ArrayList<>();
@@ -369,6 +385,24 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             appendBuilderCall(setter, mapping, templateCode, templateArgs);
                         }
                         templateCode.append("\n.build()");
+
+                        // Append any non-setter calls that follow the known setters
+                        for (J.MethodInvocation suffix : suffixCalls) {
+                            templateCode.append("\n.").append(suffix.getName().getSimpleName()).append("(");
+                            boolean first = true;
+                            for (Expression arg : suffix.getArguments()) {
+                                if (arg instanceof J.Empty) {
+                                    continue;
+                                }
+                                if (!first) {
+                                    templateCode.append(", ");
+                                }
+                                first = false;
+                                templateCode.append("#{any()}");
+                                templateArgs.add(arg);
+                            }
+                            templateCode.append(")");
+                        }
 
                         maybeAddImport(JSON_MAPPER);
                         maybeAddImport(JSON_INCLUDE);
