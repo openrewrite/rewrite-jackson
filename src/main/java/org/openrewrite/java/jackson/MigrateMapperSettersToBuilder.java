@@ -360,22 +360,18 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                                    JavaCoordinates coordinates, ExecutionContext ctx) {
                         StringBuilder templateCode = new StringBuilder("JsonMapper.builder()");
                         List<Expression> templateArgs = new ArrayList<>();
-                        boolean needsJsonIncludeImport = false;
-
                         for (int i = 0; i < setters.size(); i++) {
                             J.MethodInvocation setter = setters.get(i);
                             SetterToBuilderMapping mapping = resolvedMappings != null
                                     ? resolvedMappings.get(i)
                                     : SetterToBuilderMapping.fromSetter(setter.getName().getSimpleName());
                             assert mapping != null;
-                            needsJsonIncludeImport |= appendBuilderCall(setter, mapping, templateCode, templateArgs);
+                            appendBuilderCall(setter, mapping, templateCode, templateArgs);
                         }
                         templateCode.append("\n.build()");
 
                         maybeAddImport(JSON_MAPPER);
-                        if (needsJsonIncludeImport) {
-                            maybeAddImport(JSON_INCLUDE);
-                        }
+                        maybeAddImport(JSON_INCLUDE);
 
                         return JavaTemplate.builder(templateCode.toString())
                                 .imports(JSON_MAPPER, JSON_INCLUDE)
@@ -411,8 +407,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
      * Appends a single builder method call to the template string.
      * Returns {@code true} if the call requires the {@code JsonInclude} import.
      */
-    private static boolean appendBuilderCall(J.MethodInvocation mi, SetterToBuilderMapping mapping,
-                                             StringBuilder templateCode, List<Expression> templateArgs) {
+    private static void appendBuilderCall(J.MethodInvocation mi, SetterToBuilderMapping mapping,
+                                           StringBuilder templateCode, List<Expression> templateArgs) {
         // Special case: setDefaultPropertyInclusion(JsonInclude.Include.X) needs wrapping
         // because the builder's defaultPropertyInclusion() expects a JsonInclude.Value, not a raw Include
         if (mapping == SetterToBuilderMapping.SET_DEFAULT_PROPERTY_INCLUSION &&
@@ -422,7 +418,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
             templateCode.append("\n.defaultPropertyInclusion(JsonInclude.Value.construct(#{any()}, #{any()}))");
             templateArgs.add(mi.getArguments().get(0));
             templateArgs.add(mi.getArguments().get(0));
-            return true;
+            return;
         }
 
         templateCode.append("\n.").append(mapping.builderName).append("(");
@@ -439,6 +435,5 @@ public class MigrateMapperSettersToBuilder extends Recipe {
             templateArgs.add(arg);
         }
         templateCode.append(")");
-        return false;
     }
 }
