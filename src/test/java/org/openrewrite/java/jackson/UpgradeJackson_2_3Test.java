@@ -327,9 +327,10 @@ class UpgradeJackson_2_3Test implements RewriteTest {
 
               class Test {
                   ObjectMapper objectMapper() {
-                      return new JsonMapper()
-                              .setTimeZone(TimeZone.getDefault())
-                              .setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL);
+                      return JsonMapper.builder()
+                              .defaultTimeZone(TimeZone.getDefault())
+                              .defaultPropertyInclusion(JsonInclude.Value.construct(JsonInclude.Include.NON_NULL, JsonInclude.Include.NON_NULL))
+                              .build();
                   }
               }
               """

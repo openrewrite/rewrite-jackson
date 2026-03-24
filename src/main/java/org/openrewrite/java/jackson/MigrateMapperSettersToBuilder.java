@@ -39,6 +39,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
     private static final MethodMatcher JSON_MAPPER_NO_ARG_CTOR = new MethodMatcher(JSON_MAPPER + " <constructor>()");
 
     private static final String INVOCATIONS_TO_REMOVE = "INVOCATIONS_TO_REMOVE";
+    private static final String JSON_INCLUDE = "com.fasterxml.jackson.annotation.JsonInclude";
+    private static final String JSON_INCLUDE_INCLUDE = "com.fasterxml.jackson.annotation.JsonInclude$Include";
 
     @RequiredArgsConstructor
     enum SetterToBuilderMapping {
@@ -102,13 +104,18 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         final String setterName;
         final String builderName;
 
-        static @Nullable SetterToBuilderMapping fromSetter(String name) {
+        private static final Map<String, SetterToBuilderMapping> BY_SETTER_NAME;
+
+        static {
+            Map<String, SetterToBuilderMapping> map = new HashMap<>();
             for (SetterToBuilderMapping m : values()) {
-                if (m.setterName.equals(name)) {
-                    return m;
-                }
+                map.put(m.setterName, m);
             }
-            return null;
+            BY_SETTER_NAME = map;
+        }
+
+        static @Nullable SetterToBuilderMapping fromSetter(String name) {
+            return BY_SETTER_NAME.get(name);
         }
     }
 
@@ -130,6 +137,11 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         J.NewClass nc = (J.NewClass) super.visitNewClass(newClass, ctx);
 
                         if (!JSON_MAPPER_NO_ARG_CTOR.matches(nc)) {
+                            return nc;
+                        }
+
+                        // Skip if constructor is part of a fluent chain - handled by visitMethodInvocation
+                        if (getCursor().getParentTreeCursor().getValue() instanceof J.MethodInvocation) {
                             return nc;
                         }
 
@@ -207,30 +219,6 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             return nc;
                         }
 
-                        // Build template with #{any()} placeholders
-                        StringBuilder templateCode = new StringBuilder("JsonMapper.builder()");
-                        List<Expression> templateArgs = new ArrayList<>();
-
-                        for (J.MethodInvocation mi : builderSetters) {
-                            SetterToBuilderMapping mapping = SetterToBuilderMapping.fromSetter(mi.getName().getSimpleName());
-                            assert mapping != null;
-                            templateCode.append("\n.").append(mapping.builderName).append("(");
-                            boolean first = true;
-                            for (Expression arg : mi.getArguments()) {
-                                if (arg instanceof J.Empty) {
-                                    continue;
-                                }
-                                if (!first) {
-                                    templateCode.append(", ");
-                                }
-                                first = false;
-                                templateCode.append("#{any()}");
-                                templateArgs.add(arg);
-                            }
-                            templateCode.append(")");
-                        }
-                        templateCode.append("\n.build()");
-
                         // Mark setter invocations for removal
                         Cursor blockCursor = getCursor().dropParentUntil(J.Block.class::isInstance);
                         Set<UUID> toRemove = blockCursor.getMessage(INVOCATIONS_TO_REMOVE);
@@ -238,20 +226,14 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             toRemove = new HashSet<>();
                             blockCursor.putMessage(INVOCATIONS_TO_REMOVE, toRemove);
                         }
-                        for (J.MethodInvocation mi : builderSetters) {
-                            toRemove.add(mi.getId());
+                        for (J.MethodInvocation setter : builderSetters) {
+                            toRemove.add(setter.getId());
                         }
-
-                        maybeAddImport(JSON_MAPPER);
 
                         doAfterVisit(new InlineVariable().getVisitor());
 
-                        return JavaTemplate.builder(templateCode.toString())
-                                .imports(JSON_MAPPER)
-                                .javaParser(JavaParser.fromJavaVersion()
-                                        .classpathFromResources(ctx, "jackson-annotations-2", "jackson-core-2", "jackson-databind-2"))
-                                .build()
-                                .apply(getCursor(), nc.getCoordinates().replace(), templateArgs.toArray());
+                        return applyBuilderTemplate(builderSetters, null, Collections.emptyList(),
+                                nc.getCoordinates().replace(), ctx);
                     }
 
                     @Override
@@ -262,6 +244,14 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         Set<UUID> toRemove = getCursor().getNearestMessage(INVOCATIONS_TO_REMOVE);
                         if (toRemove != null && toRemove.contains(mi.getId())) {
                             return null;
+                        }
+
+                        // Check for fluent chain on new JsonMapper()
+                        if (isFluentChainHead(method)) {
+                            J result = tryMigrateFluentChain(mi, ctx);
+                            if (result != null) {
+                                return result;
+                            }
                         }
 
                         if (!(mi.getSelect() instanceof J.Identifier) ||
@@ -327,7 +317,157 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             }
                         }.reduce(stmt, new HashSet<>()).isEmpty();
                     }
+
+                    /**
+                     * Check if this method invocation is the outermost call in a fluent chain
+                     * (i.e., it is not itself the select of another method invocation).
+                     */
+                    private boolean isFluentChainHead(J.MethodInvocation method) {
+                        Object parent = getCursor().getParentTreeCursor().getValue();
+                        if (parent instanceof J.MethodInvocation) {
+                            return ((J.MethodInvocation) parent).getSelect() != method;
+                        }
+                        return true;
+                    }
+
+                    /**
+                     * If this method invocation is the outermost call of a fluent chain rooted
+                     * at {@code new JsonMapper()}, migrate the chain to the builder pattern.
+                     */
+                    private @Nullable J tryMigrateFluentChain(J.MethodInvocation mi, ExecutionContext ctx) {
+                        List<J.MethodInvocation> chainCalls = collectFluentChain(mi);
+                        if (chainCalls == null) {
+                            return null;
+                        }
+
+                        // Split chain into known setters (prefix) and remaining calls (suffix)
+                        List<J.MethodInvocation> setterCalls = new ArrayList<>();
+                        List<SetterToBuilderMapping> mappings = new ArrayList<>();
+                        List<J.MethodInvocation> suffixCalls = new ArrayList<>();
+                        boolean hitUnknown = false;
+                        for (J.MethodInvocation call : chainCalls) {
+                            if (!hitUnknown) {
+                                SetterToBuilderMapping m = SetterToBuilderMapping.fromSetter(call.getName().getSimpleName());
+                                if (m != null) {
+                                    setterCalls.add(call);
+                                    mappings.add(m);
+                                    continue;
+                                }
+                                hitUnknown = true;
+                            }
+                            suffixCalls.add(call);
+                        }
+
+                        // Need at least one known setter to migrate
+                        if (setterCalls.isEmpty()) {
+                            return null;
+                        }
+
+                        return applyBuilderTemplate(setterCalls, mappings, suffixCalls,
+                                mi.getCoordinates().replace(), ctx);
+                    }
+
+                    /**
+                     * Builds and applies the {@code JsonMapper.builder()...build()} template for a list of setter calls.
+                     */
+                    private J applyBuilderTemplate(List<J.MethodInvocation> setters,
+                                                   @Nullable List<SetterToBuilderMapping> resolvedMappings,
+                                                   List<J.MethodInvocation> suffixCalls,
+                                                   JavaCoordinates coordinates, ExecutionContext ctx) {
+                        StringBuilder templateCode = new StringBuilder("JsonMapper.builder()");
+                        List<Expression> templateArgs = new ArrayList<>();
+                        for (int i = 0; i < setters.size(); i++) {
+                            J.MethodInvocation setter = setters.get(i);
+                            SetterToBuilderMapping mapping = resolvedMappings != null
+                                    ? resolvedMappings.get(i)
+                                    : SetterToBuilderMapping.fromSetter(setter.getName().getSimpleName());
+                            assert mapping != null;
+                            appendBuilderCall(setter, mapping, templateCode, templateArgs);
+                        }
+                        templateCode.append("\n.build()");
+
+                        // Append any non-setter calls that follow the known setters
+                        for (J.MethodInvocation suffix : suffixCalls) {
+                            templateCode.append("\n.").append(suffix.getName().getSimpleName()).append("(");
+                            boolean first = true;
+                            for (Expression arg : suffix.getArguments()) {
+                                if (arg instanceof J.Empty) {
+                                    continue;
+                                }
+                                if (!first) {
+                                    templateCode.append(", ");
+                                }
+                                first = false;
+                                templateCode.append("#{any()}");
+                                templateArgs.add(arg);
+                            }
+                            templateCode.append(")");
+                        }
+
+                        maybeAddImport(JSON_MAPPER);
+                        maybeAddImport(JSON_INCLUDE);
+
+                        return JavaTemplate.builder(templateCode.toString())
+                                .imports(JSON_MAPPER, JSON_INCLUDE)
+                                .javaParser(JavaParser.fromJavaVersion()
+                                        .classpathFromResources(ctx, "jackson-annotations-2", "jackson-core-2", "jackson-databind-2"))
+                                .build()
+                                .apply(getCursor(), coordinates, templateArgs.toArray());
+                    }
                 }
         );
+    }
+
+    /**
+     * Walk the select chain of a method invocation to find a fluent chain rooted at
+     * {@code new JsonMapper()}. Returns the chain calls in innermost-first order,
+     * or {@code null} if the chain is not rooted at {@code new JsonMapper()}.
+     */
+    private static @Nullable List<J.MethodInvocation> collectFluentChain(J.MethodInvocation mi) {
+        List<J.MethodInvocation> calls = new ArrayList<>();
+        Expression current = mi;
+        while (current instanceof J.MethodInvocation) {
+            calls.add((J.MethodInvocation) current);
+            current = ((J.MethodInvocation) current).getSelect();
+        }
+        if (current instanceof J.NewClass && JSON_MAPPER_NO_ARG_CTOR.matches((J.NewClass) current)) {
+            Collections.reverse(calls);
+            return calls;
+        }
+        return null;
+    }
+
+    /**
+     * Appends a single builder method call to the template string.
+     * Returns {@code true} if the call requires the {@code JsonInclude} import.
+     */
+    private static void appendBuilderCall(J.MethodInvocation mi, SetterToBuilderMapping mapping,
+                                           StringBuilder templateCode, List<Expression> templateArgs) {
+        // Special case: setDefaultPropertyInclusion(JsonInclude.Include.X) needs wrapping
+        // because the builder's defaultPropertyInclusion() expects a JsonInclude.Value, not a raw Include
+        if (mapping == SetterToBuilderMapping.SET_DEFAULT_PROPERTY_INCLUSION &&
+                mi.getArguments().size() == 1 &&
+                !(mi.getArguments().get(0) instanceof J.Empty) &&
+                TypeUtils.isAssignableTo(JSON_INCLUDE_INCLUDE, mi.getArguments().get(0).getType())) {
+            templateCode.append("\n.defaultPropertyInclusion(JsonInclude.Value.construct(#{any()}, #{any()}))");
+            templateArgs.add(mi.getArguments().get(0));
+            templateArgs.add(mi.getArguments().get(0));
+            return;
+        }
+
+        templateCode.append("\n.").append(mapping.builderName).append("(");
+        boolean first = true;
+        for (Expression arg : mi.getArguments()) {
+            if (arg instanceof J.Empty) {
+                continue;
+            }
+            if (!first) {
+                templateCode.append(", ");
+            }
+            first = false;
+            templateCode.append("#{any()}");
+            templateArgs.add(arg);
+        }
+        templateCode.append(")");
     }
 }
