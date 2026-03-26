@@ -25,9 +25,6 @@ recipeList:
   # Remove redundant @JsonProperty annotations
   - org.openrewrite.java.jackson.RemoveRedundantJsonPropertyValue
 
-  # Add missing dataformat dependencies
-  - org.openrewrite.java.jackson.AddMissingJacksonDependencies
-
   # Upgrade to Jackson 2.x
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
       groupId: com.fasterxml.jackson*
