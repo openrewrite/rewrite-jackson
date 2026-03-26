@@ -765,12 +765,13 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
     @Nested
     class FormatAlignedMappers {
 
-        private static final String YAML_MAPPER_STUB =
-                "package com.fasterxml.jackson.dataformat.yaml;\n" +
-                "public class YAMLMapper extends com.fasterxml.jackson.databind.ObjectMapper {\n" +
-                "    public YAMLMapper() {}\n" +
-                "    public static com.fasterxml.jackson.databind.json.JsonMapper.Builder builder() { return null; }\n" +
-                "}\n";
+        private static final String YAML_MAPPER_STUB = """
+                package com.fasterxml.jackson.dataformat.yaml;
+                public class YAMLMapper extends com.fasterxml.jackson.databind.ObjectMapper {
+                    public YAMLMapper() {}
+                    public static com.fasterxml.jackson.databind.json.JsonMapper.Builder builder() { return null; }
+                }
+                """;
 
         @Test
         void yamlMapperSettersMigratedToBuilder() {
@@ -841,19 +842,18 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
             );
         }
 
-        private static final String XML_MAPPER_STUB =
-                "package com.fasterxml.jackson.dataformat.xml;\n" +
-                "public class XmlMapper extends com.fasterxml.jackson.databind.ObjectMapper {\n" +
-                "    public XmlMapper() {}\n" +
-                "    public static com.fasterxml.jackson.databind.json.JsonMapper.Builder builder() { return null; }\n" +
-                "}\n";
-
         @Test
         void xmlMapperSettersMigratedToBuilder() {
             rewriteRun(
               spec -> spec.parser(org.openrewrite.java.JavaParser.fromJavaVersion()
                 .classpath("jackson-core", "jackson-databind")
-                .dependsOn(XML_MAPPER_STUB)),
+                .dependsOn("""
+                    package com.fasterxml.jackson.dataformat.xml;
+                    public class XmlMapper extends com.fasterxml.jackson.databind.ObjectMapper {
+                        public XmlMapper() {}
+                        public static com.fasterxml.jackson.databind.json.JsonMapper.Builder builder() { return null; }
+                    }
+                    """)),
               java(
                 """
                   import com.fasterxml.jackson.databind.Module;
