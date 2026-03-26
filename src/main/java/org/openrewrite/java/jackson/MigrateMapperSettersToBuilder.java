@@ -29,6 +29,8 @@ import org.openrewrite.staticanalysis.InlineVariable;
 
 import java.util.*;
 
+import static java.util.Collections.emptyList;
+import static java.util.Collections.reverse;
 import static java.util.Collections.singleton;
 
 @Getter
@@ -232,7 +234,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
 
                         doAfterVisit(new InlineVariable().getVisitor());
 
-                        return applyBuilderTemplate(builderSetters, null, Collections.emptyList(),
+                        return applyBuilderTemplate(builderSetters, null, emptyList(),
                                 nc.getCoordinates().replace(), ctx);
                     }
 
@@ -378,9 +380,9 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         List<Expression> templateArgs = new ArrayList<>();
                         for (int i = 0; i < setters.size(); i++) {
                             J.MethodInvocation setter = setters.get(i);
-                            SetterToBuilderMapping mapping = resolvedMappings != null
-                                    ? resolvedMappings.get(i)
-                                    : SetterToBuilderMapping.fromSetter(setter.getName().getSimpleName());
+                            SetterToBuilderMapping mapping = resolvedMappings != null ?
+                                    resolvedMappings.get(i) :
+                                    SetterToBuilderMapping.fromSetter(setter.getName().getSimpleName());
                             assert mapping != null;
                             appendBuilderCall(setter, mapping, templateCode, templateArgs);
                         }
@@ -431,7 +433,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
             current = ((J.MethodInvocation) current).getSelect();
         }
         if (current instanceof J.NewClass && JSON_MAPPER_NO_ARG_CTOR.matches((J.NewClass) current)) {
-            Collections.reverse(calls);
+            reverse(calls);
             return calls;
         }
         return null;
