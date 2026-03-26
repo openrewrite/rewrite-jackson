@@ -352,6 +352,12 @@ recipeList:
       oldFullyQualifiedTypeName: com.fasterxml.jackson.module.afterburner.AfterburnerModule
       newFullyQualifiedTypeName: tools.jackson.module.blackbird.BlackbirdModule
   - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.ser.std.JsonObjectSerializer
+      newFullyQualifiedTypeName: tools.jackson.databind.ser.std.ObjectValueSerializer
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.deser.std.JsonValueDeserializer
+      newFullyQualifiedTypeName: tools.jackson.databind.deser.std.ObjectValueDeserializer
+  - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.PropertyNamingStrategy
       newFullyQualifiedTypeName: tools.jackson.databind.PropertyNamingStrategies
 
