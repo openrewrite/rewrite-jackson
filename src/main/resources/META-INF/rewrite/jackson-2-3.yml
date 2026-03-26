@@ -42,6 +42,18 @@ recipeList:
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_RemoveRedundantFeatureFlags
   - org.openrewrite.java.jackson.RemoveBuiltInModuleRegistrations
   - org.openrewrite.java.jackson.MigrateMapperSettersToBuilder
+  - org.openrewrite.java.ReorderMethodArguments:
+      methodPattern: com.fasterxml.jackson.core.JsonGenerationException <constructor>(String, com.fasterxml.jackson.core.JsonGenerator)
+      newParameterNames: [gen, msg]
+      oldParameterNames: [msg, gen]
+  - org.openrewrite.java.ReorderMethodArguments:
+      methodPattern: com.fasterxml.jackson.core.JsonGenerationException <constructor>(Throwable, com.fasterxml.jackson.core.JsonGenerator)
+      newParameterNames: [gen, cause]
+      oldParameterNames: [cause, gen]
+  - org.openrewrite.java.ReorderMethodArguments:
+      methodPattern: com.fasterxml.jackson.core.JsonGenerationException <constructor>(String, Throwable, com.fasterxml.jackson.core.JsonGenerator)
+      newParameterNames: [gen, msg, cause]
+      oldParameterNames: [msg, cause, gen]
   - org.openrewrite.java.jackson.AddMissingJacksonDependencies
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_Dependencies
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_TypeChanges

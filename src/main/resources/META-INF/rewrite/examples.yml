@@ -651,6 +651,27 @@ examples:
           }
       }
     language: java
+- description: '`ReorderStreamWriteExceptionArgumentsTest#reorderStringAndGenerator`'
+  sources:
+  - before: |
+      import com.fasterxml.jackson.core.JsonGenerationException;
+      import com.fasterxml.jackson.core.JsonGenerator;
+
+      class Test {
+          void example(JsonGenerator gen) {
+              throw new JsonGenerationException("message", gen);
+          }
+      }
+    after: |
+      import tools.jackson.core.JsonGenerator;
+      import tools.jackson.core.exc.StreamWriteException;
+
+      class Test {
+          void example(JsonGenerator gen) {
+              throw new StreamWriteException(gen, "message");
+          }
+      }
+    language: java
 - description: '`StdDeserializerNullConstructorTest#stdDeserializerThisNullPattern`'
   sources:
   - before: |
