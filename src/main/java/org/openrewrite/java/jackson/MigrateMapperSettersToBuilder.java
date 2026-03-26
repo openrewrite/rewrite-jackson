@@ -38,7 +38,29 @@ public class MigrateMapperSettersToBuilder extends Recipe {
 
     private static final String JSON_MAPPER = "com.fasterxml.jackson.databind.json.JsonMapper";
 
-    private static final MethodMatcher JSON_MAPPER_NO_ARG_CTOR = new MethodMatcher(JSON_MAPPER + " <constructor>()");
+    /**
+     * All format-aligned mapper types that support the builder pattern.
+     * Includes JsonMapper and all format-specific mappers from UseFormatAlignedObjectMappers.
+     */
+    private static final List<String> ALL_MAPPERS = Arrays.asList(
+            JSON_MAPPER,
+            "com.fasterxml.jackson.dataformat.avro.AvroMapper",
+            "com.fasterxml.jackson.dataformat.cbor.CBORMapper",
+            "com.fasterxml.jackson.dataformat.csv.CsvMapper",
+            "com.fasterxml.jackson.dataformat.ion.IonMapper",
+            "com.fasterxml.jackson.dataformat.smile.SmileMapper",
+            "com.fasterxml.jackson.dataformat.xml.XmlMapper",
+            "com.fasterxml.jackson.dataformat.yaml.YAMLMapper"
+    );
+
+    private static final Map<MethodMatcher, String> MAPPER_CTORS;
+
+    static {
+        MAPPER_CTORS = new LinkedHashMap<>();
+        for (String mapper : ALL_MAPPERS) {
+            MAPPER_CTORS.put(new MethodMatcher(mapper + " <constructor>()"), mapper);
+        }
+    }
 
     private static final String INVOCATIONS_TO_REMOVE = "INVOCATIONS_TO_REMOVE";
     private static final String JSON_INCLUDE = "com.fasterxml.jackson.annotation.JsonInclude";
@@ -121,8 +143,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         }
     }
 
-    final String displayName = "Migrate `JsonMapper` setter calls to builder pattern";
-    final String description = "In Jackson 3, `JsonMapper` is immutable. " +
+    final String displayName = "Migrate mapper setter calls to builder pattern";
+    final String description = "In Jackson 3, `JsonMapper` and other format-aligned mappers are immutable. " +
             "Configuration methods like `setFilterProvider`, `addMixIn`, `disable`, `enable`, etc. " +
             "must be called on the builder instead. This recipe migrates setter calls to the builder " +
             "pattern when safe, or adds TODO comments when automatic migration is not possible.";
@@ -130,15 +152,19 @@ public class MigrateMapperSettersToBuilder extends Recipe {
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
+        TreeVisitor<?, ExecutionContext>[] preconditions = ALL_MAPPERS.stream()
+                .map(m -> new UsesType<>(m, false))
+                .toArray(TreeVisitor[]::new);
         return Preconditions.check(
-                new UsesType<>(JSON_MAPPER, false),
+                Preconditions.or(preconditions),
                 new JavaVisitor<ExecutionContext>() {
 
                     @Override
                     public J visitNewClass(J.NewClass newClass, ExecutionContext ctx) {
                         J.NewClass nc = (J.NewClass) super.visitNewClass(newClass, ctx);
 
-                        if (!JSON_MAPPER_NO_ARG_CTOR.matches(nc)) {
+                        String mapperFqn = matchingMapperFqn(nc);
+                        if (mapperFqn == null) {
                             return nc;
                         }
 
@@ -234,7 +260,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
 
                         doAfterVisit(new InlineVariable().getVisitor());
 
-                        return applyBuilderTemplate(builderSetters, null, emptyList(),
+                        return applyBuilderTemplate(mapperFqn, builderSetters, null, emptyList(),
                                 nc.getCoordinates().replace(), ctx);
                     }
 
@@ -248,7 +274,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             return null;
                         }
 
-                        // Check for fluent chain on new JsonMapper()
+                        // Check for fluent chain on new Mapper()
                         if (isFluentChainHead(method)) {
                             J result = tryMigrateFluentChain(mi, ctx);
                             if (result != null) {
@@ -256,8 +282,12 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             }
                         }
 
-                        if (!(mi.getSelect() instanceof J.Identifier) ||
-                                !TypeUtils.isAssignableTo(JSON_MAPPER, mi.getSelect().getType())) {
+                        if (!(mi.getSelect() instanceof J.Identifier)) {
+                            return mi;
+                        }
+
+                        String matchedMapper = matchingMapperType(mi.getSelect().getType());
+                        if (matchedMapper == null) {
                             return mi;
                         }
 
@@ -267,10 +297,11 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         }
 
                         // Not eligible for builder migration - add a TODO comment
+                        String simpleMapperName = matchedMapper.substring(matchedMapper.lastIndexOf('.') + 1);
                         String commentText = String.format(
-                                " TODO %s was removed from JsonMapper in Jackson 3. " +
+                                " TODO %s was removed from %s in Jackson 3. " +
                                         "Use mapper.rebuild().%s(...).build() or move to the mapper's instantiation site. ",
-                                mapping.setterName, mapping.builderName);
+                                mapping.setterName, simpleMapperName, mapping.builderName);
 
                         if (hasComment(mi, commentText)) {
                             return mi;
@@ -334,13 +365,16 @@ public class MigrateMapperSettersToBuilder extends Recipe {
 
                     /**
                      * If this method invocation is the outermost call of a fluent chain rooted
-                     * at {@code new JsonMapper()}, migrate the chain to the builder pattern.
+                     * at a format-aligned mapper constructor, migrate the chain to the builder pattern.
                      */
                     private @Nullable J tryMigrateFluentChain(J.MethodInvocation mi, ExecutionContext ctx) {
-                        List<J.MethodInvocation> chainCalls = collectFluentChain(mi);
+                        String[] mapperHolder = new String[1];
+                        List<J.MethodInvocation> chainCalls = collectFluentChain(mi, mapperHolder);
                         if (chainCalls == null) {
                             return null;
                         }
+
+                        String mapperFqn = mapperHolder[0];
 
                         // Split chain into known setters (prefix) and remaining calls (suffix)
                         List<J.MethodInvocation> setterCalls = new ArrayList<>();
@@ -365,18 +399,19 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             return null;
                         }
 
-                        return applyBuilderTemplate(setterCalls, mappings, suffixCalls,
+                        return applyBuilderTemplate(mapperFqn, setterCalls, mappings, suffixCalls,
                                 mi.getCoordinates().replace(), ctx);
                     }
 
                     /**
-                     * Builds and applies the {@code JsonMapper.builder()...build()} template for a list of setter calls.
+                     * Builds and applies the {@code Mapper.builder()...build()} template for a list of setter calls.
                      */
-                    private J applyBuilderTemplate(List<J.MethodInvocation> setters,
+                    private J applyBuilderTemplate(String mapperFqn, List<J.MethodInvocation> setters,
                                                    @Nullable List<SetterToBuilderMapping> resolvedMappings,
                                                    List<J.MethodInvocation> suffixCalls,
                                                    JavaCoordinates coordinates, ExecutionContext ctx) {
-                        StringBuilder templateCode = new StringBuilder("JsonMapper.builder()");
+                        String simpleMapperName = mapperFqn.substring(mapperFqn.lastIndexOf('.') + 1);
+                        StringBuilder templateCode = new StringBuilder(simpleMapperName + ".builder()");
                         List<Expression> templateArgs = new ArrayList<>();
                         for (int i = 0; i < setters.size(); i++) {
                             J.MethodInvocation setter = setters.get(i);
@@ -406,13 +441,18 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             templateCode.append(")");
                         }
 
-                        maybeAddImport(JSON_MAPPER);
+                        maybeAddImport(mapperFqn);
                         maybeAddImport(JSON_INCLUDE);
 
+                        JavaParser.Builder<?, ?> parser = JavaParser.fromJavaVersion()
+                                .classpathFromResources(ctx, "jackson-annotations-2", "jackson-core-2", "jackson-databind-2");
+                        if (!JSON_MAPPER.equals(mapperFqn)) {
+                            parser.dependsOn(mapperStub(mapperFqn));
+                        }
+
                         return JavaTemplate.builder(templateCode.toString())
-                                .imports(JSON_MAPPER, JSON_INCLUDE)
-                                .javaParser(JavaParser.fromJavaVersion()
-                                        .classpathFromResources(ctx, "jackson-annotations-2", "jackson-core-2", "jackson-databind-2"))
+                                .imports(mapperFqn, JSON_INCLUDE)
+                                .javaParser(parser)
                                 .build()
                                 .apply(getCursor(), coordinates, templateArgs.toArray());
                     }
@@ -421,22 +461,69 @@ public class MigrateMapperSettersToBuilder extends Recipe {
     }
 
     /**
-     * Walk the select chain of a method invocation to find a fluent chain rooted at
-     * {@code new JsonMapper()}. Returns the chain calls in innermost-first order,
-     * or {@code null} if the chain is not rooted at {@code new JsonMapper()}.
+     * Returns the FQN of the mapper type matched by the given new class, or null if none match.
      */
-    private static @Nullable List<J.MethodInvocation> collectFluentChain(J.MethodInvocation mi) {
+    private static @Nullable String matchingMapperFqn(J.NewClass nc) {
+        for (Map.Entry<MethodMatcher, String> entry : MAPPER_CTORS.entrySet()) {
+            if (entry.getKey().matches(nc)) {
+                return entry.getValue();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returns the FQN of the mapper type that the given type is assignable to, or null if none match.
+     */
+    private static @Nullable String matchingMapperType(@Nullable JavaType type) {
+        if (type == null) {
+            return null;
+        }
+        for (String mapper : ALL_MAPPERS) {
+            if (TypeUtils.isAssignableTo(mapper, type)) {
+                return mapper;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Walk the select chain of a method invocation to find a fluent chain rooted at
+     * a format-aligned mapper constructor. Returns the chain calls in innermost-first order
+     * and sets {@code mapperFqnHolder[0]} to the matched mapper FQN,
+     * or returns {@code null} if the chain is not rooted at a mapper constructor.
+     */
+    private static @Nullable List<J.MethodInvocation> collectFluentChain(J.MethodInvocation mi, String[] mapperFqnHolder) {
         List<J.MethodInvocation> calls = new ArrayList<>();
         Expression current = mi;
         while (current instanceof J.MethodInvocation) {
             calls.add((J.MethodInvocation) current);
             current = ((J.MethodInvocation) current).getSelect();
         }
-        if (current instanceof J.NewClass && JSON_MAPPER_NO_ARG_CTOR.matches((J.NewClass) current)) {
-            reverse(calls);
-            return calls;
+        if (current instanceof J.NewClass) {
+            String mapperFqn = matchingMapperFqn((J.NewClass) current);
+            if (mapperFqn != null) {
+                mapperFqnHolder[0] = mapperFqn;
+                reverse(calls);
+                return calls;
+            }
         }
         return null;
+    }
+
+    /**
+     * Generates a stub class for a format-aligned mapper, so the JavaTemplate parser can resolve
+     * the builder pattern without requiring the actual dataformat jar on the classpath.
+     */
+    private static String mapperStub(String mapperFqn) {
+        int lastDot = mapperFqn.lastIndexOf('.');
+        String packageName = mapperFqn.substring(0, lastDot);
+        String simpleName = mapperFqn.substring(lastDot + 1);
+        return "package " + packageName + ";\n" +
+                "public class " + simpleName + " extends com.fasterxml.jackson.databind.ObjectMapper {\n" +
+                "    public " + simpleName + "() {}\n" +
+                "    public static com.fasterxml.jackson.databind.json.JsonMapper.Builder builder() { return null; }\n" +
+                "}\n";
     }
 
     /**

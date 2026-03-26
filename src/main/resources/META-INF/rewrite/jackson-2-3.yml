@@ -54,6 +54,7 @@ recipeList:
       methodPattern: com.fasterxml.jackson.core.JsonGenerationException <constructor>(String, Throwable, com.fasterxml.jackson.core.JsonGenerator)
       newParameterNames: [gen, msg, cause]
       oldParameterNames: [msg, cause, gen]
+  - org.openrewrite.java.jackson.AddMissingJacksonDependencies
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_Dependencies
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_TypeChanges
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_MethodRenames
