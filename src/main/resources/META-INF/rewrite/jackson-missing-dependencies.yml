@@ -1,0 +1,75 @@
+#
+# Copyright 2025 original author or authors.
+# <p>
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# <p>
+# https://www.apache.org/licenses/LICENSE-2.0
+# <p>
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.jackson.AddMissingJacksonDependencies
+displayName: Add missing Jackson dataformat dependencies
+description: >-
+  Adds Jackson dataformat dependencies when code uses types from their packages
+  but the dependency is not declared. For example, adds `jackson-dataformat-xml`
+  when code uses `XmlMapper`.
+tags:
+  - jackson-2
+recipeList:
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: com.fasterxml.jackson.dataformat
+      artifactId: jackson-dataformat-xml
+      version: 2.x
+      onlyIfUsing: com.fasterxml.jackson.dataformat.xml.*
+      acceptTransitive: true
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: com.fasterxml.jackson.dataformat
+      artifactId: jackson-dataformat-yaml
+      version: 2.x
+      onlyIfUsing: com.fasterxml.jackson.dataformat.yaml.*
+      acceptTransitive: true
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: com.fasterxml.jackson.dataformat
+      artifactId: jackson-dataformat-csv
+      version: 2.x
+      onlyIfUsing: com.fasterxml.jackson.dataformat.csv.*
+      acceptTransitive: true
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: com.fasterxml.jackson.dataformat
+      artifactId: jackson-dataformat-cbor
+      version: 2.x
+      onlyIfUsing: com.fasterxml.jackson.dataformat.cbor.*
+      acceptTransitive: true
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: com.fasterxml.jackson.dataformat
+      artifactId: jackson-dataformat-smile
+      version: 2.x
+      onlyIfUsing: com.fasterxml.jackson.dataformat.smile.*
+      acceptTransitive: true
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: com.fasterxml.jackson.dataformat
+      artifactId: jackson-dataformat-avro
+      version: 2.x
+      onlyIfUsing: com.fasterxml.jackson.dataformat.avro.*
+      acceptTransitive: true
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: com.fasterxml.jackson.dataformat
+      artifactId: jackson-dataformat-ion
+      version: 2.x
+      onlyIfUsing: com.fasterxml.jackson.dataformat.ion.*
+      acceptTransitive: true
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: com.fasterxml.jackson.dataformat
+      artifactId: jackson-dataformat-protobuf
+      version: 2.x
+      onlyIfUsing: com.fasterxml.jackson.dataformat.protobuf.*
+      acceptTransitive: true
