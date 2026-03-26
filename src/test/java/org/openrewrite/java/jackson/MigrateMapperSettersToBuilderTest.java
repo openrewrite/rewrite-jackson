@@ -763,6 +763,128 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
     }
 
     @Nested
+    class FormatAlignedMappers {
+
+        private static final String YAML_MAPPER_STUB =
+                "package com.fasterxml.jackson.dataformat.yaml;\n" +
+                "public class YAMLMapper extends com.fasterxml.jackson.databind.ObjectMapper {\n" +
+                "    public YAMLMapper() {}\n" +
+                "    public static com.fasterxml.jackson.databind.json.JsonMapper.Builder builder() { return null; }\n" +
+                "}\n";
+
+        @Test
+        void yamlMapperSettersMigratedToBuilder() {
+            rewriteRun(
+              spec -> spec.parser(org.openrewrite.java.JavaParser.fromJavaVersion()
+                .classpath("jackson-core", "jackson-databind")
+                .dependsOn(YAML_MAPPER_STUB)),
+              java(
+                """
+                  import com.fasterxml.jackson.databind.Module;
+                  import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+
+                  class A {
+                      YAMLMapper create(Module module) {
+                          YAMLMapper mapper = new YAMLMapper();
+                          mapper.registerModule(module);
+                          return mapper;
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.Module;
+                  import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+
+                  class A {
+                      YAMLMapper create(Module module) {
+                          return YAMLMapper.builder()
+                                  .addModule(module)
+                                  .build();
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void yamlMapperFluentChain() {
+            rewriteRun(
+              spec -> spec.parser(org.openrewrite.java.JavaParser.fromJavaVersion()
+                .classpath("jackson-core", "jackson-databind")
+                .dependsOn(YAML_MAPPER_STUB)),
+              java(
+                """
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+
+                  class A {
+                      YAMLMapper create() {
+                          return new YAMLMapper()
+                                  .disable(SerializationFeature.INDENT_OUTPUT);
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+
+                  class A {
+                      YAMLMapper create() {
+                          return YAMLMapper.builder()
+                                  .disable(SerializationFeature.INDENT_OUTPUT)
+                                  .build();
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        private static final String XML_MAPPER_STUB =
+                "package com.fasterxml.jackson.dataformat.xml;\n" +
+                "public class XmlMapper extends com.fasterxml.jackson.databind.ObjectMapper {\n" +
+                "    public XmlMapper() {}\n" +
+                "    public static com.fasterxml.jackson.databind.json.JsonMapper.Builder builder() { return null; }\n" +
+                "}\n";
+
+        @Test
+        void xmlMapperSettersMigratedToBuilder() {
+            rewriteRun(
+              spec -> spec.parser(org.openrewrite.java.JavaParser.fromJavaVersion()
+                .classpath("jackson-core", "jackson-databind")
+                .dependsOn(XML_MAPPER_STUB)),
+              java(
+                """
+                  import com.fasterxml.jackson.databind.Module;
+                  import com.fasterxml.jackson.dataformat.xml.XmlMapper;
+
+                  class A {
+                      XmlMapper create(Module module) {
+                          XmlMapper mapper = new XmlMapper();
+                          mapper.registerModule(module);
+                          return mapper;
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.Module;
+                  import com.fasterxml.jackson.dataformat.xml.XmlMapper;
+
+                  class A {
+                      XmlMapper create(Module module) {
+                          return XmlMapper.builder()
+                                  .addModule(module)
+                                  .build();
+                      }
+                  }
+                  """
+              )
+            );
+        }
+    }
+
+    @Nested
     class NoChange {
 
         @Test
