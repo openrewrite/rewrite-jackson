@@ -35,12 +35,12 @@ public class LombokJacksonizedConfig extends ScanningRecipe<LombokJacksonizedCon
 
     private static final String JACKSONIZED = "lombok.extern.jackson.Jacksonized";
     private static final String CONFIG_KEY = "lombok.jacksonized.jacksonVersion";
-    private static final String CONFIG_LINE = CONFIG_KEY + " = 3";
+    private static final String CONFIG_LINE = CONFIG_KEY + " += 3";
 
     String displayName = "Update `lombok.config` for Jackson 3 compatibility";
     String description = "When `@Jacksonized` is used, Lombok generates Jackson annotations. " +
             "By default it generates Jackson 2.x annotations. This recipe adds " +
-            "`lombok.jacksonized.jacksonVersion = 3` to `lombok.config` so Lombok generates " +
+            "`lombok.jacksonized.jacksonVersion += 3` to `lombok.config` so Lombok generates " +
             "Jackson 3 compatible annotations.";
 
     public static class Accumulator {
