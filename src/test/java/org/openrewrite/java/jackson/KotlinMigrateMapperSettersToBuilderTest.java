@@ -219,7 +219,9 @@ class KotlinMigrateMapperSettersToBuilderTest implements RewriteTest {
         void yamlMapperSettersInInitBlock() {
             rewriteRun(
               spec -> spec.parser(KotlinParser.builder()
-                .classpath("jackson-annotations", "jackson-core", "jackson-databind", "jackson-dataformat-yaml")),
+                .classpathFromResources(new InMemoryExecutionContext(),
+                  "jackson-annotations-2", "jackson-core-2", "jackson-databind-2",
+                  "jackson-dataformat-yaml-2")),
               //language=kotlin
               kotlin(
                 """
