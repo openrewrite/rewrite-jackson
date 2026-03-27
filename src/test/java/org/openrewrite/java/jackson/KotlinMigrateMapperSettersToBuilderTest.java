@@ -15,7 +15,6 @@
  */
 package org.openrewrite.java.jackson;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.InMemoryExecutionContext;
@@ -70,7 +69,6 @@ class KotlinMigrateMapperSettersToBuilderTest implements RewriteTest {
     }
 
     @Nested
-    @Disabled("Kotlin val declarations are not recognized for variable-based builder migration")
     class FunctionScoped {
 
         @Test
@@ -149,7 +147,6 @@ class KotlinMigrateMapperSettersToBuilderTest implements RewriteTest {
     }
 
     @Nested
-    @Disabled("Recipe does not scan Kotlin init blocks for setter calls")
     class InitBlock {
 
         @Test
@@ -222,9 +219,7 @@ class KotlinMigrateMapperSettersToBuilderTest implements RewriteTest {
         void yamlMapperSettersInInitBlock() {
             rewriteRun(
               spec -> spec.parser(KotlinParser.builder()
-                .classpathFromResources(new InMemoryExecutionContext(),
-                  "jackson-annotations-2", "jackson-core-2", "jackson-databind-2",
-                  "jackson-dataformat-yaml-2")),
+                .classpath("jackson-annotations", "jackson-core", "jackson-databind", "jackson-dataformat-yaml")),
               //language=kotlin
               kotlin(
                 """

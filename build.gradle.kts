@@ -29,6 +29,7 @@ dependencies {
     testImplementation("org.openrewrite:rewrite-maven")
     testImplementation("org.openrewrite.gradle.tooling:model:${rewriteVersion}")
 
+    testRuntimeOnly("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.+")
     testRuntimeOnly(gradleApi())
     testRuntimeOnly("org.openrewrite:rewrite-java-21")
     testRuntimeOnly("org.codehaus.jackson:jackson-core-asl:latest.release")

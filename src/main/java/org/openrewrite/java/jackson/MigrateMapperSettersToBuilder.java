@@ -202,8 +202,9 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             }
 
                             // Skip the declaration or assignment that contains the constructor
-                            if (stmt instanceof J.VariableDeclarations) {
-                                J.VariableDeclarations vd = (J.VariableDeclarations) stmt;
+                            // (handles both J.VariableDeclarations and Kotlin K.Property wrappers)
+                            J.VariableDeclarations vd = extractVariableDeclarations(stmt);
+                            if (vd != null) {
                                 if (vd.getVariables().stream().anyMatch(v -> SemanticallyEqual.areEqual(v.getName(), varIdent))) {
                                     continue;
                                 }
@@ -220,8 +221,40 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                 }
                             }
 
-                            if (stmt instanceof J.MethodInvocation) {
-                                J.MethodInvocation mi = (J.MethodInvocation) stmt;
+                            // Look inside init blocks for setter calls (must be checked BEFORE
+                            // extractMethodInvocation, which would visit into the block and find
+                            // only the first MI)
+                            if (stmt instanceof J.Block) {
+                                for (Statement innerStmt : ((J.Block) stmt).getStatements()) {
+                                    if (!collecting) {
+                                        break;
+                                    }
+                                    J.MethodInvocation initMi = extractMethodInvocation(innerStmt);
+                                    if (initMi != null) {
+                                        if (isCallOnVariable(initMi, varIdent)) {
+                                            SetterToBuilderMapping mapping = SetterToBuilderMapping.fromSetter(initMi.getName().getSimpleName());
+                                            if (mapping != null) {
+                                                if (argumentReferencesAny(initMi, intermediateVars)) {
+                                                    collecting = false;
+                                                    continue;
+                                                }
+                                                builderSetters.add(initMi);
+                                                continue;
+                                            }
+                                            collecting = false;
+                                            continue;
+                                        }
+                                    }
+                                    if (referencesVariable(innerStmt, varIdent)) {
+                                        collecting = false;
+                                    }
+                                }
+                                continue;
+                            }
+
+                            // Check if statement is a setter call (handles K.ExpressionStatement wrappers)
+                            J.MethodInvocation mi = extractMethodInvocation(stmt);
+                            if (mi != null) {
                                 if (isCallOnVariable(mi, varIdent)) {
                                     SetterToBuilderMapping mapping = SetterToBuilderMapping.fromSetter(mi.getName().getSimpleName());
                                     if (mapping != null) {
@@ -259,6 +292,10 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         }
 
                         doAfterVisit(new InlineVariable().getVisitor());
+                        // Kotlin-aware inlining: InlineVariable doesn't handle K.Property/K.Return wrappers
+                        doAfterVisit(inlineWrappedVariable());
+                        // Clean up empty init blocks after setter removal
+                        doAfterVisit(removeEmptyInitBlocks());
 
                         return applyBuilderTemplate(mapperFqn, builderSetters, null, emptyList(),
                                 nc.getCoordinates().replace(), ctx);
@@ -335,15 +372,23 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                     }
 
                     private boolean isCallOnVariable(J.MethodInvocation mi, J.Identifier varIdent) {
-                        return mi.getSelect() instanceof J.Identifier &&
-                                SemanticallyEqual.areEqual(mi.getSelect(), varIdent);
+                        if (!(mi.getSelect() instanceof J.Identifier)) {
+                            return false;
+                        }
+                        J.Identifier sel = (J.Identifier) mi.getSelect();
+                        // Use name + type comparison instead of SemanticallyEqual, because Kotlin
+                        // sets different fieldType owners for declarations vs usages of local variables
+                        return sel.getSimpleName().equals(varIdent.getSimpleName()) &&
+                                TypeUtils.isOfType(sel.getType(), varIdent.getType());
                     }
 
                     private boolean referencesVariable(Statement stmt, J.Identifier varIdent) {
                         return !new JavaIsoVisitor<Set<Boolean>>() {
                             @Override
                             public J.Identifier visitIdentifier(J.Identifier ident, Set<Boolean> set) {
-                                if (SemanticallyEqual.areEqual(ident, varIdent)) {
+                                // Use name + type comparison instead of SemanticallyEqual for Kotlin compatibility
+                                if (ident.getSimpleName().equals(varIdent.getSimpleName()) &&
+                                        TypeUtils.isOfType(ident.getType(), varIdent.getType())) {
                                     set.add(true);
                                 }
                                 return ident;
@@ -524,6 +569,135 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                 "    public " + simpleName + "() {}\n" +
                 "    public static com.fasterxml.jackson.databind.json.JsonMapper.Builder builder() { return null; }\n" +
                 "}\n";
+    }
+
+    /**
+     * Extract {@link J.VariableDeclarations} from a statement, handling both Java
+     * (where the statement IS a {@code J.VariableDeclarations}) and Kotlin
+     * (where {@code K.Property} wraps {@code J.VariableDeclarations}).
+     */
+    private static J.@Nullable VariableDeclarations extractVariableDeclarations(Statement stmt) {
+        if (stmt instanceof J.VariableDeclarations) {
+            return (J.VariableDeclarations) stmt;
+        }
+        J.VariableDeclarations[] found = new J.VariableDeclarations[1];
+        new JavaIsoVisitor<Integer>() {
+            @Override
+            public J.VariableDeclarations visitVariableDeclarations(J.VariableDeclarations vd, Integer i) {
+                if (found[0] == null) {
+                    found[0] = vd;
+                }
+                return vd;
+            }
+        }.visit(stmt, 0);
+        return found[0];
+    }
+
+    /**
+     * Extract {@link J.MethodInvocation} from a statement, handling both Java
+     * (where the statement IS a {@code J.MethodInvocation}) and Kotlin
+     * (where {@code K.ExpressionStatement} wraps {@code J.MethodInvocation}).
+     */
+    private static J.@Nullable MethodInvocation extractMethodInvocation(Statement stmt) {
+        if (stmt instanceof J.MethodInvocation) {
+            return (J.MethodInvocation) stmt;
+        }
+        J.MethodInvocation[] found = new J.MethodInvocation[1];
+        new JavaIsoVisitor<Integer>() {
+            @Override
+            public J.MethodInvocation visitMethodInvocation(J.MethodInvocation mi, Integer i) {
+                if (found[0] == null) {
+                    found[0] = mi;
+                }
+                return mi;
+            }
+        }.visit(stmt, 0);
+        return found[0];
+    }
+
+    /**
+     * Inline a variable declaration into a following return statement, handling Kotlin
+     * wrapper types ({@code K.Property}, {@code K.Return}) that {@link InlineVariable} does not support.
+     */
+    private static JavaIsoVisitor<ExecutionContext> inlineWrappedVariable() {
+        return new JavaIsoVisitor<ExecutionContext>() {
+            @Override
+            public J.Block visitBlock(J.Block block, ExecutionContext ctx) {
+                J.Block b = super.visitBlock(block, ctx);
+                List<Statement> stmts = b.getStatements();
+                if (stmts.size() < 2) {
+                    return b;
+                }
+
+                Statement secondLast = stmts.get(stmts.size() - 2);
+                J.VariableDeclarations vd = extractVariableDeclarations(secondLast);
+                if (vd == null || vd.getVariables().size() != 1) {
+                    return b;
+                }
+
+                J.VariableDeclarations.NamedVariable nv = vd.getVariables().get(0);
+                Expression init = nv.getInitializer();
+                if (init == null) {
+                    return b;
+                }
+
+                // Use a mini-visitor to modify the inner J.Return inside K.Return (or J.Return directly)
+                Statement last = stmts.get(stmts.size() - 1);
+                boolean[] inlined = {false};
+                Space declPrefix = secondLast.getPrefix();
+                Statement newLast = (Statement) new JavaVisitor<ExecutionContext>() {
+                    @Override
+                    public J visitReturn(J.Return ret, ExecutionContext c) {
+                        if (ret.getExpression() instanceof J.Identifier &&
+                                ((J.Identifier) ret.getExpression()).getSimpleName().equals(nv.getName().getSimpleName()) &&
+                                TypeUtils.isOfType(ret.getExpression().getType(), nv.getName().getType())) {
+                            inlined[0] = true;
+                            return ret
+                                    .withExpression(init.withPrefix(ret.getExpression().getPrefix()))
+                                    .withPrefix(declPrefix.withComments(
+                                            ListUtils.concatAll(declPrefix.getComments(), ret.getComments())));
+                        }
+                        return ret;
+                    }
+                }.visitNonNull(last, ctx, getCursor());
+
+                if (inlined[0]) {
+                    return b.withStatements(ListUtils.map(stmts, (i, s) -> {
+                        if (i == stmts.size() - 2) {
+                            return null;
+                        }
+                        if (i == stmts.size() - 1) {
+                            return newLast;
+                        }
+                        return s;
+                    }));
+                }
+                return b;
+            }
+        };
+    }
+
+    /**
+     * Remove empty non-static {@link J.Block} statements (e.g. Kotlin init blocks
+     * that became empty after setter removal).
+     */
+    private static JavaIsoVisitor<ExecutionContext> removeEmptyInitBlocks() {
+        return new JavaIsoVisitor<ExecutionContext>() {
+            @Override
+            public J.Block visitBlock(J.Block block, ExecutionContext ctx) {
+                J.Block b = super.visitBlock(block, ctx);
+                if (b.getStatements().stream().anyMatch(s ->
+                        s instanceof J.Block && ((J.Block) s).getStatements().isEmpty())) {
+                    b = b.withStatements(ListUtils.map(b.getStatements(), s -> {
+                        if (s instanceof J.Block && ((J.Block) s).getStatements().isEmpty()) {
+                            return null;
+                        }
+                        return s;
+                    }));
+                }
+                return b;
+            }
+        };
     }
 
     /**
