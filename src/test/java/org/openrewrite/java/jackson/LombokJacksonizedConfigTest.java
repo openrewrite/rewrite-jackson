@@ -28,7 +28,7 @@ import static org.openrewrite.test.SourceSpecs.text;
 /**
  * Tests for gap: Lombok's {@code @Jacksonized} annotation generates Jackson 2.x annotations
  * by default. When migrating to Jackson 3, {@code lombok.config} must be updated to set
- * {@code lombok.jacksonized.jacksonVersion = 3}.
+ * {@code lombok.jacksonized.jacksonVersion += 3}.
  *
  * @see <a href="https://github.com/moderneinc/customer-requests/issues/1963">customer-requests#1963</a>
  */
@@ -69,7 +69,7 @@ class LombokJacksonizedConfigTest implements RewriteTest {
               """,
             """
               lombok.addLombokGeneratedAnnotation = true
-              lombok.jacksonized.jacksonVersion = 3
+              lombok.jacksonized.jacksonVersion += 3
               """,
             spec -> spec.path("lombok.config")
           )
@@ -97,7 +97,7 @@ class LombokJacksonizedConfigTest implements RewriteTest {
           text(
             doesNotExist(),
             """
-              lombok.jacksonized.jacksonVersion = 3
+              lombok.jacksonized.jacksonVersion += 3
               """,
             spec -> spec.path("lombok.config")
           )
