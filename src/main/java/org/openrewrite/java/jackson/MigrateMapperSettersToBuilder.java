@@ -647,7 +647,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                 Space declPrefix = secondLast.getPrefix();
                 Statement newLast = (Statement) new JavaVisitor<ExecutionContext>() {
                     @Override
-                    public J visitReturn(J.Return ret, ExecutionContext c) {
+                    public J visitReturn(J.Return ret, ExecutionContext ctx) {
                         if (ret.getExpression() instanceof J.Identifier &&
                                 ((J.Identifier) ret.getExpression()).getSimpleName().equals(nv.getName().getSimpleName()) &&
                                 TypeUtils.isOfType(ret.getExpression().getType(), nv.getName().getType())) {
