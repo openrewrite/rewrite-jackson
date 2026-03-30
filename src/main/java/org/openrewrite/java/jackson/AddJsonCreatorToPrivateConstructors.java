@@ -17,6 +17,7 @@ package org.openrewrite.java.jackson;
 
 import lombok.Getter;
 import org.openrewrite.ExecutionContext;
+import org.openrewrite.FindSourceFiles;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
 import org.openrewrite.TreeVisitor;
@@ -55,7 +56,10 @@ public class AddJsonCreatorToPrivateConstructors extends Recipe {
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
         return Preconditions.check(
-                new UsesType<>(JACKSON_ANNOTATION_PACKAGE + ".*", false),
+                Preconditions.and(
+                        new UsesType<>(JACKSON_ANNOTATION_PACKAGE + ".*", false),
+                        Preconditions.not(new FindSourceFiles("**/*.kt").getVisitor())
+                ),
                 new JavaIsoVisitor<ExecutionContext>() {
                     @Override
                     public J.ClassDeclaration visitClassDeclaration(J.ClassDeclaration classDecl, ExecutionContext ctx) {
