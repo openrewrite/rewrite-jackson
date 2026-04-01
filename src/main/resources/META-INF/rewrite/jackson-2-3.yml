@@ -73,6 +73,7 @@ recipeList:
   - org.openrewrite.java.AddCommentToMethodInvocations:
       methodPattern: "com.fasterxml.jackson.databind.ObjectMapper canDeserialize(..)"
       comment: "TODO canDeserialize was removed in Jackson 3 with no replacement (see https://github.com/FasterXML/jackson-databind/issues/1917). Attempt serialization/deserialization and catch exceptions instead."
+  - org.openrewrite.java.jackson.CommentOutSimpleModuleMethodCalls
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_PackageChanges
   - org.openrewrite.java.jackson.SimplifyJacksonExceptionCatch
 
