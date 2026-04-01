@@ -692,8 +692,10 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void fluentChainSetDefaultPropertyInclusionWithRawInclude() {
             rewriteRun(
-              spec -> spec.parser(org.openrewrite.java.JavaParser.fromJavaVersion()
-                .classpath("jackson-core", "jackson-databind", "jackson-annotations")),
+              spec -> spec
+                .recipes(new MigrateMapperSettersToBuilder(), new UpdateSerializationInclusionConfiguration())
+                .parser(org.openrewrite.java.JavaParser.fromJavaVersion()
+                  .classpath("jackson-core", "jackson-databind", "jackson-annotations")),
               java(
                 """
                   import com.fasterxml.jackson.annotation.JsonInclude;
@@ -719,7 +721,7 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
                       JsonMapper create() {
                           return JsonMapper.builder()
                                   .defaultTimeZone(TimeZone.getDefault())
-                                  .defaultPropertyInclusion(JsonInclude.Value.construct(JsonInclude.Include.NON_NULL, JsonInclude.Include.NON_NULL))
+                                  .changeDefaultPropertyInclusion(incl -> incl.withContentInclusion(JsonInclude.Include.NON_NULL).withValueInclusion(JsonInclude.Include.NON_NULL))
                                   .build();
                       }
                   }

@@ -68,6 +68,39 @@ class UpdateSerializationInclusionConfigurationTest implements RewriteTest {
     }
 
     @Test
+    void updateDefaultPropertyInclusionValueOnBuilder() {
+        rewriteRun(
+          // language=java
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonInclude;
+              import com.fasterxml.jackson.databind.json.JsonMapper;
+
+              class Test {
+                  void configure() {
+                      JsonMapper.builder()
+                        .defaultPropertyInclusion(JsonInclude.Value.empty())
+                        .build();
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonInclude;
+              import com.fasterxml.jackson.databind.json.JsonMapper;
+
+              class Test {
+                  void configure() {
+                      JsonMapper.builder()
+                        .changeDefaultPropertyInclusion(incl -> JsonInclude.Value.empty())
+                        .build();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void doubleBraceInitializationOnObjectMapper() {
         rewriteRun(
           // language=java
