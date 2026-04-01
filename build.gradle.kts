@@ -46,4 +46,5 @@ recipeDependencies {
 
     testParserClasspath("com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.17.3")
     testParserClasspath("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.19.2")
+    testParserClasspath("com.fasterxml.jackson.datatype:jackson-datatype-joda:2.19.2")
 }
