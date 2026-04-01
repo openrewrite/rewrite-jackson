@@ -74,6 +74,12 @@ recipeList:
       methodPattern: "com.fasterxml.jackson.databind.ObjectMapper canDeserialize(..)"
       comment: "TODO canDeserialize was removed in Jackson 3 with no replacement (see https://github.com/FasterXML/jackson-databind/issues/1917). Attempt serialization/deserialization and catch exceptions instead."
   - org.openrewrite.java.jackson.CommentOutSimpleModuleMethodCalls
+  - org.openrewrite.java.AddCommentToMethodInvocations:
+      methodPattern: "com.fasterxml.jackson.databind.ObjectMapper serializationConfig()"
+      comment: "TODO serializationConfig() is not to be used by application code in Jackson 3 (see https://github.com/FasterXML/jackson-databind/blob/3.x/src/main/java/tools/jackson/databind/ObjectMapper.java#L417). Consider using builder configuration instead."
+  - org.openrewrite.java.AddCommentToMethodInvocations:
+      methodPattern: "com.fasterxml.jackson.databind.ObjectMapper deserializationConfig()"
+      comment: "TODO deserializationConfig() is not to be used by application code in Jackson 3 (see https://github.com/FasterXML/jackson-databind/blob/3.x/src/main/java/tools/jackson/databind/ObjectMapper.java#L427). Consider using builder configuration instead."
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_PackageChanges
   - org.openrewrite.java.jackson.SimplifyJacksonExceptionCatch
 
@@ -370,6 +376,12 @@ recipeList:
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: com.fasterxml.jackson.databind.type.TypeFactory defaultInstance()
       newMethodName: createDefaultInstance
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.databind.ObjectMapper getSerializationConfig()
+      newMethodName: serializationConfig
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.databind.ObjectMapper getDeserializationConfig()
+      newMethodName: deserializationConfig
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
