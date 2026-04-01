@@ -367,6 +367,93 @@ class Jackson3MethodRenamesTest implements RewriteTest {
     }
 
     @Test
+    void objectMapperGetSerializationConfig() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.databind.SerializationConfig;
+
+              class Test {
+                  SerializationConfig test(ObjectMapper mapper) {
+                      return mapper.getSerializationConfig();
+                  }
+              }
+              """,
+            """
+              import tools.jackson.databind.ObjectMapper;
+              import tools.jackson.databind.SerializationConfig;
+
+              class Test {
+                  SerializationConfig test(ObjectMapper mapper) {
+                      return /* TODO serializationConfig() is not to be used by application code in Jackson 3 (see https://github.com/FasterXML/jackson-databind/blob/3.x/src/main/java/tools/jackson/databind/ObjectMapper.java#L417). Consider using builder configuration instead. */ mapper.serializationConfig();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void objectMapperGetDeserializationConfig() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.databind.DeserializationConfig;
+
+              class Test {
+                  DeserializationConfig test(ObjectMapper mapper) {
+                      return mapper.getDeserializationConfig();
+                  }
+              }
+              """,
+            """
+              import tools.jackson.databind.ObjectMapper;
+              import tools.jackson.databind.DeserializationConfig;
+
+              class Test {
+                  DeserializationConfig test(ObjectMapper mapper) {
+                      return /* TODO deserializationConfig() is not to be used by application code in Jackson 3 (see https://github.com/FasterXML/jackson-databind/blob/3.x/src/main/java/tools/jackson/databind/ObjectMapper.java#L427). Consider using builder configuration instead. */ mapper.deserializationConfig();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void jsonMapperGetSerializationConfig() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.SerializationConfig;
+              import com.fasterxml.jackson.databind.json.JsonMapper;
+
+              class Test {
+                  SerializationConfig test(JsonMapper mapper) {
+                      return mapper.getSerializationConfig();
+                  }
+              }
+              """,
+            """
+              import tools.jackson.databind.SerializationConfig;
+              import tools.jackson.databind.json.JsonMapper;
+
+              class Test {
+                  SerializationConfig test(JsonMapper mapper) {
+                      return /* TODO serializationConfig() is not to be used by application code in Jackson 3 (see https://github.com/FasterXML/jackson-databind/blob/3.x/src/main/java/tools/jackson/databind/ObjectMapper.java#L417). Consider using builder configuration instead. */ mapper.serializationConfig();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void jsonNodeMethods() {
         rewriteRun(
           //language=java
