@@ -25,10 +25,7 @@ import org.openrewrite.java.JavaParser;
 import org.openrewrite.java.JavaTemplate;
 import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.search.UsesMethod;
-import org.openrewrite.java.tree.J;
-import org.openrewrite.java.tree.JRightPadded;
-import org.openrewrite.java.tree.JavaType;
-import org.openrewrite.java.tree.Space;
+import org.openrewrite.java.tree.*;
 
 import java.util.Set;
 
@@ -37,6 +34,8 @@ import static java.util.Collections.singleton;
 public class UpdateSerializationInclusionConfiguration extends Recipe {
 
     private static final MethodMatcher MAPPER_BUILDER_SERIALIZATION_INCLUSION_MATCHER = new MethodMatcher("com.fasterxml.jackson.databind..MapperBuilder serializationInclusion(com.fasterxml.jackson.annotation.JsonInclude.Include)", true);
+    private static final MethodMatcher MAPPER_BUILDER_DEFAULT_PROPERTY_INCLUSION_INCLUDE_MATCHER = new MethodMatcher("com.fasterxml.jackson.databind..MapperBuilder defaultPropertyInclusion(com.fasterxml.jackson.annotation.JsonInclude.Include)", true);
+    private static final MethodMatcher MAPPER_BUILDER_DEFAULT_PROPERTY_INCLUSION_VALUE_MATCHER = new MethodMatcher("com.fasterxml.jackson.databind..MapperBuilder defaultPropertyInclusion(com.fasterxml.jackson.annotation.JsonInclude.Value)", true);
     private static final MethodMatcher OBJECT_MAPPER_SET_SERIALIZATION_INCLUSION_MATCHER = new MethodMatcher("com.fasterxml.jackson.databind.ObjectMapper setSerializationInclusion(com.fasterxml.jackson.annotation.JsonInclude.Include)");
 
     @Getter
@@ -54,13 +53,16 @@ public class UpdateSerializationInclusionConfiguration extends Recipe {
         return Preconditions.check(
                 Preconditions.or(
                         new UsesMethod<>(MAPPER_BUILDER_SERIALIZATION_INCLUSION_MATCHER),
+                        new UsesMethod<>(MAPPER_BUILDER_DEFAULT_PROPERTY_INCLUSION_INCLUDE_MATCHER),
+                        new UsesMethod<>(MAPPER_BUILDER_DEFAULT_PROPERTY_INCLUSION_VALUE_MATCHER),
                         new UsesMethod<>(OBJECT_MAPPER_SET_SERIALIZATION_INCLUSION_MATCHER)
                 ),
                 new JavaIsoVisitor<ExecutionContext>() {
                     @Override
                     public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
                         J.MethodInvocation mi = super.visitMethodInvocation(method, ctx);
-                        if (MAPPER_BUILDER_SERIALIZATION_INCLUSION_MATCHER.matches(mi)) {
+                        if (MAPPER_BUILDER_SERIALIZATION_INCLUSION_MATCHER.matches(mi) ||
+                                MAPPER_BUILDER_DEFAULT_PROPERTY_INCLUSION_INCLUDE_MATCHER.matches(mi)) {
                             J.MethodInvocation result = JavaTemplate
                                     .builder("#{any(tools.jackson.databind.json.JsonMapper$Builder)}.changeDefaultPropertyInclusion(incl -> incl" +
                                             ".withContentInclusion(#{any(com.fasterxml.jackson.annotation.JsonInclude.Include)})" +
@@ -73,6 +75,20 @@ public class UpdateSerializationInclusionConfiguration extends Recipe {
                                             mi.getCoordinates().replace(),
                                             mi.getSelect(),
                                             mi.getArguments().get(0),
+                                            mi.getArguments().get(0));
+                            result = result.getPadding().withSelect(JRightPadded.build(result.getSelect()).withAfter(mi.getPadding().getSelect().getAfter()));
+                            return fixKotlinLambdaParameterTypeAndBodySpacing(result);
+                        }
+                        if (MAPPER_BUILDER_DEFAULT_PROPERTY_INCLUSION_VALUE_MATCHER.matches(mi)) {
+                            J.MethodInvocation result = JavaTemplate
+                                    .builder("#{any(tools.jackson.databind.json.JsonMapper$Builder)}.changeDefaultPropertyInclusion(incl -> #{any(com.fasterxml.jackson.annotation.JsonInclude.Value)})")
+                                    .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx,
+                                            "jackson-annotations-2", "jackson-core-3", "jackson-databind-3"))
+                                    .build()
+                                    .apply(
+                                            getCursor(),
+                                            mi.getCoordinates().replace(),
+                                            mi.getSelect(),
                                             mi.getArguments().get(0));
                             result = result.getPadding().withSelect(JRightPadded.build(result.getSelect()).withAfter(mi.getPadding().getSelect().getAfter()));
                             return fixKotlinLambdaParameterTypeAndBodySpacing(result);

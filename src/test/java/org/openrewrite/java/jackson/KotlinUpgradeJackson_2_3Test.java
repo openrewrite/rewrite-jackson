@@ -156,7 +156,7 @@ class KotlinUpgradeJackson_2_3Test implements RewriteTest {
                   fun objectMapper(): ObjectMapper {
                       return JsonMapper.builder()
                           .defaultTimeZone(TimeZone.getDefault())
-                          .defaultPropertyInclusion(JsonInclude.Value.construct(JsonInclude.Include.NON_NULL, JsonInclude.Include.NON_NULL))
+                          .changeDefaultPropertyInclusion({ incl -> incl.withContentInclusion(JsonInclude.Include.NON_NULL).withValueInclusion(JsonInclude.Include.NON_NULL)})
                           .build()
                   }
               }

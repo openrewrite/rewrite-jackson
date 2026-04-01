@@ -64,7 +64,6 @@ public class MigrateMapperSettersToBuilder extends Recipe {
 
     private static final String INVOCATIONS_TO_REMOVE = "INVOCATIONS_TO_REMOVE";
     private static final String JSON_INCLUDE = "com.fasterxml.jackson.annotation.JsonInclude";
-    private static final String JSON_INCLUDE_INCLUDE = "com.fasterxml.jackson.annotation.JsonInclude$Include";
 
     @RequiredArgsConstructor
     enum SetterToBuilderMapping {
@@ -702,23 +701,22 @@ public class MigrateMapperSettersToBuilder extends Recipe {
 
     /**
      * Appends a single builder method call to the template string.
-     * Returns {@code true} if the call requires the {@code JsonInclude} import.
      */
     private static void appendBuilderCall(J.MethodInvocation mi, SetterToBuilderMapping mapping,
                                            StringBuilder templateCode, List<Expression> templateArgs) {
-        // Special case: setDefaultPropertyInclusion(JsonInclude.Include.X) needs wrapping
-        // because the builder's defaultPropertyInclusion() expects a JsonInclude.Value, not a raw Include
+        String builderName = mapping.builderName;
+        // Jackson 2 MapperBuilder does not have defaultPropertyInclusion(Include), only
+        // serializationInclusion(Include). Use serializationInclusion here so the template
+        // resolves against the Jackson 2 classpath; UpdateSerializationInclusionConfiguration
+        // (running after) converts it to changeDefaultPropertyInclusion.
         if (mapping == SetterToBuilderMapping.SET_DEFAULT_PROPERTY_INCLUSION &&
                 mi.getArguments().size() == 1 &&
                 !(mi.getArguments().get(0) instanceof J.Empty) &&
-                TypeUtils.isAssignableTo(JSON_INCLUDE_INCLUDE, mi.getArguments().get(0).getType())) {
-            templateCode.append("\n.defaultPropertyInclusion(JsonInclude.Value.construct(#{any()}, #{any()}))");
-            templateArgs.add(mi.getArguments().get(0));
-            templateArgs.add(mi.getArguments().get(0));
-            return;
+                TypeUtils.isAssignableTo("com.fasterxml.jackson.annotation.JsonInclude$Include",
+                        mi.getArguments().get(0).getType())) {
+            builderName = "serializationInclusion";
         }
-
-        templateCode.append("\n.").append(mapping.builderName).append("(");
+        templateCode.append("\n.").append(builderName).append("(");
         boolean first = true;
         for (Expression arg : mi.getArguments()) {
             if (arg instanceof J.Empty) {

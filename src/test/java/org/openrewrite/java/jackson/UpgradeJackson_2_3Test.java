@@ -329,7 +329,7 @@ class UpgradeJackson_2_3Test implements RewriteTest {
                   ObjectMapper objectMapper() {
                       return JsonMapper.builder()
                               .defaultTimeZone(TimeZone.getDefault())
-                              .defaultPropertyInclusion(JsonInclude.Value.construct(JsonInclude.Include.NON_NULL, JsonInclude.Include.NON_NULL))
+                              .changeDefaultPropertyInclusion(incl -> incl.withContentInclusion(JsonInclude.Include.NON_NULL).withValueInclusion(JsonInclude.Include.NON_NULL))
                               .build();
                   }
               }
@@ -376,6 +376,41 @@ class UpgradeJackson_2_3Test implements RewriteTest {
                       } catch (RuntimeException | IOException e) {
                           throw new RuntimeException(e);
                       }
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Issue("https://github.com/moderneinc/customer-requests/issues/2143")
+    @Test
+    void standaloneObjectMapperWithSetSerializationInclusion() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonInclude;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  ObjectMapper createMapper() {
+                      ObjectMapper objectMapper = new ObjectMapper();
+                      objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+                      return objectMapper;
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonInclude;
+              import tools.jackson.databind.ObjectMapper;
+              import tools.jackson.databind.json.JsonMapper;
+
+              class Test {
+                  ObjectMapper createMapper() {
+                      return JsonMapper.builder()
+                              .changeDefaultPropertyInclusion(incl -> incl.withContentInclusion(JsonInclude.Include.NON_NULL).withValueInclusion(JsonInclude.Include.NON_NULL))
+                              .build();
                   }
               }
               """
