@@ -716,6 +716,11 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         mi.getArguments().get(0).getType())) {
             builderName = "serializationInclusion";
         }
+        appendComments(mi.getPrefix().getComments(), templateCode);
+        appendComments(mi.getName().getPrefix().getComments(), templateCode);
+        if (mi.getPadding().getSelect() != null) {
+            appendComments(mi.getPadding().getSelect().getAfter().getComments(), templateCode);
+        }
         templateCode.append("\n.").append(builderName).append("(");
         boolean first = true;
         for (Expression arg : mi.getArguments()) {
@@ -730,5 +735,19 @@ public class MigrateMapperSettersToBuilder extends Recipe {
             templateArgs.add(arg);
         }
         templateCode.append(")");
+    }
+
+    private static void appendComments(List<Comment> comments, StringBuilder templateCode) {
+        for (Comment comment : comments) {
+            if (comment instanceof TextComment) {
+                TextComment tc = (TextComment) comment;
+                if (tc.isMultiline()) {
+                    templateCode.append("\n/*").append(tc.getText()).append("*/");
+                } else {
+                    // Leading space before // so the auto-formatter indents the comment line
+                    templateCode.append("\n //").append(tc.getText());
+                }
+            }
+        }
     }
 }
