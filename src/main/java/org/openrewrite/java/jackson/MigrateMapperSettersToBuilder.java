@@ -716,8 +716,6 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         mi.getArguments().get(0).getType())) {
             builderName = "serializationInclusion";
         }
-        // Preserve comments from the original setter invocation (statement-level prefix
-        // for separate-statement setters, method name or select padding for fluent chain calls)
         appendComments(mi.getPrefix().getComments(), templateCode);
         appendComments(mi.getName().getPrefix().getComments(), templateCode);
         if (mi.getPadding().getSelect() != null) {
