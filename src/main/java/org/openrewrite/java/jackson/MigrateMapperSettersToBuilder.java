@@ -494,14 +494,98 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             parser.dependsOn(mapperStub(mapperFqn));
                         }
 
-                        return JavaTemplate.builder(templateCode.toString())
+                        J result = JavaTemplate.builder(templateCode.toString())
                                 .imports(mapperFqn, JSON_INCLUDE)
                                 .javaParser(parser)
                                 .build()
                                 .apply(getCursor(), coordinates, templateArgs.toArray());
+                        return attachCommentsToBuilderChain(result, setters);
                     }
                 }
         );
+    }
+
+    /**
+     * Transfer comments from the original setter calls to the corresponding
+     * builder method calls in the generated builder chain.
+     */
+    private static J attachCommentsToBuilderChain(J result, List<J.MethodInvocation> originalSetters) {
+        if (!(result instanceof J.MethodInvocation)) {
+            return result;
+        }
+
+        // Check if any original setters carry comments
+        boolean hasComments = false;
+        for (J.MethodInvocation setter : originalSetters) {
+            if (!setter.getPrefix().getComments().isEmpty()) {
+                hasComments = true;
+                break;
+            }
+            if (setter.getPadding().getSelect() != null &&
+                    !setter.getPadding().getSelect().getAfter().getComments().isEmpty()) {
+                hasComments = true;
+                break;
+            }
+        }
+        if (!hasComments) {
+            return result;
+        }
+
+        // Flatten the result chain (outermost to innermost)
+        List<J.MethodInvocation> chain = new ArrayList<>();
+        Expression current = (Expression) result;
+        while (current instanceof J.MethodInvocation) {
+            chain.add((J.MethodInvocation) current);
+            current = ((J.MethodInvocation) current).getSelect();
+        }
+        // Reverse to innermost-first: [builder, setter_1, ..., setter_n, build, suffix...]
+        reverse(chain);
+
+        // Attach comments from original setters to corresponding builder calls
+        for (int i = 0; i < originalSetters.size() && (i + 1) < chain.size(); i++) {
+            J.MethodInvocation original = originalSetters.get(i);
+            J.MethodInvocation target = chain.get(i + 1); // +1 to skip builder()
+
+            // Collect comments from both the prefix (separate statements) and
+            // select padding (fluent chains)
+            List<Comment> comments = new ArrayList<>(original.getPrefix().getComments());
+            if (original.getPadding().getSelect() != null) {
+                comments.addAll(original.getPadding().getSelect().getAfter().getComments());
+            }
+
+            if (!comments.isEmpty() && target.getPadding().getSelect() != null) {
+                JRightPadded<Expression> sel = target.getPadding().getSelect();
+                Space after = sel.getAfter();
+                // Adjust comment suffixes to match the builder chain indentation
+                String chainIndent = after.getWhitespace();
+                List<Comment> adjusted = new ArrayList<>();
+                for (Comment c : comments) {
+                    if (c instanceof TextComment) {
+                        adjusted.add(((TextComment) c).withSuffix(chainIndent));
+                    } else {
+                        adjusted.add(c);
+                    }
+                }
+                List<Comment> combined = new ArrayList<>(after.getComments());
+                combined.addAll(adjusted);
+                target = target.getPadding().withSelect(sel.withAfter(after.withComments(combined)));
+                chain.set(i + 1, target);
+            }
+        }
+
+        // Rebuild the chain from innermost to outermost, propagating modifications
+        J.MethodInvocation prev = chain.get(0);
+        for (int i = 1; i < chain.size(); i++) {
+            J.MethodInvocation mi = chain.get(i);
+            JRightPadded<Expression> sel = mi.getPadding().getSelect();
+            if (sel != null) {
+                mi = mi.getPadding().withSelect(sel.withElement(prev));
+            }
+            chain.set(i, mi);
+            prev = mi;
+        }
+
+        return chain.get(chain.size() - 1);
     }
 
     /**

@@ -946,4 +946,87 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
             );
         }
     }
+
+    @Nested
+    class CommentPreservation {
+
+        @Test
+        void separateStatementCommentsPreserved() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      JsonMapper create() {
+                          JsonMapper mapper = new JsonMapper();
+                          // Disable indentation for compact output
+                          mapper.disable(SerializationFeature.INDENT_OUTPUT);
+                          // Fail early on unexpected fields
+                          mapper.enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+                          return mapper;
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      JsonMapper create() {
+                          return JsonMapper.builder()
+                                  // Disable indentation for compact output
+                                  .disable(SerializationFeature.INDENT_OUTPUT)
+                                  // Fail early on unexpected fields
+                                  .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                                  .build();
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void fluentChainCommentsPreserved() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      JsonMapper create() {
+                          return new JsonMapper()
+                                  // Disable indentation for compact output
+                                  .disable(SerializationFeature.INDENT_OUTPUT)
+                                  // Fail early on unexpected fields
+                                  .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      JsonMapper create() {
+                          return JsonMapper.builder()
+                                  // Disable indentation for compact output
+                                  .disable(SerializationFeature.INDENT_OUTPUT)
+                                  // Fail early on unexpected fields
+                                  .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                                  .build();
+                      }
+                  }
+                  """
+              )
+            );
+        }
+    }
 }
