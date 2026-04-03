@@ -76,7 +76,7 @@ public class UpdateSerializationInclusionConfiguration extends Recipe {
                                             mi.getSelect(),
                                             mi.getArguments().get(0),
                                             mi.getArguments().get(0));
-                            result = result.getPadding().withSelect(JRightPadded.build(result.getSelect()).withAfter(mi.getPadding().getSelect().getAfter()));
+                            result = result.getPadding().withSelect(JRightPadded.build(result.getSelect()).withAfter(mi.getPadding().getSelect().getAfter())).withSelect(mi.getSelect());
                             return fixKotlinLambdaParameterTypeAndBodySpacing(result);
                         }
                         if (MAPPER_BUILDER_DEFAULT_PROPERTY_INCLUSION_VALUE_MATCHER.matches(mi)) {
@@ -90,7 +90,7 @@ public class UpdateSerializationInclusionConfiguration extends Recipe {
                                             mi.getCoordinates().replace(),
                                             mi.getSelect(),
                                             mi.getArguments().get(0));
-                            result = result.getPadding().withSelect(JRightPadded.build(result.getSelect()).withAfter(mi.getPadding().getSelect().getAfter()));
+                            result = result.getPadding().withSelect(JRightPadded.build(result.getSelect()).withAfter(mi.getPadding().getSelect().getAfter())).withSelect(mi.getSelect());
                             return fixKotlinLambdaParameterTypeAndBodySpacing(result);
                         }
                         if (OBJECT_MAPPER_SET_SERIALIZATION_INCLUSION_MATCHER.matches(mi)) {
