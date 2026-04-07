@@ -29,15 +29,13 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
     public void defaults(RecipeSpec spec) {
         spec.recipe(new MigrateMapperSettersToBuilder())
           .parser(org.openrewrite.java.JavaParser.fromJavaVersion()
-            .classpath("jackson-core", "jackson-databind"));
+            .classpath("jackson-core", "jackson-databind", "jackson-annotations"));
     }
 
     @DocumentExample
     @Test
     void allSettersMigratedToBuilder() {
         rewriteRun(
-          spec -> spec.parser(org.openrewrite.java.JavaParser.fromJavaVersion()
-            .classpath("jackson-core", "jackson-databind", "jackson-annotations")),
           java(
             """
               import com.fasterxml.jackson.annotation.JsonAutoDetect;
@@ -223,7 +221,7 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
                               .defaultLocale(Locale.US)
                               .defaultBase64Variant(Base64Variants.MIME)
                               .defaultAttributes(attributes)
-                              .defaultPropertyInclusion(JsonInclude.Value.empty())
+                              .changeDefaultPropertyInclusion(incl -> JsonInclude.Value.empty())
                               .defaultSetterInfo(JsonSetter.Value.empty())
                               .defaultMergeable(Boolean.TRUE)
                               .defaultLeniency(Boolean.TRUE)
@@ -597,7 +595,7 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
 
                   class A {
                       void configure(JsonMapper mapper) {
-                          /* TODO disable was removed from JsonMapper in Jackson 3. Use mapper.rebuild().disable(...).build() or move to the mapper's instantiation site. */
+                          // TODO disable could not be folded to the builder of JsonMapper. Use mapper.rebuild().disable(...).build() or move to the mapper's instantiation site.
                           mapper.disable(SerializationFeature.INDENT_OUTPUT);
                       }
                   }
@@ -645,75 +643,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
             );
         }
 
-        @Test
-        void knownSetterBeforeUnknownGoesToBuilder() {
-            rewriteRun(
-              java(
-                """
-                  import com.fasterxml.jackson.databind.SerializationFeature;
-                  import com.fasterxml.jackson.databind.json.JsonMapper;
-
-                  class A {
-                      JsonMapper create() {
-                          JsonMapper mapper = new JsonMapper();
-                          mapper.disable(SerializationFeature.INDENT_OUTPUT);
-                          mapper.setSerializationInclusion(null);
-                          return mapper;
-                      }
-                  }
-                  """,
-                """
-                  import com.fasterxml.jackson.databind.SerializationFeature;
-                  import com.fasterxml.jackson.databind.json.JsonMapper;
-
-                  class A {
-                      JsonMapper create() {
-                          JsonMapper mapper = JsonMapper.builder()
-                                  .disable(SerializationFeature.INDENT_OUTPUT)
-                                  .build();
-                          mapper.setSerializationInclusion(null);
-                          return mapper;
-                      }
-                  }
-                  """
-              )
-            );
-        }
-
-        @Test
-        void knownSetterAfterUnknownGetsComment() {
-            rewriteRun(
-              java(
-                """
-                  import com.fasterxml.jackson.databind.SerializationFeature;
-                  import com.fasterxml.jackson.databind.json.JsonMapper;
-
-                  class A {
-                      JsonMapper create() {
-                          JsonMapper mapper = new JsonMapper();
-                          mapper.setSerializationInclusion(null);
-                          mapper.disable(SerializationFeature.INDENT_OUTPUT);
-                          return mapper;
-                      }
-                  }
-                  """,
-                """
-                  import com.fasterxml.jackson.databind.SerializationFeature;
-                  import com.fasterxml.jackson.databind.json.JsonMapper;
-
-                  class A {
-                      JsonMapper create() {
-                          JsonMapper mapper = new JsonMapper();
-                          mapper.setSerializationInclusion(null);
-                          /* TODO disable was removed from JsonMapper in Jackson 3. Use mapper.rebuild().disable(...).build() or move to the mapper's instantiation site. */
-                          mapper.disable(SerializationFeature.INDENT_OUTPUT);
-                          return mapper;
-                      }
-                  }
-                  """
-              )
-            );
-        }
 
         @Test
         void setDateFormatWithAssignment() {
@@ -742,7 +671,7 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
                       JsonMapper create() {
                           JsonMapper mapper = new JsonMapper();
                           SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-                          /* TODO setDateFormat was removed from JsonMapper in Jackson 3. Use mapper.rebuild().defaultDateFormat(...).build() or move to the mapper's instantiation site. */
+                          // TODO setDateFormat could not be folded to the builder of JsonMapper. Use mapper.rebuild().defaultDateFormat(...).build() or move to the mapper's instantiation site.
                           mapper.setDateFormat(dateFormat);
                           return mapper;
                       }
@@ -859,9 +788,7 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         void fluentChainSetDefaultPropertyInclusionWithRawInclude() {
             rewriteRun(
               spec -> spec
-                .recipes(new MigrateMapperSettersToBuilder(), new UpdateSerializationInclusionConfiguration())
-                .parser(org.openrewrite.java.JavaParser.fromJavaVersion()
-                  .classpath("jackson-core", "jackson-databind", "jackson-annotations")),
+                .recipes(new MigrateMapperSettersToBuilder(), new UpdateSerializationInclusionConfiguration()),
               java(
                 """
                   import com.fasterxml.jackson.annotation.JsonInclude;
@@ -1043,6 +970,210 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
                       XmlMapper create(Module module) {
                           return XmlMapper.builder()
                                   .addModule(module)
+                                  .build();
+                      }
+                  }
+                  """
+              )
+            );
+        }
+    }
+
+    @Nested
+    class MixedFluentAndSetters {
+
+        @Test
+        void fluentChainAssignedToVariableFollowedBySetters() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.MapperFeature;
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      JsonMapper create() {
+                          JsonMapper mapper = new JsonMapper()
+                                  .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                                  .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES);
+                          mapper.enable(SerializationFeature.INDENT_OUTPUT);
+                          return mapper;
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.MapperFeature;
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      JsonMapper create() {
+                          return JsonMapper.builder()
+                                  .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                                  .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES)
+                                  .enable(SerializationFeature.INDENT_OUTPUT)
+                                  .build();
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void fluentChainAssignedToVariableFollowedByMultipleSetters() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.Module;
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      JsonMapper create(Module module) {
+                          JsonMapper mapper = new JsonMapper()
+                                  .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+                          mapper.disable(SerializationFeature.INDENT_OUTPUT);
+                          mapper.registerModule(module);
+                          return mapper;
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.Module;
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      JsonMapper create(Module module) {
+                          return JsonMapper.builder()
+                                  .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                                  .disable(SerializationFeature.INDENT_OUTPUT)
+                                  .addModule(module)
+                                  .build();
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void fluentChainAssignedToFieldFollowedBySetters() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      JsonMapper mapper;
+
+                      void configure() {
+                          mapper = new JsonMapper()
+                                  .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+                          mapper.disable(SerializationFeature.INDENT_OUTPUT);
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      JsonMapper mapper;
+
+                      void configure() {
+                          mapper = JsonMapper.builder()
+                                  .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                                  .disable(SerializationFeature.INDENT_OUTPUT)
+                                  .build();
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void fluentChainFollowedBySetterThenUsedElsewhere() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      JsonMapper create() {
+                          JsonMapper mapper = new JsonMapper()
+                                  .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+                          mapper.disable(SerializationFeature.INDENT_OUTPUT);
+                          doSomething(mapper);
+                          return mapper;
+                      }
+                      void doSomething(JsonMapper mapper) {}
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      JsonMapper create() {
+                          JsonMapper mapper = JsonMapper.builder()
+                                  .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                                  .disable(SerializationFeature.INDENT_OUTPUT)
+                                  .build();
+                          doSomething(mapper);
+                          return mapper;
+                      }
+                      void doSomething(JsonMapper mapper) {}
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void fluentChainFollowedBySetterThenUnknownMethod() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude;
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      JsonMapper create() {
+                          JsonMapper mapper = new JsonMapper()
+                                  .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+                          mapper.disable(SerializationFeature.INDENT_OUTPUT);
+                          mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+                          return mapper;
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude;
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      JsonMapper create() {
+                          return JsonMapper.builder()
+                                  .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                                  .disable(SerializationFeature.INDENT_OUTPUT)
+                                  .changeDefaultPropertyInclusion(incl -> incl.withContentInclusion(JsonInclude.Include.NON_NULL).withValueInclusion(JsonInclude.Include.NON_NULL))
                                   .build();
                       }
                   }

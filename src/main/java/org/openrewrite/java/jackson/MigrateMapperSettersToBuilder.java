@@ -122,7 +122,11 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         SET_DEFAULT_PROPERTY_INCLUSION("setDefaultPropertyInclusion", "defaultPropertyInclusion"),
         SET_DEFAULT_SETTER_INFO("setDefaultSetterInfo", "defaultSetterInfo"),
         SET_DEFAULT_MERGEABLE("setDefaultMergeable", "defaultMergeable"),
-        SET_DEFAULT_LENIENCY("setDefaultLeniency", "defaultLeniency");
+        SET_DEFAULT_LENIENCY("setDefaultLeniency", "defaultLeniency"),
+
+        // SPECIAL CASES
+        // UpdateSerializationInclusionConfiguration will take this one further
+        SET_SERIALIZATION_INCLUSION("setSerializationInclusion", "serializationInclusion");
 
         final String setterName;
         final String builderName;
@@ -159,6 +163,16 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                 new JavaVisitor<ExecutionContext>() {
 
                     @Override
+                    public J visitBlock(J.Block block, ExecutionContext executionContext) {
+                        J visited = super.visitBlock(block, executionContext);
+                        if (visited != block) {
+                            doAfterVisit(new UpdateSerializationInclusionConfiguration().getVisitor());
+                            doAfterVisit(new UpdateAutoDetectVisibilityConfiguration().getVisitor());
+                        }
+                        return visited;
+                    }
+
+                    @Override
                     public J visitNewClass(J.NewClass newClass, ExecutionContext ctx) {
                         J.NewClass nc = (J.NewClass) super.visitNewClass(newClass, ctx);
 
@@ -189,91 +203,9 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             return nc;
                         }
 
-                        // Collect known setter calls that appear before any unknown mapper
-                        // usage (unknown call on the variable, or variable passed elsewhere).
-                        List<J.MethodInvocation> builderSetters = new ArrayList<>();
-                        Set<J.Identifier> intermediateVars = new HashSet<>();
-                        boolean collecting = true;
-
-                        for (Statement stmt : block.getStatements()) {
-                            if (!collecting) {
-                                break;
-                            }
-
-                            // Skip the declaration or assignment that contains the constructor
-                            // (handles both J.VariableDeclarations and Kotlin K.Property wrappers)
-                            J.VariableDeclarations vd = extractVariableDeclarations(stmt);
-                            if (vd != null) {
-                                if (vd.getVariables().stream().anyMatch(v -> SemanticallyEqual.areEqual(v.getName(), varIdent))) {
-                                    continue;
-                                }
-                                // Track variables declared between constructor and setters
-                                for (J.VariableDeclarations.NamedVariable v : vd.getVariables()) {
-                                    intermediateVars.add(v.getName());
-                                }
-                            }
-                            if (stmt instanceof J.Assignment) {
-                                J.Assignment a = (J.Assignment) stmt;
-                                if (a.getVariable() instanceof J.Identifier &&
-                                        SemanticallyEqual.areEqual(a.getVariable(), varIdent)) {
-                                    continue;
-                                }
-                            }
-
-                            // Look inside init blocks for setter calls (must be checked BEFORE
-                            // extractMethodInvocation, which would visit into the block and find
-                            // only the first MI)
-                            if (stmt instanceof J.Block) {
-                                for (Statement innerStmt : ((J.Block) stmt).getStatements()) {
-                                    if (!collecting) {
-                                        break;
-                                    }
-                                    J.MethodInvocation initMi = extractMethodInvocation(innerStmt);
-                                    if (initMi != null) {
-                                        if (isCallOnVariable(initMi, varIdent)) {
-                                            SetterToBuilderMapping mapping = SetterToBuilderMapping.fromSetter(initMi.getName().getSimpleName());
-                                            if (mapping != null) {
-                                                if (argumentReferencesAny(initMi, intermediateVars)) {
-                                                    collecting = false;
-                                                    continue;
-                                                }
-                                                builderSetters.add(initMi);
-                                                continue;
-                                            }
-                                            collecting = false;
-                                            continue;
-                                        }
-                                    }
-                                    if (referencesVariable(innerStmt, varIdent)) {
-                                        collecting = false;
-                                    }
-                                }
-                                continue;
-                            }
-
-                            // Check if statement is a setter call (handles K.ExpressionStatement wrappers)
-                            J.MethodInvocation mi = extractMethodInvocation(stmt);
-                            if (mi != null) {
-                                if (isCallOnVariable(mi, varIdent)) {
-                                    SetterToBuilderMapping mapping = SetterToBuilderMapping.fromSetter(mi.getName().getSimpleName());
-                                    if (mapping != null) {
-                                        // Can't fold if arguments reference variables declared after the constructor
-                                        if (argumentReferencesAny(mi, intermediateVars)) {
-                                            collecting = false;
-                                            continue;
-                                        }
-                                        builderSetters.add(mi);
-                                        continue;
-                                    }
-                                    collecting = false;
-                                    continue;
-                                }
-                            }
-
-                            if (referencesVariable(stmt, varIdent)) {
-                                collecting = false;
-                            }
-                        }
+                        // Collect setter calls that appear after the constructor
+                        List<J.MethodInvocation> builderSetters = collectStandaloneSetters(
+                                block, varIdent, new HashSet<>());
 
                         if (builderSetters.isEmpty()) {
                             return nc;
@@ -335,8 +267,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         // Not eligible for builder migration - add a TODO comment
                         String simpleMapperName = matchedMapper.substring(matchedMapper.lastIndexOf('.') + 1);
                         String commentText = String.format(
-                                " TODO %s was removed from %s in Jackson 3. " +
-                                        "Use mapper.rebuild().%s(...).build() or move to the mapper's instantiation site. ",
+                                " TODO %s could not be folded to the builder of %s. " +
+                                        "Use mapper.rebuild().%s(...).build() or move to the mapper's instantiation site.",
                                 mapping.setterName, simpleMapperName, mapping.builderName);
 
                         if (hasComment(mi, commentText)) {
@@ -344,7 +276,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         }
 
                         String prefixWhitespace = mi.getPrefix().getWhitespace();
-                        TextComment comment = new TextComment(true, commentText, prefixWhitespace, Markers.EMPTY);
+                        TextComment comment = new TextComment(false, commentText, prefixWhitespace, Markers.EMPTY);
                         return mi.withPrefix(mi.getPrefix().withComments(
                                 ListUtils.concat(mi.getPrefix().getComments(), comment)));
                     }
@@ -410,6 +342,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                     /**
                      * If this method invocation is the outermost call of a fluent chain rooted
                      * at a format-aligned mapper constructor, migrate the chain to the builder pattern.
+                     * When the chain is assigned to a variable, also collects standalone setter calls
+                     * that follow the assignment and folds them into the builder.
                      */
                     private @Nullable J tryMigrateFluentChain(J.MethodInvocation mi, ExecutionContext ctx) {
                         String[] mapperHolder = new String[1];
@@ -443,8 +377,145 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             return null;
                         }
 
+                        // When the fluent chain is assigned to a variable, also collect
+                        // standalone setter calls that follow the assignment statement
+                        J.Identifier varIdent = findVariableIdentifier();
+                        if (varIdent != null) {
+                            J.Block block = getCursor().firstEnclosing(J.Block.class);
+                            if (block != null) {
+                                List<J.MethodInvocation> standaloneSetters = collectStandaloneSetters(
+                                        block, varIdent, new HashSet<>());
+                                if (!standaloneSetters.isEmpty()) {
+                                    // Add standalone setters after the chain setters
+                                    for (J.MethodInvocation setter : standaloneSetters) {
+                                        SetterToBuilderMapping m = SetterToBuilderMapping.fromSetter(setter.getName().getSimpleName());
+                                        setterCalls.add(setter);
+                                        mappings.add(m);
+                                    }
+
+                                    // Mark standalone setters for removal
+                                    Cursor blockCursor = getCursor().dropParentUntil(J.Block.class::isInstance);
+                                    Set<UUID> toRemove = blockCursor.getMessage(INVOCATIONS_TO_REMOVE);
+                                    if (toRemove == null) {
+                                        toRemove = new HashSet<>();
+                                        blockCursor.putMessage(INVOCATIONS_TO_REMOVE, toRemove);
+                                    }
+                                    for (J.MethodInvocation setter : standaloneSetters) {
+                                        toRemove.add(setter.getId());
+                                    }
+
+                                    doAfterVisit(new InlineVariable().getVisitor());
+                                    doAfterVisit(inlineWrappedVariable());
+                                    doAfterVisit(removeEmptyInitBlocks());
+                                }
+                            }
+                        }
+
                         return applyBuilderTemplate(mapperFqn, setterCalls, mappings, suffixCalls,
                                 mi.getCoordinates().replace(), ctx);
+                    }
+
+                    /**
+                     * Determine variable identifier from local declaration or field assignment
+                     * enclosing the current cursor position.
+                     */
+                    private J.@Nullable Identifier findVariableIdentifier() {
+                        J.VariableDeclarations.NamedVariable namedVar = getCursor().firstEnclosing(J.VariableDeclarations.NamedVariable.class);
+                        if (namedVar != null) {
+                            return namedVar.getName();
+                        }
+                        J.Assignment assignment = getCursor().firstEnclosing(J.Assignment.class);
+                        if (assignment != null && assignment.getVariable() instanceof J.Identifier) {
+                            return (J.Identifier) assignment.getVariable();
+                        }
+                        return null;
+                    }
+
+                    /**
+                     * Collect standalone setter calls on a variable that appear after the variable's
+                     * declaration/assignment. Stops collecting when the variable is referenced in a
+                     * non-setter context (e.g., passed to another method). Both known and unknown
+                     * setters are collected; unknown setters will get TODO comments in the builder chain.
+                     */
+                    private List<J.MethodInvocation> collectStandaloneSetters(
+                            J.Block block, J.Identifier varIdent, Set<J.Identifier> intermediateVars) {
+                        List<J.MethodInvocation> setters = new ArrayList<>();
+                        boolean pastDeclaration = false;
+                        boolean collecting = true;
+
+                        for (Statement stmt : block.getStatements()) {
+                            if (!collecting) {
+                                break;
+                            }
+
+                            // Skip until we're past the declaration/assignment
+                            if (!pastDeclaration) {
+                                J.VariableDeclarations vd = extractVariableDeclarations(stmt);
+                                if (vd != null && vd.getVariables().stream()
+                                        .anyMatch(v -> SemanticallyEqual.areEqual(v.getName(), varIdent))) {
+                                    pastDeclaration = true;
+                                    continue;
+                                }
+                                if (stmt instanceof J.Assignment) {
+                                    J.Assignment a = (J.Assignment) stmt;
+                                    if (a.getVariable() instanceof J.Identifier &&
+                                            SemanticallyEqual.areEqual(a.getVariable(), varIdent)) {
+                                        pastDeclaration = true;
+                                        continue;
+                                    }
+                                }
+                                continue;
+                            }
+
+                            // Track intermediate variable declarations
+                            J.VariableDeclarations vd = extractVariableDeclarations(stmt);
+                            if (vd != null) {
+                                for (J.VariableDeclarations.NamedVariable v : vd.getVariables()) {
+                                    intermediateVars.add(v.getName());
+                                }
+                            }
+
+                            // Look inside init blocks for setter calls (must be checked BEFORE
+                            // extractMethodInvocation, which would visit into the block and find
+                            // only the first MI)
+                            if (stmt instanceof J.Block) {
+                                for (Statement innerStmt : ((J.Block) stmt).getStatements()) {
+                                    if (!collecting) {
+                                        break;
+                                    }
+                                    J.MethodInvocation initMi = extractMethodInvocation(innerStmt);
+                                    if (initMi != null && isCallOnVariable(initMi, varIdent)) {
+                                        if (argumentReferencesAny(initMi, intermediateVars)) {
+                                            collecting = false;
+                                            continue;
+                                        }
+                                        setters.add(initMi);
+                                        continue;
+                                    }
+                                    if (referencesVariable(innerStmt, varIdent)) {
+                                        collecting = false;
+                                    }
+                                }
+                                continue;
+                            }
+
+                            // Check if statement is a setter call on the variable
+                            J.MethodInvocation mi = extractMethodInvocation(stmt);
+                            if (mi != null && isCallOnVariable(mi, varIdent)) {
+                                if (argumentReferencesAny(mi, intermediateVars)) {
+                                    collecting = false;
+                                    continue;
+                                }
+                                setters.add(mi);
+                                continue;
+                            }
+
+                            if (referencesVariable(stmt, varIdent)) {
+                                collecting = false;
+                            }
+                        }
+
+                        return setters;
                     }
 
                     /**
@@ -457,13 +528,34 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         String simpleMapperName = mapperFqn.substring(mapperFqn.lastIndexOf('.') + 1);
                         StringBuilder templateCode = new StringBuilder(simpleMapperName + ".builder()");
                         List<Expression> templateArgs = new ArrayList<>();
+                        List<J.MethodInvocation> unknownSetters = new ArrayList<>();
                         for (int i = 0; i < setters.size(); i++) {
                             J.MethodInvocation setter = setters.get(i);
                             SetterToBuilderMapping mapping = resolvedMappings != null ?
                                     resolvedMappings.get(i) :
                                     SetterToBuilderMapping.fromSetter(setter.getName().getSimpleName());
-                            assert mapping != null;
-                            appendBuilderCall(setter, mapping, templateCode, templateArgs);
+                            if (mapping != null) {
+                                appendBuilderCall(setter, mapping, templateCode, templateArgs);
+                            } else {
+                                unknownSetters.add(setter);
+                                String methodName = setter.getName().getSimpleName();
+                                appendComments(setter.getPrefix().getComments(), templateCode);
+                                templateCode.append(String.format("\n // TODO %s was removed from %s in Jackson 3.", methodName, simpleMapperName));
+                                templateCode.append("\n.").append(methodName).append("(");
+                                boolean first = true;
+                                for (Expression arg : setter.getArguments()) {
+                                    if (arg instanceof J.Empty) {
+                                        continue;
+                                    }
+                                    if (!first) {
+                                        templateCode.append(", ");
+                                    }
+                                    first = false;
+                                    templateCode.append("#{any()}");
+                                    templateArgs.add(arg);
+                                }
+                                templateCode.append(")");
+                            }
                         }
                         templateCode.append("\n.build()");
 
@@ -489,10 +581,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         maybeAddImport(JSON_INCLUDE);
 
                         JavaParser.Builder<?, ?> parser = JavaParser.fromJavaVersion()
-                                .classpathFromResources(ctx, "jackson-annotations-2", "jackson-core-2", "jackson-databind-2");
-                        if (!JSON_MAPPER.equals(mapperFqn)) {
-                            parser.dependsOn(mapperStub(mapperFqn));
-                        }
+                                .classpathFromResources(ctx, "jackson-annotations-2", "jackson-core-2", "jackson-databind-2")
+                                .dependsOn(mapperStub(mapperFqn, unknownSetters));
 
                         return JavaTemplate.builder(templateCode.toString())
                                 .imports(mapperFqn, JSON_INCLUDE)
@@ -556,18 +646,108 @@ public class MigrateMapperSettersToBuilder extends Recipe {
     }
 
     /**
-     * Generates a stub class for a format-aligned mapper, so the JavaTemplate parser can resolve
-     * the builder pattern without requiring the actual dataformat jar on the classpath.
+     * Generates a stub class for a mapper with an inner {@code Builder} class, so the
+     * JavaTemplate parser can resolve the builder pattern. Always provides a full Builder
+     * with all known methods declared explicitly plus any unknown methods passed in.
      */
-    private static String mapperStub(String mapperFqn) {
+    private static String mapperStub(String mapperFqn, List<J.MethodInvocation> unknownSetters) {
         int lastDot = mapperFqn.lastIndexOf('.');
         String packageName = mapperFqn.substring(0, lastDot);
         String simpleName = mapperFqn.substring(lastDot + 1);
-        return "package " + packageName + ";\n" +
-                "public class " + simpleName + " extends com.fasterxml.jackson.databind.ObjectMapper {\n" +
-                "    public " + simpleName + "() {}\n" +
-                "    public static com.fasterxml.jackson.databind.json.JsonMapper.Builder builder() { return null; }\n" +
-                "}\n";
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("package ").append(packageName).append(";\n");
+        sb.append("public class ").append(simpleName)
+                .append(" extends com.fasterxml.jackson.databind.ObjectMapper {\n");
+        sb.append("    public ").append(simpleName).append("() {}\n");
+        sb.append("    public static Builder builder() { return null; }\n");
+        sb.append("    public static class Builder extends ")
+                .append("com.fasterxml.jackson.databind.cfg.MapperBuilder<")
+                .append(simpleName).append(", Builder> {\n");
+        sb.append("        protected Builder() { super(); }\n");
+
+        // Common mapped builder methods
+        sb.append("        public Builder enable(Object... f) { return this; }\n");
+        sb.append("        public Builder disable(Object... f) { return this; }\n");
+        sb.append("        public Builder configure(Object f, boolean state) { return this; }\n");
+        sb.append("        public Builder addModule(com.fasterxml.jackson.databind.Module m) { return this; }\n");
+        sb.append("        public Builder addModules(com.fasterxml.jackson.databind.Module... m) { return this; }\n");
+        sb.append("        public Builder findAndAddModules() { return this; }\n");
+        sb.append("        public Builder addMixIn(Class<?> target, Class<?> mixin) { return this; }\n");
+        sb.append("        public Builder registerSubtypes(Object... subtypes) { return this; }\n");
+        sb.append("        public Builder addHandler(Object h) { return this; }\n");
+        sb.append("        public Builder clearProblemHandlers() { return this; }\n");
+        sb.append("        public Builder activateDefaultTyping(Object... v) { return this; }\n");
+        sb.append("        public Builder activateDefaultTypingAsProperty(Object... v) { return this; }\n");
+        sb.append("        public Builder deactivateDefaultTyping() { return this; }\n");
+        sb.append("        public Builder setDefaultTyping(Object t) { return this; }\n");
+        sb.append("        public Builder filterProvider(Object fp) { return this; }\n");
+        sb.append("        public Builder serializerFactory(Object sf) { return this; }\n");
+        sb.append("        public Builder defaultPrettyPrinter(Object pp) { return this; }\n");
+        sb.append("        public Builder injectableValues(Object iv) { return this; }\n");
+        sb.append("        public Builder nodeFactory(Object nf) { return this; }\n");
+        sb.append("        public Builder constructorDetector(Object cd) { return this; }\n");
+        sb.append("        public Builder cacheProvider(Object cp) { return this; }\n");
+        sb.append("        public Builder annotationIntrospector(Object ai) { return this; }\n");
+        sb.append("        public Builder typeFactory(Object tf) { return this; }\n");
+        sb.append("        public Builder subtypeResolver(Object sr) { return this; }\n");
+        sb.append("        public Builder visibility(Object... v) { return this; }\n");
+        sb.append("        public Builder handlerInstantiator(Object hi) { return this; }\n");
+        sb.append("        public Builder propertyNamingStrategy(Object s) { return this; }\n");
+        sb.append("        public Builder enumNamingStrategy(Object s) { return this; }\n");
+        sb.append("        public Builder accessorNaming(Object p) { return this; }\n");
+        sb.append("        public Builder polymorphicTypeValidator(Object v) { return this; }\n");
+        sb.append("        public Builder defaultDateFormat(Object df) { return this; }\n");
+        sb.append("        public Builder defaultTimeZone(java.util.TimeZone tz) { return this; }\n");
+        sb.append("        public Builder defaultLocale(java.util.Locale l) { return this; }\n");
+        sb.append("        public Builder defaultBase64Variant(Object v) { return this; }\n");
+        sb.append("        public Builder defaultAttributes(Object a) { return this; }\n");
+        sb.append("        public Builder defaultPropertyInclusion(Object v) { return this; }\n");
+        sb.append("        public Builder serializationInclusion(com.fasterxml.jackson.annotation.JsonInclude.Include incl) { return this; }\n");
+        sb.append("        public Builder defaultSetterInfo(Object v) { return this; }\n");
+        sb.append("        public Builder defaultMergeable(Object m) { return this; }\n");
+        sb.append("        public Builder defaultLeniency(Object l) { return this; }\n");
+
+        // Stubs for unknown methods so the template compiles
+        Set<String> addedMethods = new HashSet<>();
+        for (J.MethodInvocation mi : unknownSetters) {
+            String name = mi.getName().getSimpleName();
+            if (addedMethods.add(name)) {
+                List<Expression> callArgs = new ArrayList<>();
+                for (Expression arg : mi.getArguments()) {
+                    if (!(arg instanceof J.Empty)) {
+                        callArgs.add(arg);
+                    }
+                }
+                sb.append("        public Builder ").append(name).append("(");
+                for (int i = 0; i < callArgs.size(); i++) {
+                    if (i > 0) sb.append(", ");
+                    sb.append(stubTypeName(callArgs.get(i))).append(" arg").append(i);
+                }
+                sb.append(") { return this; }\n");
+            }
+        }
+
+        sb.append("        public ").append(simpleName).append(" build() { return null; }\n");
+        sb.append("    }\n");
+        sb.append("}\n");
+        return sb.toString();
+    }
+
+    private static String stubTypeName(Expression arg) {
+        JavaType type = arg.getType();
+        if (type instanceof JavaType.Primitive) {
+            JavaType.Primitive p = (JavaType.Primitive) type;
+            if (p == JavaType.Primitive.Null || p == JavaType.Primitive.None) {
+                return "Object";
+            }
+            return p.getKeyword();
+        }
+        JavaType.FullyQualified fq = TypeUtils.asFullyQualified(type);
+        if (fq != null) {
+            return fq.getFullyQualifiedName();
+        }
+        return "Object";
     }
 
     /**
