@@ -13,7 +13,7 @@ dependencies {
     implementation("org.openrewrite:rewrite-properties")
     implementation("org.openrewrite:rewrite-yaml")
     implementation("org.openrewrite.recipe:rewrite-java-dependencies:$rewriteVersion")
-    implementation("org.openrewrite.recipe:rewrite-static-analysis:${rewriteVersion}")
+
 
     annotationProcessor("org.openrewrite:rewrite-templating:$rewriteVersion")
     implementation("org.openrewrite:rewrite-templating:$rewriteVersion")

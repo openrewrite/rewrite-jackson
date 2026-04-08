@@ -25,7 +25,7 @@ import org.openrewrite.java.search.SemanticallyEqual;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.*;
 import org.openrewrite.marker.Markers;
-import org.openrewrite.staticanalysis.InlineVariable;
+
 
 import java.util.*;
 
@@ -222,8 +222,6 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             toRemove.add(setter.getId());
                         }
 
-                        doAfterVisit(new InlineVariable().getVisitor());
-                        // Kotlin-aware inlining: InlineVariable doesn't handle K.Property/K.Return wrappers
                         doAfterVisit(inlineWrappedVariable());
                         // Clean up empty init blocks after setter removal
                         doAfterVisit(removeEmptyInitBlocks());
@@ -404,7 +402,6 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                         toRemove.add(setter.getId());
                                     }
 
-                                    doAfterVisit(new InlineVariable().getVisitor());
                                     doAfterVisit(inlineWrappedVariable());
                                     doAfterVisit(removeEmptyInitBlocks());
                                 }
@@ -795,8 +792,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
     }
 
     /**
-     * Inline a variable declaration into a following return statement, handling Kotlin
-     * wrapper types ({@code K.Property}, {@code K.Return}) that {@link InlineVariable} does not support.
+     * Inline a variable declaration into a following return statement, handling both
+     * Java and Kotlin wrapper types ({@code K.Property}, {@code K.Return}).
      */
     private static JavaIsoVisitor<ExecutionContext> inlineWrappedVariable() {
         return new JavaIsoVisitor<ExecutionContext>() {
