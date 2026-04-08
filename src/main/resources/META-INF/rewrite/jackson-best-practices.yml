@@ -25,9 +25,61 @@ recipeList:
   # Remove redundant @JsonProperty annotations
   - org.openrewrite.java.jackson.RemoveRedundantJsonPropertyValue
 
+  # Replace deprecated PropertyNamingStrategy inner classes and constants
+  - org.openrewrite.java.jackson.ReplacePropertyNamingStrategyConstants
+
   # Upgrade to Jackson 2.x
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
       groupId: com.fasterxml.jackson*
       artifactId: "*"
       newVersion: 2.x
       overrideManagedVersion: false
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.jackson.ReplacePropertyNamingStrategyConstants
+displayName: Replace deprecated `PropertyNamingStrategy` inner classes and constants
+description: >-
+  Replace usages of deprecated `PropertyNamingStrategy` inner classes and constants with their
+  `PropertyNamingStrategies` equivalents, introduced in Jackson 2.12.
+tags:
+  - jackson-2
+recipeList:
+  # Inner class type changes
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.PropertyNamingStrategy.SnakeCaseStrategy
+      newFullyQualifiedTypeName: com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.PropertyNamingStrategy.UpperCamelCaseStrategy
+      newFullyQualifiedTypeName: com.fasterxml.jackson.databind.PropertyNamingStrategies.UpperCamelCaseStrategy
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.PropertyNamingStrategy.LowerCamelCaseStrategy
+      newFullyQualifiedTypeName: com.fasterxml.jackson.databind.PropertyNamingStrategies.LowerCamelCaseStrategy
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.PropertyNamingStrategy.KebabCaseStrategy
+      newFullyQualifiedTypeName: com.fasterxml.jackson.databind.PropertyNamingStrategies.KebabCaseStrategy
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.PropertyNamingStrategy.LowerDotCaseStrategy
+      newFullyQualifiedTypeName: com.fasterxml.jackson.databind.PropertyNamingStrategies.LowerDotCaseStrategy
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.PropertyNamingStrategy.LowerCaseStrategy
+      newFullyQualifiedTypeName: com.fasterxml.jackson.databind.PropertyNamingStrategies.LowerCaseStrategy
+  # Constant field changes
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.databind.PropertyNamingStrategy.SNAKE_CASE
+      fullyQualifiedConstantName: com.fasterxml.jackson.databind.PropertyNamingStrategies.SNAKE_CASE
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.databind.PropertyNamingStrategy.UPPER_CAMEL_CASE
+      fullyQualifiedConstantName: com.fasterxml.jackson.databind.PropertyNamingStrategies.UPPER_CAMEL_CASE
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.databind.PropertyNamingStrategy.LOWER_CAMEL_CASE
+      fullyQualifiedConstantName: com.fasterxml.jackson.databind.PropertyNamingStrategies.LOWER_CAMEL_CASE
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.databind.PropertyNamingStrategy.LOWER_CASE
+      fullyQualifiedConstantName: com.fasterxml.jackson.databind.PropertyNamingStrategies.LOWER_CASE
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.databind.PropertyNamingStrategy.KEBAB_CASE
+      fullyQualifiedConstantName: com.fasterxml.jackson.databind.PropertyNamingStrategies.KEBAB_CASE
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.databind.PropertyNamingStrategy.LOWER_DOT_CASE
+      fullyQualifiedConstantName: com.fasterxml.jackson.databind.PropertyNamingStrategies.LOWER_DOT_CASE
