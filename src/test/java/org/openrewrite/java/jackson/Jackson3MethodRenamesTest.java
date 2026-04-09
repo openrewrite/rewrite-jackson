@@ -501,4 +501,150 @@ class Jackson3MethodRenamesTest implements RewriteTest {
           )
         );
     }
+
+    @Test
+    void objectNodeMethods() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.JsonNode;
+              import com.fasterxml.jackson.databind.node.ObjectNode;
+              import java.util.Iterator;
+              import java.util.List;
+              import java.util.Map;
+
+              class Test {
+                  void test(ObjectNode node) {
+                      String text = node.asText();
+                      Iterator<JsonNode> elements = node.elements();
+                      Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
+                      Iterator<String> names = node.fieldNames();
+                      List<String> textValues = node.findValuesAsText("mango");
+                      boolean isContainer = node.isContainerNode();
+                      boolean isString = node.isTextual();
+                      String textValue = node.textValue();
+                      var modifiedNode = node.with("pineapple");
+                  }
+              }
+              """,
+            """
+              import tools.jackson.databind.JsonNode;
+              import tools.jackson.databind.node.ObjectNode;
+              import java.util.Iterator;
+              import java.util.List;
+              import java.util.Map;
+
+              class Test {
+                  void test(ObjectNode node) {
+                      String text = node.asString();
+                      Iterator<JsonNode> elements = node.values().iterator();
+                      Iterator<Map.Entry<String, JsonNode>> fields = node.properties().iterator();
+                      Iterator<String> names = node.propertyNames().iterator();
+                      List<String> textValues = node.findValuesAsString("mango");
+                      boolean isContainer = node.isContainer();
+                      boolean isString = node.isString();
+                      String textValue = node.asString();
+                      var modifiedNode = node.withObject("pineapple");
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void objectNodePutJsonNode() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.JsonNode;
+              import com.fasterxml.jackson.databind.node.ObjectNode;
+
+              class Test {
+                  void test(ObjectNode node, JsonNode value) {
+                      node.put("key", value);
+                  }
+              }
+              """,
+            """
+              import tools.jackson.databind.JsonNode;
+              import tools.jackson.databind.node.ObjectNode;
+
+              class Test {
+                  void test(ObjectNode node, JsonNode value) {
+                      node.set("key", value);
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void objectNodePutAll() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.JsonNode;
+              import com.fasterxml.jackson.databind.node.ObjectNode;
+              import java.util.Map;
+
+              class Test {
+                  void test(ObjectNode node, ObjectNode other, Map<String, JsonNode> map) {
+                      node.putAll(other);
+                      node.putAll(map);
+                  }
+              }
+              """,
+            """
+              import tools.jackson.databind.JsonNode;
+              import tools.jackson.databind.node.ObjectNode;
+              import java.util.Map;
+
+              class Test {
+                  void test(ObjectNode node, ObjectNode other, Map<String, JsonNode> map) {
+                      node.setAll(other);
+                      node.setAll(map);
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void objectNodePutPrimitiveUnchanged() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.node.ObjectNode;
+
+              class Test {
+                  void test(ObjectNode node) {
+                      node.put("key", 42);
+                      node.put("key", "value");
+                      node.put("key", true);
+                      node.put("key", 3.14);
+                  }
+              }
+              """,
+            """
+              import tools.jackson.databind.node.ObjectNode;
+
+              class Test {
+                  void test(ObjectNode node) {
+                      node.put("key", 42);
+                      node.put("key", "value");
+                      node.put("key", true);
+                      node.put("key", 3.14);
+                  }
+              }
+              """
+          )
+        );
+    }
 }

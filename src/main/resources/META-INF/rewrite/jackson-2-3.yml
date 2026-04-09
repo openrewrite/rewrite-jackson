@@ -393,6 +393,7 @@ recipeList:
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_JsonGeneratorMethodRenames
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_JsonParserMethodRenames
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_JsonNodeMethodRenames
+  - org.openrewrite.java.jackson.UpgradeJackson_2_3_ObjectNodeMethodRenames
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: com.fasterxml.jackson.databind.type.TypeFactory defaultInstance()
       newMethodName: createDefaultInstance
@@ -515,22 +516,43 @@ recipeList:
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: com.fasterxml.jackson.databind.JsonNode asText(..)
       newMethodName: asString
+      matchOverrides: true
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: com.fasterxml.jackson.databind.JsonNode findValuesAsText(..)
       newMethodName: findValuesAsString
+      matchOverrides: true
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: com.fasterxml.jackson.databind.JsonNode isContainerNode()
       newMethodName: isContainer
+      matchOverrides: true
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: com.fasterxml.jackson.databind.JsonNode isTextual()
       newMethodName: isString
+      matchOverrides: true
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: com.fasterxml.jackson.databind.JsonNode textValue()
       newMethodName: asString
+      matchOverrides: true
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: com.fasterxml.jackson.databind.JsonNode with(..)
       newMethodName: withObject
+      matchOverrides: true
   - org.openrewrite.java.jackson.Jackson3JsonNodeFieldIterators
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.jackson.UpgradeJackson_2_3_ObjectNodeMethodRenames
+displayName: Rename Jackson 2.x methods to 3.x equivalents for ObjectNode
+description: Rename ObjectNode methods deprecated in Jackson 2 and removed in 3.x (`put(String, JsonNode)` to `set`, `putAll` to `setAll`).
+tags:
+  - jackson-3
+recipeList:
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.databind.node.ObjectNode put(String, com.fasterxml.jackson.databind.JsonNode)
+      newMethodName: set
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.databind.node.ObjectNode putAll(..)
+      newMethodName: setAll
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
