@@ -30,9 +30,9 @@ import org.openrewrite.java.tree.Space;
 
 public class Jackson3JsonNodeFieldIterators extends Recipe {
 
-    private static final MethodMatcher FIELDS = new MethodMatcher("com.fasterxml.jackson.databind.JsonNode fields()");
-    private static final MethodMatcher FIELDS_NAMES = new MethodMatcher("com.fasterxml.jackson.databind.JsonNode fieldNames()");
-    private static final MethodMatcher ELEMENTS = new MethodMatcher("com.fasterxml.jackson.databind.JsonNode elements()");
+    private static final MethodMatcher FIELDS = new MethodMatcher("com.fasterxml.jackson.databind.JsonNode fields()", true);
+    private static final MethodMatcher FIELDS_NAMES = new MethodMatcher("com.fasterxml.jackson.databind.JsonNode fieldNames()", true);
+    private static final MethodMatcher ELEMENTS = new MethodMatcher("com.fasterxml.jackson.databind.JsonNode elements()", true);
 
     @Getter
     final String displayName = "Migrate `JSONNode` field iterator for Jackson 3";
@@ -54,15 +54,15 @@ public class Jackson3JsonNodeFieldIterators extends Recipe {
                         J.MethodInvocation mi = super.visitMethodInvocation(method, ctx);
 
                         if (FIELDS.matches(mi)) {
-                            doAfterVisit(new ChangeMethodName("com.fasterxml.jackson.databind.JsonNode fields()", "properties", null, null).getVisitor());
+                            doAfterVisit(new ChangeMethodName("com.fasterxml.jackson.databind.JsonNode fields()", "properties", true, null).getVisitor());
                             return addCallToChain("java.util.Collections.<String, JsonNode>emptyMap().entrySet().iterator()", mi);
                         }
                         if (FIELDS_NAMES.matches(mi)) {
-                            doAfterVisit(new ChangeMethodName("com.fasterxml.jackson.databind.JsonNode fieldNames()", "propertyNames", null, null).getVisitor());
+                            doAfterVisit(new ChangeMethodName("com.fasterxml.jackson.databind.JsonNode fieldNames()", "propertyNames", true, null).getVisitor());
                             return addCallToChain("java.util.Collections.<String>emptySet().iterator()", mi);
                         }
                         if (ELEMENTS.matches(mi)) {
-                            doAfterVisit(new ChangeMethodName("com.fasterxml.jackson.databind.JsonNode elements()", "values", null, null).getVisitor());
+                            doAfterVisit(new ChangeMethodName("com.fasterxml.jackson.databind.JsonNode elements()", "values", true, null).getVisitor());
                             return addCallToChain("java.util.Collections.<JsonNode>emptySet().iterator()", mi);
                         }
 
