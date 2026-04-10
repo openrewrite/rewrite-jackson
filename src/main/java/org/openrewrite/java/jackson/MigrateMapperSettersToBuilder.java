@@ -26,7 +26,6 @@ import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.*;
 import org.openrewrite.marker.Markers;
 
-
 import java.util.*;
 
 import static java.util.Collections.emptyList;
@@ -163,8 +162,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                 new JavaVisitor<ExecutionContext>() {
 
                     @Override
-                    public J visitBlock(J.Block block, ExecutionContext executionContext) {
-                        J visited = super.visitBlock(block, executionContext);
+                    public J visitBlock(J.Block block, ExecutionContext ctx) {
+                        J visited = super.visitBlock(block, ctx);
                         if (visited != block) {
                             doAfterVisit(new UpdateSerializationInclusionConfiguration().getVisitor());
                             doAfterVisit(new UpdateAutoDetectVisibilityConfiguration().getVisitor());
@@ -718,7 +717,9 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                 }
                 sb.append("        public Builder ").append(name).append("(");
                 for (int i = 0; i < callArgs.size(); i++) {
-                    if (i > 0) sb.append(", ");
+                    if (i > 0) {
+                        sb.append(", ");
+                    }
                     sb.append(stubTypeName(callArgs.get(i))).append(" arg").append(i);
                 }
                 sb.append(") { return this; }\n");

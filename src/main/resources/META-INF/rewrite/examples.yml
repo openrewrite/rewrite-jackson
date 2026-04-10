@@ -131,6 +131,42 @@ examples:
     language: java
 ---
 type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.jackson.CommentOutSimpleModuleMethodCalls
+examples:
+- description: '`CommentOutSimpleModuleMethodCallsTest#addCommentToAddSerializerOnJodaModule`'
+  sources:
+  - before: |
+      import com.fasterxml.jackson.databind.JsonSerializer;
+      import com.fasterxml.jackson.datatype.joda.JodaModule;
+
+      class Test {
+          void configure(JsonSerializer<String> serializer) {
+              JodaModule module = new JodaModule();
+              module.addSerializer(String.class, serializer);
+          }
+      }
+    after: |
+      import com.fasterxml.jackson.databind.JsonSerializer;
+      import com.fasterxml.jackson.datatype.joda.JodaModule;
+
+      class Test {
+          void configure(JsonSerializer<String> serializer) {
+              JodaModule module = new JodaModule();
+              /* TODO this module no longer extends SimpleModule in Jackson 3,
+               * so addSerializer/addDeserializer calls are no longer available.
+               * Move this call to a new SimpleModule and register it separately:
+               *   SimpleModule customModule = new SimpleModule();
+               *   customModule.addSerializer(...);
+               *   mapper.registerModule(customModule);
+               * Note: register the custom module AFTER the original module,
+               * as the last registered serializer for a given type wins.
+               */
+              module.addSerializer(String.class, serializer);
+          }
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.IOExceptionToJacksonException
 examples:
 - description: '`IOExceptionToJacksonExceptionTest#objectMapperReadValue`'
@@ -168,6 +204,30 @@ examples:
 type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.MigrateMapperSettersToBuilder
 examples:
+- description: '`KotlinMigrateMapperSettersToBuilderTest#fluentChainInFunction`'
+  sources:
+  - before: |
+      import com.fasterxml.jackson.databind.SerializationFeature
+      import com.fasterxml.jackson.databind.json.JsonMapper
+
+      class A {
+          fun create(): JsonMapper {
+              return JsonMapper()
+                  .disable(SerializationFeature.INDENT_OUTPUT)
+          }
+      }
+    after: |
+      import com.fasterxml.jackson.databind.SerializationFeature
+      import com.fasterxml.jackson.databind.json.JsonMapper
+
+      class A {
+          fun create(): JsonMapper {
+              return JsonMapper.builder()
+                  .disable(SerializationFeature.INDENT_OUTPUT)
+                  .build()
+          }
+      }
+    language: kotlin
 - description: '`MigrateMapperSettersToBuilderTest#allSettersMigratedToBuilder`'
   sources:
   - before: |
@@ -353,7 +413,7 @@ examples:
                       .defaultLocale(Locale.US)
                       .defaultBase64Variant(Base64Variants.MIME)
                       .defaultAttributes(attributes)
-                      .defaultPropertyInclusion(JsonInclude.Value.empty())
+                      .changeDefaultPropertyInclusion(incl -> JsonInclude.Value.empty())
                       .defaultSetterInfo(JsonSetter.Value.empty())
                       .defaultMergeable(Boolean.TRUE)
                       .defaultLeniency(Boolean.TRUE)
@@ -466,6 +526,25 @@ examples:
     language: java
 ---
 type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.jackson.ReplacePropertyNamingStrategyConstants
+examples:
+- description: '`ReplacePropertyNamingStrategyConstantsTest#replaceSnakeCaseStrategy`'
+  sources:
+  - before: |
+      import com.fasterxml.jackson.databind.PropertyNamingStrategy;
+
+      class Test {
+          PropertyNamingStrategy.SnakeCaseStrategy strategy = new PropertyNamingStrategy.SnakeCaseStrategy();
+      }
+    after: |
+      import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
+
+      class Test {
+          SnakeCaseStrategy strategy = new SnakeCaseStrategy();
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.ReplaceStreamWriteCapability
 examples:
 - description: '`ReplaceStreamWriteCapabilityTest#replaceCanWriteBinaryNatively`'
@@ -514,6 +593,35 @@ examples:
               } catch (RuntimeException e) {
                   e.printStackTrace();
               }
+          }
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.jackson.UpdateAutoDetectVisibilityConfiguration
+examples:
+- description: '`UpdateAutoDetectVisibilityConfigurationTest#disableAutoDetectFields`'
+  sources:
+  - before: |
+      import com.fasterxml.jackson.databind.MapperFeature;
+      import com.fasterxml.jackson.databind.json.JsonMapper;
+
+      class Test {
+          void configure() {
+              JsonMapper.builder()
+                .disable(MapperFeature.AUTO_DETECT_FIELDS)
+                .build();
+          }
+      }
+    after: |
+      import com.fasterxml.jackson.annotation.JsonAutoDetect;
+      import com.fasterxml.jackson.databind.json.JsonMapper;
+
+      class Test {
+          void configure() {
+              JsonMapper.builder()
+                .changeDefaultVisibility(vc -> vc.withFieldVisibility(JsonAutoDetect.Visibility.NONE))
+                .build();
           }
       }
     language: java

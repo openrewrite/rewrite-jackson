@@ -34,18 +34,6 @@ class CommentOutSimpleModuleMethodCallsTest implements RewriteTest {
               "jackson-core-2", "jackson-databind-2", "jackson-datatype-joda-2"));
     }
 
-    private static final String TODO_COMMENT = """
-                      /* TODO this module no longer extends SimpleModule in Jackson 3,
-                       * so addSerializer/addDeserializer calls are no longer available.
-                       * Move this call to a new SimpleModule and register it separately:
-                       *   SimpleModule customModule = new SimpleModule();
-                       *   customModule.addSerializer(...);
-                       *   mapper.registerModule(customModule);
-                       * Note: register the custom module AFTER the original module,
-                       * as the last registered serializer for a given type wins.
-                       */
-            """.stripTrailing();
-
     @DocumentExample
     @Test
     void addCommentToAddSerializerOnJodaModule() {

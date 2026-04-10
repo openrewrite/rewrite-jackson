@@ -96,8 +96,8 @@ public class UpdateAutoDetectVisibilityConfiguration extends Recipe {
                                         mi.getCoordinates().replace(),
                                         mi.getSelect());
                         result = result.getPadding().withSelect(JRightPadded.build(result.getSelect()).withAfter(mi.getPadding().getSelect().getAfter()));
-                        maybeAddImport("com.fasterxml.jackson.annotation.JsonAutoDetect");
                         maybeRemoveImport("com.fasterxml.jackson.databind.MapperFeature");
+                        maybeAddImport("com.fasterxml.jackson.annotation.JsonAutoDetect");
                         return fixKotlinLambdaParameterTypeAndBodySpacing(result);
                     }
 
