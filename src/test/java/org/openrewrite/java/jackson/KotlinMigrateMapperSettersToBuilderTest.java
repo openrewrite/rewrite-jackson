@@ -302,7 +302,8 @@ class KotlinMigrateMapperSettersToBuilderTest implements RewriteTest {
                   fun mapper(): ObjectMapper = jacksonMapperBuilder()
                       .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
                       .build()
-                      .apply(){
+                      // TODO This .apply {} now runs on the immutable JsonMapper returned by .build(); any setter calls inside it will fail at runtime. Move them into the builder chain above.
+                      .apply {
                           this.setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL)
                           println("configured")
                       }

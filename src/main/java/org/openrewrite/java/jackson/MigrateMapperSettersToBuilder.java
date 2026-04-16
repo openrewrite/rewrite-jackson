@@ -643,24 +643,6 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         }
                         templateCode.append("\n.build()");
 
-                        // Append any non-setter calls that follow the known setters
-                        for (J.MethodInvocation suffix : suffixCalls) {
-                            templateCode.append("\n.").append(suffix.getName().getSimpleName()).append("(");
-                            boolean first = true;
-                            for (Expression arg : suffix.getArguments()) {
-                                if (arg instanceof J.Empty) {
-                                    continue;
-                                }
-                                if (!first) {
-                                    templateCode.append(", ");
-                                }
-                                first = false;
-                                templateCode.append("#{any()}");
-                                templateArgs.add(arg);
-                            }
-                            templateCode.append(")");
-                        }
-
                         boolean useKotlinFactory = builderEntry != null &&
                                 builderEntry.startsWith(JACKSON_MAPPER_BUILDER_NAME);
                         if (useKotlinFactory) {
@@ -687,9 +669,27 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         if (useKotlinFactory) {
                             templateBuilder = templateBuilder.staticImports(JACKSON_MAPPER_BUILDER_FQN);
                         }
-                        return templateBuilder
+                        J built = templateBuilder
                                 .build()
                                 .apply(getCursor(), coordinates, templateArgs.toArray());
+
+                        // Reattach non-setter calls that followed the known setters by swapping
+                        // each suffix's select to the previous result. Keeping the original
+                        // J.MethodInvocation nodes preserves formatting details the JavaTemplate
+                        // cannot round-trip (e.g. Kotlin trailing-lambda syntax on `.apply { }`).
+                        // Strip the template result's prefix: the outermost suffix already owns
+                        // the outer whitespace (it was the outermost MI before rewrite), so
+                        // keeping the prefix on `built` would double the leading space.
+                        if (suffixCalls.isEmpty() || !(built instanceof Expression)) {
+                            return built;
+                        }
+                        Expression chained = ((Expression) built).withPrefix(Space.EMPTY);
+                        for (J.MethodInvocation suffix : suffixCalls) {
+                            J.MethodInvocation annotated = isApplyBlock(suffix) ?
+                                    addApplyTodoComment(suffix, simpleMapperName) : suffix;
+                            chained = annotated.withSelect(chained);
+                        }
+                        return chained;
                     }
                 }
         );
@@ -906,6 +906,49 @@ public class MigrateMapperSettersToBuilder extends Recipe {
             return fq.getFullyQualifiedName();
         }
         return "Object";
+    }
+
+    /**
+     * True if {@code call} is a Kotlin scope function {@code .apply { ... }} invocation
+     * (single-argument lambda). Does not inspect the body — used to decide whether a
+     * preserved suffix call warrants a semantic-shift TODO comment.
+     */
+    private static boolean isApplyBlock(J.MethodInvocation call) {
+        return "apply".equals(call.getName().getSimpleName()) &&
+                call.getArguments().size() == 1 &&
+                call.getArguments().get(0) instanceof J.Lambda;
+    }
+
+    /**
+     * Attach a TODO comment before a preserved {@code .apply { ... }} suffix call. In
+     * Jackson 2 the block ran on the mutable mapper mid-chain, so setter calls inside
+     * took effect. In Jackson 3 the same block runs on the built, immutable mapper —
+     * any mutator calls inside will throw at runtime. The comment warns the reader to
+     * move setter calls into the builder chain.
+     * <p>
+     * The comment is placed in the whitespace after the select (i.e. between the
+     * previous call and the {@code .}) so it renders on its own line directly above
+     * {@code .apply} rather than bubbling up to the start of the whole expression.
+     */
+    private static J.MethodInvocation addApplyTodoComment(J.MethodInvocation apply, String simpleMapperName) {
+        String commentText = String.format(
+                " TODO This .apply {} now runs on the immutable %s returned by .build(); " +
+                        "any setter calls inside it will fail at runtime. Move them into the builder chain above.",
+                simpleMapperName);
+        JRightPadded<Expression> selectPad = apply.getPadding().getSelect();
+        if (selectPad == null) {
+            return apply;
+        }
+        Space after = selectPad.getAfter();
+        for (Comment existing : after.getComments()) {
+            if (existing instanceof TextComment &&
+                    ((TextComment) existing).getText().trim().equals(commentText.trim())) {
+                return apply;
+            }
+        }
+        TextComment comment = new TextComment(false, commentText, after.getWhitespace(), Markers.EMPTY);
+        Space newAfter = after.withComments(ListUtils.concat(after.getComments(), comment));
+        return apply.getPadding().withSelect(selectPad.withAfter(newAfter));
     }
 
     /**
