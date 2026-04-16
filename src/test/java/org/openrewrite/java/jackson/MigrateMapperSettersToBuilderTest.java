@@ -1238,11 +1238,11 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
                 """
                   import java.util.Map;
                   import com.fasterxml.jackson.core.JsonProcessingException;
-                  import com.fasterxml.jackson.databind.ObjectMapper;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
 
                   class A {
                       String convert(Map<String, Object> customPropertyMap) {
-                          ObjectMapper mapper = new ObjectMapper();
+                          JsonMapper mapper = new JsonMapper();
                           String customProperties;
                           try {
                               customProperties = mapper.writeValueAsString(customPropertyMap);
