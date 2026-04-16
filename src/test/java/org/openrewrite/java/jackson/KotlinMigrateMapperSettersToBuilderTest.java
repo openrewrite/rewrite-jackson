@@ -23,6 +23,7 @@ import org.openrewrite.Issue;
 import org.openrewrite.kotlin.KotlinParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
+import org.openrewrite.test.TypeValidation;
 
 import static org.openrewrite.kotlin.Assertions.kotlin;
 
@@ -142,6 +143,46 @@ class KotlinMigrateMapperSettersToBuilderTest implements RewriteTest {
                               .build()
                       }
                   }
+                  """
+              )
+            );
+        }
+    }
+
+    @Nested
+    class JacksonObjectMapperFactory {
+
+        @Test
+        void fluentChainOnJacksonObjectMapper() {
+            rewriteRun(
+              spec -> spec
+                .parser(KotlinParser.builder()
+                  .classpathFromResources(new InMemoryExecutionContext(),
+                    "jackson-annotations-2", "jackson-core-2", "jackson-databind-2",
+                    "jackson-module-kotlin-2"))
+                .typeValidationOptions(TypeValidation.builder().methodInvocations(false).build()),
+              //language=kotlin
+              kotlin(
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude
+                  import com.fasterxml.jackson.databind.DeserializationFeature
+                  import com.fasterxml.jackson.databind.ObjectMapper
+                  import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+
+                  fun mapper(): ObjectMapper = jacksonObjectMapper()
+                      .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
+                      .setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL)
+                  """,
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude
+                  import com.fasterxml.jackson.databind.DeserializationFeature
+                  import com.fasterxml.jackson.databind.ObjectMapper
+                  import com.fasterxml.jackson.module.kotlin.jacksonMapperBuilder
+
+                  fun mapper(): ObjectMapper = jacksonMapperBuilder()
+                      .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
+                      .changeDefaultPropertyInclusion({ incl -> incl.withContentInclusion(JsonInclude.Include.NON_NULL).withValueInclusion(JsonInclude.Include.NON_NULL)})
+                      .build()
                   """
               )
             );

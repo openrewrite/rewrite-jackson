@@ -22,6 +22,7 @@ import org.openrewrite.*;
 import org.openrewrite.internal.ListUtils;
 import org.openrewrite.java.*;
 import org.openrewrite.java.search.SemanticallyEqual;
+import org.openrewrite.java.search.UsesMethod;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.*;
 import org.openrewrite.marker.Markers;
@@ -63,6 +64,21 @@ public class MigrateMapperSettersToBuilder extends Recipe {
 
     private static final String INVOCATIONS_TO_REMOVE = "INVOCATIONS_TO_REMOVE";
     private static final String JSON_INCLUDE = "com.fasterxml.jackson.annotation.JsonInclude";
+
+    /**
+     * Kotlin top-level extension function {@code com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()}
+     * that returns a {@link com.fasterxml.jackson.databind.ObjectMapper} pre-configured with the Kotlin module.
+     * Treated as an alternate fluent-chain root equivalent to {@code new JsonMapper()}; emits
+     * {@code jacksonMapperBuilder()} from the same Kotlin extensions package so the implicit
+     * Kotlin module registration is preserved.
+     */
+    private static final String KOTLIN_EXTENSIONS_PACKAGE = "com.fasterxml.jackson.module.kotlin";
+    private static final String KOTLIN_EXTENSIONS_FQN = KOTLIN_EXTENSIONS_PACKAGE + ".ExtensionsKt";
+    private static final String JACKSON_MAPPER_BUILDER_FQN = KOTLIN_EXTENSIONS_FQN + ".jacksonMapperBuilder";
+    private static final String JACKSON_OBJECT_MAPPER_NAME = "jacksonObjectMapper";
+    private static final String JACKSON_MAPPER_BUILDER_NAME = "jacksonMapperBuilder";
+    private static final MethodMatcher JACKSON_OBJECT_MAPPER_MATCHER =
+            new MethodMatcher(KOTLIN_EXTENSIONS_FQN + " " + JACKSON_OBJECT_MAPPER_NAME + "()");
 
     @RequiredArgsConstructor
     enum SetterToBuilderMapping {
@@ -154,11 +170,15 @@ public class MigrateMapperSettersToBuilder extends Recipe {
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
-        TreeVisitor<?, ExecutionContext>[] preconditions = ALL_MAPPERS.stream()
-                .map(m -> new UsesType<>(m, false))
-                .toArray(TreeVisitor[]::new);
+        List<TreeVisitor<?, ExecutionContext>> preconditions = new ArrayList<>();
+        for (String mapper : ALL_MAPPERS) {
+            preconditions.add(new UsesType<>(mapper, false));
+        }
+        // Kotlin extension function jacksonObjectMapper() returns ObjectMapper but is the
+        // only signal that the chain should migrate; match it as an additional precondition.
+        preconditions.add(new UsesMethod<>(KOTLIN_EXTENSIONS_FQN + " " + JACKSON_OBJECT_MAPPER_NAME + "()", false));
         return Preconditions.check(
-                Preconditions.or(preconditions),
+                Preconditions.or(preconditions.toArray(new TreeVisitor[0])),
                 new JavaVisitor<ExecutionContext>() {
 
                     @Override
@@ -225,7 +245,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         // Clean up empty init blocks after setter removal
                         doAfterVisit(removeEmptyInitBlocks());
 
-                        return applyBuilderTemplate(mapperFqn, builderSetters, null, emptyList(),
+                        return applyBuilderTemplate(mapperFqn, null, builderSetters, null, emptyList(),
                                 nc.getCoordinates().replace(), ctx);
                     }
 
@@ -355,13 +375,14 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                      * that follow the assignment and folds them into the builder.
                      */
                     private @Nullable J tryMigrateFluentChain(J.MethodInvocation mi, ExecutionContext ctx) {
-                        String[] mapperHolder = new String[1];
+                        String[] mapperHolder = new String[2];
                         List<J.MethodInvocation> chainCalls = collectFluentChain(mi, mapperHolder);
                         if (chainCalls == null) {
                             return null;
                         }
 
                         String mapperFqn = mapperHolder[0];
+                        String builderEntry = mapperHolder[1];
 
                         // Split chain into known setters (prefix) and remaining calls (suffix)
                         List<J.MethodInvocation> setterCalls = new ArrayList<>();
@@ -419,7 +440,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             }
                         }
 
-                        return applyBuilderTemplate(mapperFqn, setterCalls, mappings, suffixCalls,
+                        return applyBuilderTemplate(mapperFqn, builderEntry, setterCalls, mappings, suffixCalls,
                                 mi.getCoordinates().replace(), ctx);
                     }
 
@@ -539,12 +560,14 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                     /**
                      * Builds and applies the {@code Mapper.builder()...build()} template for a list of setter calls.
                      */
-                    private J applyBuilderTemplate(String mapperFqn, List<J.MethodInvocation> setters,
+                    private J applyBuilderTemplate(String mapperFqn, @Nullable String builderEntry,
+                                                   List<J.MethodInvocation> setters,
                                                    @Nullable List<SetterToBuilderMapping> resolvedMappings,
                                                    List<J.MethodInvocation> suffixCalls,
                                                    JavaCoordinates coordinates, ExecutionContext ctx) {
                         String simpleMapperName = mapperFqn.substring(mapperFqn.lastIndexOf('.') + 1);
-                        StringBuilder templateCode = new StringBuilder(simpleMapperName + ".builder()");
+                        String entryExpr = builderEntry != null ? builderEntry : (simpleMapperName + ".builder()");
+                        StringBuilder templateCode = new StringBuilder(entryExpr);
                         List<Expression> templateArgs = new ArrayList<>();
                         List<J.MethodInvocation> unknownSetters = new ArrayList<>();
                         for (int i = 0; i < setters.size(); i++) {
@@ -595,16 +618,33 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             templateCode.append(")");
                         }
 
-                        maybeAddImport(mapperFqn);
+                        boolean useKotlinFactory = builderEntry != null &&
+                                builderEntry.startsWith(JACKSON_MAPPER_BUILDER_NAME);
+                        if (useKotlinFactory) {
+                            // Kotlin top-level extension functions are imported by their bare name
+                            // (e.g. `import com.fasterxml.jackson.module.kotlin.jacksonMapperBuilder`),
+                            // not as a static member of the synthetic `ExtensionsKt` class.
+                            maybeRemoveImport(KOTLIN_EXTENSIONS_PACKAGE + "." + JACKSON_OBJECT_MAPPER_NAME);
+                            maybeAddImport(KOTLIN_EXTENSIONS_PACKAGE + "." + JACKSON_MAPPER_BUILDER_NAME, false);
+                        } else {
+                            maybeAddImport(mapperFqn);
+                        }
                         maybeAddImport(JSON_INCLUDE);
 
                         JavaParser.Builder<?, ?> parser = JavaParser.fromJavaVersion()
                                 .classpathFromResources(ctx, "jackson-annotations-2", "jackson-core-2", "jackson-databind-2")
                                 .dependsOn(mapperStub(mapperFqn, unknownSetters));
+                        if (useKotlinFactory) {
+                            parser = parser.dependsOn(kotlinExtensionsStub());
+                        }
 
-                        return JavaTemplate.builder(templateCode.toString())
+                        JavaTemplate.Builder templateBuilder = JavaTemplate.builder(templateCode.toString())
                                 .imports(mapperFqn, JSON_INCLUDE)
-                                .javaParser(parser)
+                                .javaParser(parser);
+                        if (useKotlinFactory) {
+                            templateBuilder = templateBuilder.staticImports(JACKSON_MAPPER_BUILDER_FQN);
+                        }
+                        return templateBuilder
                                 .build()
                                 .apply(getCursor(), coordinates, templateArgs.toArray());
                     }
@@ -640,10 +680,14 @@ public class MigrateMapperSettersToBuilder extends Recipe {
     }
 
     /**
-     * Walk the select chain of a method invocation to find a fluent chain rooted at
-     * a format-aligned mapper constructor. Returns the chain calls in innermost-first order
-     * and sets {@code mapperFqnHolder[0]} to the matched mapper FQN,
-     * or returns {@code null} if the chain is not rooted at a mapper constructor.
+     * Walk the select chain of a method invocation to find a fluent chain rooted at either
+     * a format-aligned mapper constructor (e.g. {@code new JsonMapper()}) or a known factory
+     * call (e.g. the Kotlin {@code jacksonObjectMapper()} extension function). Returns the
+     * chain calls in chain order (excluding the root) and sets {@code mapperFqnHolder[0]} to
+     * the matched mapper FQN; sets {@code mapperFqnHolder[1]} to a non-null builder entry
+     * expression (e.g. {@code "jacksonMapperBuilder()"}) when the rewritten output should use
+     * a different builder entry than {@code SimpleName.builder()}. Returns {@code null} if
+     * the chain is not rooted at a recognized mapper.
      */
     private static @Nullable List<J.MethodInvocation> collectFluentChain(J.MethodInvocation mi, String[] mapperFqnHolder) {
         List<J.MethodInvocation> calls = new ArrayList<>();
@@ -660,7 +704,55 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                 return calls;
             }
         }
+        // Kotlin: chains rooted at the top-level extension function jacksonObjectMapper().
+        // The factory call itself is the last element added to `calls` (it has no select).
+        if (current == null && !calls.isEmpty()) {
+            J.MethodInvocation rootCandidate = calls.get(calls.size() - 1);
+            if (isJacksonObjectMapperFactory(rootCandidate)) {
+                calls.remove(calls.size() - 1);
+                mapperFqnHolder[0] = JSON_MAPPER;
+                mapperFqnHolder[1] = JACKSON_MAPPER_BUILDER_NAME + "()";
+                reverse(calls);
+                return calls;
+            }
+        }
         return null;
+    }
+
+    /**
+     * Detect a top-level call to {@code com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()}.
+     * Uses {@link MethodMatcher} when the call has resolved type info; otherwise falls back to
+     * a structural check (no-arg, no select, owner package matches the Kotlin extensions package),
+     * which keeps the recipe usable when type attribution is partial.
+     */
+    private static boolean isJacksonObjectMapperFactory(J.MethodInvocation mi) {
+        if (JACKSON_OBJECT_MAPPER_MATCHER.matches(mi)) {
+            return true;
+        }
+        if (mi.getSelect() != null || !mi.getArguments().isEmpty() && !(mi.getArguments().get(0) instanceof J.Empty)) {
+            return false;
+        }
+        if (!JACKSON_OBJECT_MAPPER_NAME.equals(mi.getName().getSimpleName())) {
+            return false;
+        }
+        JavaType.Method methodType = mi.getMethodType();
+        if (methodType == null || methodType.getDeclaringType() == null) {
+            return false;
+        }
+        return KOTLIN_EXTENSIONS_FQN.equals(methodType.getDeclaringType().getFullyQualifiedName());
+    }
+
+    /**
+     * Stub for {@code com.fasterxml.jackson.module.kotlin.ExtensionsKt} so the JavaTemplate
+     * parser can resolve {@code jacksonMapperBuilder()} as a static method import. The Kotlin
+     * call site renders without the {@code ExtensionsKt} qualifier; the import is rewritten
+     * separately via {@link #maybeAddImport(String, boolean)}.
+     */
+    private static String kotlinExtensionsStub() {
+        return "package com.fasterxml.jackson.module.kotlin;\n" +
+                "public class ExtensionsKt {\n" +
+                "    public static com.fasterxml.jackson.databind.json.JsonMapper.Builder jacksonMapperBuilder() { return null; }\n" +
+                "}\n";
     }
 
     /**
