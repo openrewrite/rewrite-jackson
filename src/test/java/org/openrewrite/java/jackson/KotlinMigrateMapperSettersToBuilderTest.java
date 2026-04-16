@@ -311,6 +311,48 @@ class KotlinMigrateMapperSettersToBuilderTest implements RewriteTest {
               )
             );
         }
+
+        @Test
+        void operationalMethodAtChainTailIsKeptAsSuffix() {
+            // Same bug class as openrewrite/rewrite-jackson#130, but via the fluent-chain path:
+            // a call like writeValueAsString that tails the chain must NOT be folded into the
+            // builder. Our chain-split treats unknown-named calls as suffix; this test locks in
+            // that behavior alongside main's isSetterReturnType gate for standalone calls.
+            rewriteRun(
+              spec -> spec
+                .parser(KotlinParser.builder()
+                  .classpathFromResources(new InMemoryExecutionContext(),
+                    "jackson-annotations-2", "jackson-core-2", "jackson-databind-2",
+                    "jackson-module-kotlin-2"))
+                .typeValidationOptions(TypeValidation.builder().methodInvocations(false).build()),
+              //language=kotlin
+              kotlin(
+                """
+                  import com.fasterxml.jackson.databind.ObjectMapper
+                  import com.fasterxml.jackson.databind.SerializationFeature
+                  import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+
+                  class Serializer(private val source: ObjectMapper) {
+                      fun serialize(value: Any): String = jacksonObjectMapper()
+                          .disable(SerializationFeature.INDENT_OUTPUT)
+                          .writeValueAsString(value)
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.ObjectMapper
+                  import com.fasterxml.jackson.databind.SerializationFeature
+                  import com.fasterxml.jackson.module.kotlin.jacksonMapperBuilder
+
+                  class Serializer(private val source: ObjectMapper) {
+                      fun serialize(value: Any): String = jacksonMapperBuilder()
+                          .disable(SerializationFeature.INDENT_OUTPUT)
+                          .build()
+                          .writeValueAsString(value)
+                  }
+                  """
+              )
+            );
+        }
     }
 
     @Nested

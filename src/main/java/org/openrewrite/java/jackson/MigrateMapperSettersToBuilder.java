@@ -249,7 +249,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         // Clean up empty init blocks after setter removal
                         doAfterVisit(removeEmptyInitBlocks());
 
-                        return applyBuilderTemplate(mapperFqn, null, builderSetters, null, emptyList(),
+                        return applyBuilderTemplate(mapperFqn, null, builderSetters, emptyList(),
                                 nc.getCoordinates().replace(), ctx);
                     }
 
@@ -418,26 +418,17 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         // A Kotlin `.apply { this.setX(...); setY(...) }` whose body is entirely
                         // known setters is unwrapped so the inner setters join the prefix.
                         List<J.MethodInvocation> setterCalls = new ArrayList<>();
-                        List<SetterToBuilderMapping> mappings = new ArrayList<>();
                         List<J.MethodInvocation> suffixCalls = new ArrayList<>();
                         boolean hitUnknown = false;
                         for (J.MethodInvocation call : chainCalls) {
                             if (!hitUnknown) {
-                                SetterToBuilderMapping m = SetterToBuilderMapping.fromSetter(call.getName().getSimpleName());
-                                if (m != null) {
+                                if (SetterToBuilderMapping.fromSetter(call.getName().getSimpleName()) != null) {
                                     setterCalls.add(call);
-                                    mappings.add(m);
                                     continue;
                                 }
                                 List<J.MethodInvocation> unwrapped = tryUnwrapApplyBlock(call);
                                 if (unwrapped != null) {
-                                    for (J.MethodInvocation inner : unwrapped) {
-                                        // Guaranteed non-null: tryUnwrapApplyBlock only returns
-                                        // calls whose simple name maps to a known setter.
-                                        SetterToBuilderMapping im = SetterToBuilderMapping.fromSetter(inner.getName().getSimpleName());
-                                        setterCalls.add(inner);
-                                        mappings.add(im);
-                                    }
+                                    setterCalls.addAll(unwrapped);
                                     continue;
                                 }
                                 hitUnknown = true;
@@ -459,12 +450,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                 List<J.MethodInvocation> standaloneSetters = collectStandaloneSetters(
                                         block, varIdent, new HashSet<>());
                                 if (!standaloneSetters.isEmpty()) {
-                                    // Add standalone setters after the chain setters
-                                    for (J.MethodInvocation setter : standaloneSetters) {
-                                        SetterToBuilderMapping m = SetterToBuilderMapping.fromSetter(setter.getName().getSimpleName());
-                                        setterCalls.add(setter);
-                                        mappings.add(m);
-                                    }
+                                    setterCalls.addAll(standaloneSetters);
 
                                     // Mark standalone setters for removal
                                     Cursor blockCursor = getCursor().dropParentUntil(J.Block.class::isInstance);
@@ -483,7 +469,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             }
                         }
 
-                        return applyBuilderTemplate(mapperFqn, builderEntry, setterCalls, mappings, suffixCalls,
+                        return applyBuilderTemplate(mapperFqn, builderEntry, setterCalls, suffixCalls,
                                 mi.getCoordinates().replace(), ctx);
                     }
 
@@ -605,7 +591,6 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                      */
                     private J applyBuilderTemplate(String mapperFqn, @Nullable String builderEntry,
                                                    List<J.MethodInvocation> setters,
-                                                   @Nullable List<SetterToBuilderMapping> resolvedMappings,
                                                    List<J.MethodInvocation> suffixCalls,
                                                    JavaCoordinates coordinates, ExecutionContext ctx) {
                         String simpleMapperName = mapperFqn.substring(mapperFqn.lastIndexOf('.') + 1);
@@ -613,11 +598,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         StringBuilder templateCode = new StringBuilder(entryExpr);
                         List<Expression> templateArgs = new ArrayList<>();
                         List<J.MethodInvocation> unknownSetters = new ArrayList<>();
-                        for (int i = 0; i < setters.size(); i++) {
-                            J.MethodInvocation setter = setters.get(i);
-                            SetterToBuilderMapping mapping = resolvedMappings != null ?
-                                    resolvedMappings.get(i) :
-                                    SetterToBuilderMapping.fromSetter(setter.getName().getSimpleName());
+                        for (J.MethodInvocation setter : setters) {
+                            SetterToBuilderMapping mapping = SetterToBuilderMapping.fromSetter(setter.getName().getSimpleName());
                             if (mapping != null) {
                                 appendBuilderCall(setter, mapping, templateCode, templateArgs);
                             } else {
