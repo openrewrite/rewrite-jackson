@@ -18,6 +18,7 @@ package org.openrewrite.java.jackson;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
+import org.openrewrite.Issue;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
@@ -1175,6 +1176,80 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
                                   .disable(SerializationFeature.INDENT_OUTPUT)
                                   .changeDefaultPropertyInclusion(incl -> incl.withContentInclusion(JsonInclude.Include.NON_NULL).withValueInclusion(JsonInclude.Include.NON_NULL))
                                   .build();
+                      }
+                  }
+                  """
+              )
+            );
+        }
+    }
+
+    @Nested
+    class NonSetterMethodsNotFolded {
+
+        @Issue("https://github.com/moderneinc/customer-requests/issues/2225")
+        @Test
+        void readValueNotFoldedIntoBuilder() {
+            rewriteRun(
+              java(
+                """
+                  import java.io.InputStream;
+                  import java.util.List;
+                  import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+                  import com.fasterxml.jackson.databind.Module;
+
+                  class A {
+                      List<Object> read(InputStream inputStream, Module module) throws Exception {
+                          JsonMapper mapper = new JsonMapper();
+                          mapper.registerModule(module);
+                          mapper.setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
+                          List<Object> l = mapper.readValue(inputStream, List.class);
+                          return l;
+                      }
+                  }
+                  """,
+                """
+                  import java.io.InputStream;
+                  import java.util.List;
+                  import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+                  import com.fasterxml.jackson.databind.Module;
+
+                  class A {
+                      List<Object> read(InputStream inputStream, Module module) throws Exception {
+                          JsonMapper mapper = JsonMapper.builder()
+                                  .addModule(module)
+                                  .propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
+                                  .build();
+                          return mapper.readValue(inputStream, List.class);
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Issue("https://github.com/openrewrite/rewrite-jackson/issues/130")
+        @Test
+        void writeValueAsStringNotFoldedIntoBuilder() {
+            rewriteRun(
+              java(
+                """
+                  import java.util.Map;
+                  import com.fasterxml.jackson.core.JsonProcessingException;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      String convert(Map<String, Object> customPropertyMap) {
+                          JsonMapper mapper = new JsonMapper();
+                          String customProperties;
+                          try {
+                              customProperties = mapper.writeValueAsString(customPropertyMap);
+                          } catch (JsonProcessingException ex) {
+                              throw new RuntimeException(ex);
+                          }
+                          return customProperties;
                       }
                   }
                   """

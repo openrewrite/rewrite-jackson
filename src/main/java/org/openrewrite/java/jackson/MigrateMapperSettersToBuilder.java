@@ -310,6 +310,18 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                 TypeUtils.isOfType(sel.getType(), varIdent.getType());
                     }
 
+                    private boolean isSetterReturnType(J.MethodInvocation mi) {
+                        JavaType.Method methodType = mi.getMethodType();
+                        if (methodType == null) {
+                            return false;
+                        }
+                        JavaType returnType = methodType.getReturnType();
+                        if (returnType == JavaType.Primitive.Void) {
+                            return true;
+                        }
+                        return TypeUtils.isAssignableTo("com.fasterxml.jackson.databind.ObjectMapper", returnType);
+                    }
+
                     private boolean referencesVariable(Statement stmt, J.Identifier varIdent) {
                         return !new JavaIsoVisitor<Set<Boolean>>() {
                             @Override
@@ -485,6 +497,11 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                             collecting = false;
                                             continue;
                                         }
+                                        if (SetterToBuilderMapping.fromSetter(initMi.getName().getSimpleName()) == null &&
+                                                !isSetterReturnType(initMi)) {
+                                            collecting = false;
+                                            continue;
+                                        }
                                         setters.add(initMi);
                                         continue;
                                     }
@@ -499,6 +516,11 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             J.MethodInvocation mi = extractMethodInvocation(stmt);
                             if (mi != null && isCallOnVariable(mi, varIdent)) {
                                 if (argumentReferencesAny(mi, intermediateVars)) {
+                                    collecting = false;
+                                    continue;
+                                }
+                                if (SetterToBuilderMapping.fromSetter(mi.getName().getSimpleName()) == null &&
+                                        !isSetterReturnType(mi)) {
                                     collecting = false;
                                     continue;
                                 }
