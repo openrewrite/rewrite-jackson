@@ -414,7 +414,9 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         String mapperFqn = mapperHolder[0];
                         String builderEntry = mapperHolder[1];
 
-                        // Split chain into known setters (prefix) and remaining calls (suffix)
+                        // Split chain into known setters (prefix) and remaining calls (suffix).
+                        // A Kotlin `.apply { this.setX(...); setY(...) }` whose body is entirely
+                        // known setters is unwrapped so the inner setters join the prefix.
                         List<J.MethodInvocation> setterCalls = new ArrayList<>();
                         List<SetterToBuilderMapping> mappings = new ArrayList<>();
                         List<J.MethodInvocation> suffixCalls = new ArrayList<>();
@@ -425,6 +427,17 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                 if (m != null) {
                                     setterCalls.add(call);
                                     mappings.add(m);
+                                    continue;
+                                }
+                                List<J.MethodInvocation> unwrapped = tryUnwrapApplyBlock(call);
+                                if (unwrapped != null) {
+                                    for (J.MethodInvocation inner : unwrapped) {
+                                        // Guaranteed non-null: tryUnwrapApplyBlock only returns
+                                        // calls whose simple name maps to a known setter.
+                                        SetterToBuilderMapping im = SetterToBuilderMapping.fromSetter(inner.getName().getSimpleName());
+                                        setterCalls.add(inner);
+                                        mappings.add(im);
+                                    }
                                     continue;
                                 }
                                 hitUnknown = true;
@@ -893,6 +906,82 @@ public class MigrateMapperSettersToBuilder extends Recipe {
             return fq.getFullyQualifiedName();
         }
         return "Object";
+    }
+
+    /**
+     * If {@code call} is a Kotlin scope function {@code .apply { ... }} whose body consists
+     * entirely of simple expression statements that invoke setters mapped by
+     * {@link SetterToBuilderMapping}, return those inner invocations in body order so they
+     * can be folded into the builder chain. Returns {@code null} if the block contains
+     * anything else (variable declarations, control flow, calls on something other than
+     * the implicit receiver, unknown setters) — in which case the {@code .apply(...)}
+     * call should be left alone.
+     */
+    private static @Nullable List<J.MethodInvocation> tryUnwrapApplyBlock(J.MethodInvocation call) {
+        if (!"apply".equals(call.getName().getSimpleName()) ||
+                call.getArguments().size() != 1 ||
+                !(call.getArguments().get(0) instanceof J.Lambda)) {
+            return null;
+        }
+        J.Lambda lambda = (J.Lambda) call.getArguments().get(0);
+        if (!(lambda.getBody() instanceof J.Block)) {
+            return null;
+        }
+        J.Block body = (J.Block) lambda.getBody();
+        if (body.getStatements().isEmpty()) {
+            return null;
+        }
+        List<J.MethodInvocation> result = new ArrayList<>();
+        for (Statement stmt : body.getStatements()) {
+            if (!isSimpleExpressionStatement(stmt)) {
+                return null;
+            }
+            J.MethodInvocation mi = extractMethodInvocation(stmt);
+            if (mi == null) {
+                return null;
+            }
+            if (!isImplicitOrThisSelect(mi.getSelect())) {
+                return null;
+            }
+            if (SetterToBuilderMapping.fromSetter(mi.getName().getSimpleName()) == null) {
+                return null;
+            }
+            result.add(mi);
+        }
+        return result;
+    }
+
+    /**
+     * True if {@code select} is either {@code null} (implicit receiver) or a reference
+     * to {@code this}. Accepts both Java's {@code J.Identifier} named {@code "this"}
+     * and Kotlin's {@code K.This} (matched by class name to avoid a direct dependency
+     * on {@code rewrite-kotlin}).
+     */
+    private static boolean isImplicitOrThisSelect(@Nullable Expression select) {
+        if (select == null) {
+            return true;
+        }
+        if (select instanceof J.Identifier && "this".equals(((J.Identifier) select).getSimpleName())) {
+            return true;
+        }
+        Class<?> c = select.getClass();
+        return "This".equals(c.getSimpleName()) && c.getName().startsWith("org.openrewrite.kotlin.");
+    }
+
+    /**
+     * True if {@code stmt} is a Java method-invocation statement or a Kotlin
+     * {@code K.ExpressionStatement} wrapping one. Used to reject variable declarations
+     * and control-flow statements inside lambda bodies we would otherwise unwrap.
+     * Matches {@code K.ExpressionStatement} by class name so {@code rewrite-kotlin}
+     * stays a runtime-only dependency.
+     */
+    private static boolean isSimpleExpressionStatement(Statement stmt) {
+        if (stmt instanceof J.MethodInvocation) {
+            return true;
+        }
+        Class<?> c = stmt.getClass();
+        return "ExpressionStatement".equals(c.getSimpleName()) &&
+                c.getName().startsWith("org.openrewrite.kotlin.");
     }
 
     /**

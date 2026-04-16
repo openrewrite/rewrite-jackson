@@ -187,6 +187,129 @@ class KotlinMigrateMapperSettersToBuilderTest implements RewriteTest {
               )
             );
         }
+
+        @Test
+        void fluentChainWithApplyBlockAtTail() {
+            rewriteRun(
+              spec -> spec
+                .parser(KotlinParser.builder()
+                  .classpathFromResources(new InMemoryExecutionContext(),
+                    "jackson-annotations-2", "jackson-core-2", "jackson-databind-2",
+                    "jackson-module-kotlin-2"))
+                .typeValidationOptions(TypeValidation.builder().methodInvocations(false).build()),
+              //language=kotlin
+              kotlin(
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude
+                  import com.fasterxml.jackson.databind.DeserializationFeature
+                  import com.fasterxml.jackson.databind.ObjectMapper
+                  import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+
+                  fun mapper(): ObjectMapper = jacksonObjectMapper()
+                      .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
+                      .apply {
+                          this.setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL)
+                      }
+                  """,
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude
+                  import com.fasterxml.jackson.databind.DeserializationFeature
+                  import com.fasterxml.jackson.databind.ObjectMapper
+                  import com.fasterxml.jackson.module.kotlin.jacksonMapperBuilder
+
+                  fun mapper(): ObjectMapper = jacksonMapperBuilder()
+                      .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
+                      .changeDefaultPropertyInclusion({ incl -> incl.withContentInclusion(JsonInclude.Include.NON_NULL).withValueInclusion(JsonInclude.Include.NON_NULL)})
+                      .build()
+                  """
+              )
+            );
+        }
+
+        @Test
+        void fluentChainWithApplyBlockImplicitReceiver() {
+            rewriteRun(
+              spec -> spec
+                .parser(KotlinParser.builder()
+                  .classpathFromResources(new InMemoryExecutionContext(),
+                    "jackson-annotations-2", "jackson-core-2", "jackson-databind-2",
+                    "jackson-module-kotlin-2"))
+                .typeValidationOptions(TypeValidation.builder().methodInvocations(false).build()),
+              //language=kotlin
+              kotlin(
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude
+                  import com.fasterxml.jackson.databind.DeserializationFeature
+                  import com.fasterxml.jackson.databind.ObjectMapper
+                  import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+
+                  fun mapper(): ObjectMapper = jacksonObjectMapper()
+                      .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
+                      .apply {
+                          setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL)
+                      }
+                  """,
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude
+                  import com.fasterxml.jackson.databind.DeserializationFeature
+                  import com.fasterxml.jackson.databind.ObjectMapper
+                  import com.fasterxml.jackson.module.kotlin.jacksonMapperBuilder
+
+                  fun mapper(): ObjectMapper = jacksonMapperBuilder()
+                      .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
+                      .changeDefaultPropertyInclusion({ incl -> incl.withContentInclusion(JsonInclude.Include.NON_NULL).withValueInclusion(JsonInclude.Include.NON_NULL)})
+                      .build()
+                  """
+              )
+            );
+        }
+
+        @Test
+        void applyBlockWithNonSetterStatementIsKeptAsSuffix() {
+            // When the apply block contains anything other than known setter calls on the
+            // receiver (here a `println`), we can't safely fold it into the builder chain.
+            // The fluent-chain setters before the apply are still migrated; the apply block
+            // is preserved verbatim as a suffix. Hand-editing the apply block is up to the
+            // developer.
+            rewriteRun(
+              spec -> spec
+                .parser(KotlinParser.builder()
+                  .classpathFromResources(new InMemoryExecutionContext(),
+                    "jackson-annotations-2", "jackson-core-2", "jackson-databind-2",
+                    "jackson-module-kotlin-2"))
+                .typeValidationOptions(TypeValidation.builder().methodInvocations(false).build()),
+              //language=kotlin
+              kotlin(
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude
+                  import com.fasterxml.jackson.databind.DeserializationFeature
+                  import com.fasterxml.jackson.databind.ObjectMapper
+                  import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+
+                  fun mapper(): ObjectMapper = jacksonObjectMapper()
+                      .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
+                      .apply {
+                          this.setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL)
+                          println("configured")
+                      }
+                  """,
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude
+                  import com.fasterxml.jackson.databind.DeserializationFeature
+                  import com.fasterxml.jackson.databind.ObjectMapper
+                  import com.fasterxml.jackson.module.kotlin.jacksonMapperBuilder
+
+                  fun mapper(): ObjectMapper = jacksonMapperBuilder()
+                      .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
+                      .build()
+                      .apply(){
+                          this.setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL)
+                          println("configured")
+                      }
+                  """
+              )
+            );
+        }
     }
 
     @Nested
