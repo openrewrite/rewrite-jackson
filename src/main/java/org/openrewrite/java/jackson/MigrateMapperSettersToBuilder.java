@@ -174,8 +174,12 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         for (String mapper : ALL_MAPPERS) {
             preconditions.add(new UsesType<>(mapper, false));
         }
-        // Kotlin extension function jacksonObjectMapper() returns ObjectMapper but is the
-        // only signal that the chain should migrate; match it as an additional precondition.
+        // Kotlin: the jacksonObjectMapper() extension returns ObjectMapper, so files that only
+        // import ObjectMapper (not JsonMapper) still need to be visited. UsesMethod can also
+        // miss the call when the parser only has a type table for jackson-module-kotlin and the
+        // extension function lacks resolved method-type info, so include UsesType(ObjectMapper)
+        // as a broader fallback.
+        preconditions.add(new UsesType<>("com.fasterxml.jackson.databind.ObjectMapper", false));
         preconditions.add(new UsesMethod<>(KOTLIN_EXTENSIONS_FQN + " " + JACKSON_OBJECT_MAPPER_NAME + "()", false));
         return Preconditions.check(
                 Preconditions.or(preconditions.toArray(new TreeVisitor[0])),
@@ -369,6 +373,31 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                     }
 
                     /**
+                     * Returns true if the enclosing compilation unit imports
+                     * {@code com.fasterxml.jackson.module.kotlin.jacksonObjectMapper}. Used as a
+                     * fallback signal for matching the Kotlin top-level extension function when
+                     * its method type info is not resolved (e.g. when only a type table — without
+                     * jars — is on the parser classpath).
+                     */
+                    private boolean compilationUnitImportsJacksonObjectMapper() {
+                        // Use JavaSourceFile rather than J.CompilationUnit so this matches both
+                        // J.CompilationUnit (Java) and K.CompilationUnit (Kotlin), which only
+                        // implement JavaSourceFile.
+                        JavaSourceFile cu = getCursor().firstEnclosing(JavaSourceFile.class);
+                        if (cu == null) {
+                            return false;
+                        }
+                        String expected = KOTLIN_EXTENSIONS_PACKAGE + "." + JACKSON_OBJECT_MAPPER_NAME;
+                        for (J.Import imp : cu.getImports()) {
+                            if (expected.equals(imp.getTypeName()) ||
+                                    expected.equals(imp.getQualid().toString())) {
+                                return true;
+                            }
+                        }
+                        return false;
+                    }
+
+                    /**
                      * If this method invocation is the outermost call of a fluent chain rooted
                      * at a format-aligned mapper constructor, migrate the chain to the builder pattern.
                      * When the chain is assigned to a variable, also collects standalone setter calls
@@ -376,7 +405,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                      */
                     private @Nullable J tryMigrateFluentChain(J.MethodInvocation mi, ExecutionContext ctx) {
                         String[] mapperHolder = new String[2];
-                        List<J.MethodInvocation> chainCalls = collectFluentChain(mi, mapperHolder);
+                        List<J.MethodInvocation> chainCalls = collectFluentChain(mi, mapperHolder,
+                                compilationUnitImportsJacksonObjectMapper());
                         if (chainCalls == null) {
                             return null;
                         }
@@ -689,7 +719,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
      * a different builder entry than {@code SimpleName.builder()}. Returns {@code null} if
      * the chain is not rooted at a recognized mapper.
      */
-    private static @Nullable List<J.MethodInvocation> collectFluentChain(J.MethodInvocation mi, String[] mapperFqnHolder) {
+    private static @Nullable List<J.MethodInvocation> collectFluentChain(J.MethodInvocation mi, String[] mapperFqnHolder,
+                                                                          boolean importsJacksonObjectMapper) {
         List<J.MethodInvocation> calls = new ArrayList<>();
         Expression current = mi;
         while (current instanceof J.MethodInvocation) {
@@ -708,7 +739,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         // The factory call itself is the last element added to `calls` (it has no select).
         if (current == null && !calls.isEmpty()) {
             J.MethodInvocation rootCandidate = calls.get(calls.size() - 1);
-            if (isJacksonObjectMapperFactory(rootCandidate)) {
+            if (isJacksonObjectMapperFactory(rootCandidate, importsJacksonObjectMapper)) {
                 calls.remove(calls.size() - 1);
                 mapperFqnHolder[0] = JSON_MAPPER;
                 mapperFqnHolder[1] = JACKSON_MAPPER_BUILDER_NAME + "()";
@@ -721,11 +752,12 @@ public class MigrateMapperSettersToBuilder extends Recipe {
 
     /**
      * Detect a top-level call to {@code com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()}.
-     * Uses {@link MethodMatcher} when the call has resolved type info; otherwise falls back to
-     * a structural check (no-arg, no select, owner package matches the Kotlin extensions package),
-     * which keeps the recipe usable when type attribution is partial.
+     * Uses {@link MethodMatcher} when the call has resolved type info. When type attribution is
+     * partial (e.g. the parser is using a type table without the backing jar), falls back to a
+     * structural check: no select, no args, simple name matches, and the enclosing compilation
+     * unit imports the function.
      */
-    private static boolean isJacksonObjectMapperFactory(J.MethodInvocation mi) {
+    private static boolean isJacksonObjectMapperFactory(J.MethodInvocation mi, boolean importsJacksonObjectMapper) {
         if (JACKSON_OBJECT_MAPPER_MATCHER.matches(mi)) {
             return true;
         }
@@ -736,10 +768,11 @@ public class MigrateMapperSettersToBuilder extends Recipe {
             return false;
         }
         JavaType.Method methodType = mi.getMethodType();
-        if (methodType == null || methodType.getDeclaringType() == null) {
-            return false;
+        if (methodType != null && methodType.getDeclaringType() != null &&
+                KOTLIN_EXTENSIONS_FQN.equals(methodType.getDeclaringType().getFullyQualifiedName())) {
+            return true;
         }
-        return KOTLIN_EXTENSIONS_FQN.equals(methodType.getDeclaringType().getFullyQualifiedName());
+        return importsJacksonObjectMapper;
     }
 
     /**
