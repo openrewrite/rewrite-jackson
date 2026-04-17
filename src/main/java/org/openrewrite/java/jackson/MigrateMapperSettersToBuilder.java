@@ -252,7 +252,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         // Clean up empty init blocks after setter removal
                         doAfterVisit(removeEmptyInitBlocks());
 
-                        return applyBuilderTemplate(mapperFqn, null, builderSetters, emptyList(),
+                        return applyBuilderTemplate(mapperFqn, builderSetters, null, emptyList(),
                                 nc.getCoordinates().replace(), ctx);
                     }
 
@@ -476,7 +476,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             }
                         }
 
-                        return applyBuilderTemplate(mapperFqn, builderEntry, setterCalls, suffixCalls,
+                        return applyBuilderTemplate(mapperFqn, setterCalls, builderEntry, suffixCalls,
                                 mi.getCoordinates().replace(), ctx);
                     }
 
@@ -596,8 +596,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                     /**
                      * Builds and applies the {@code Mapper.builder()...build()} template for a list of setter calls.
                      */
-                    private J applyBuilderTemplate(String mapperFqn, @Nullable String builderEntry,
-                                                   List<J.MethodInvocation> setters,
+                    private J applyBuilderTemplate(String mapperFqn, List<J.MethodInvocation> setters,
+                                                   @Nullable String builderEntry,
                                                    List<J.MethodInvocation> suffixCalls,
                                                    JavaCoordinates coordinates, ExecutionContext ctx) {
                         String simpleMapperName = mapperFqn.substring(mapperFqn.lastIndexOf('.') + 1);
