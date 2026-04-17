@@ -265,12 +265,11 @@ class KotlinMigrateMapperSettersToBuilderTest implements RewriteTest {
         }
 
         @Test
-        void applyBlockWithNonSetterStatementIsKeptAsSuffix() {
-            // When the apply block contains anything other than known setter calls on the
-            // receiver (here a `println`), we can't safely fold it into the builder chain.
-            // The fluent-chain setters before the apply are still migrated; the apply block
-            // is preserved verbatim as a suffix. Hand-editing the apply block is up to the
-            // developer.
+        void applyBlockPartiallyExtracted() {
+            // When the apply block has recognized setters followed by non-setter statements,
+            // the setters at the front are extracted into the builder chain. The remaining
+            // apply block (with only non-setter statements like println) is preserved as a
+            // suffix with no TODO comment since there are no setter calls left in it.
             rewriteRun(
               spec -> spec
                 .parser(KotlinParser.builder()
@@ -301,11 +300,58 @@ class KotlinMigrateMapperSettersToBuilderTest implements RewriteTest {
 
                   fun mapper(): ObjectMapper = jacksonMapperBuilder()
                       .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
+                      .changeDefaultPropertyInclusion({ incl -> incl.withContentInclusion(JsonInclude.Include.NON_NULL).withValueInclusion(JsonInclude.Include.NON_NULL)})
                       .build()
-                      // TODO This .apply {} now runs on the immutable JsonMapper returned by .build(); any setter calls inside it will fail at runtime. Move them into the builder chain above.
                       .apply {
-                          this.setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL)
                           println("configured")
+                      }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void applyBlockWithNonSetterFirstGetsGuidanceComment() {
+            // When the first statement in the apply block is a non-setter (println), no
+            // setters can be extracted (conservative approach). The entire apply block is
+            // kept as a suffix and a TODO comment provides per-setter migration guidance.
+            rewriteRun(
+              spec -> spec
+                .parser(KotlinParser.builder()
+                  .classpathFromResources(new InMemoryExecutionContext(),
+                    "jackson-annotations-2", "jackson-core-2", "jackson-databind-2",
+                    "jackson-module-kotlin-2"))
+                .typeValidationOptions(TypeValidation.builder().methodInvocations(false).build()),
+              //language=kotlin
+              kotlin(
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude
+                  import com.fasterxml.jackson.databind.DeserializationFeature
+                  import com.fasterxml.jackson.databind.ObjectMapper
+                  import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+
+                  fun mapper(): ObjectMapper = jacksonObjectMapper()
+                      .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
+                      .apply {
+                          println("about to configure")
+                          this.setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL)
+                      }
+                  """,
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude
+                  import com.fasterxml.jackson.databind.DeserializationFeature
+                  import com.fasterxml.jackson.databind.ObjectMapper
+                  import com.fasterxml.jackson.module.kotlin.jacksonMapperBuilder
+
+                  fun mapper(): ObjectMapper = jacksonMapperBuilder()
+                      .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
+                      .build()
+                      // TODO Move these setters into the builder chain above:
+                      //   `setDefaultPropertyInclusion` -> `changeDefaultPropertyInclusion { incl -> incl.withValueInclusion(...).withContentInclusion(...) }`
+                      // See https://github.com/FasterXML/jackson/blob/main/jackson3/MIGRATING_TO_JACKSON_3.md#6-immutability-of-objectmapper-jsonfactory
+                      .apply {
+                          println("about to configure")
+                          this.setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL)
                       }
                   """
               )

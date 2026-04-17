@@ -64,6 +64,9 @@ public class MigrateMapperSettersToBuilder extends Recipe {
 
     private static final String INVOCATIONS_TO_REMOVE = "INVOCATIONS_TO_REMOVE";
     private static final String JSON_INCLUDE = "com.fasterxml.jackson.annotation.JsonInclude";
+    private static final String JACKSON_3_MIGRATION_GUIDE =
+            "https://github.com/FasterXML/jackson/blob/main/jackson3/MIGRATING_TO_JACKSON_3.md" +
+                    "#6-immutability-of-objectmapper-jsonfactory";
 
     /**
      * Kotlin top-level extension function {@code com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()}
@@ -426,9 +429,13 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                     setterCalls.add(call);
                                     continue;
                                 }
-                                List<J.MethodInvocation> unwrapped = tryUnwrapApplyBlock(call);
-                                if (unwrapped != null) {
-                                    setterCalls.addAll(unwrapped);
+                                ApplyBlockResult applyResult = tryUnwrapApplyBlock(call);
+                                if (applyResult != null) {
+                                    setterCalls.addAll(applyResult.extractedSetters);
+                                    if (applyResult.remainingApply != null) {
+                                        suffixCalls.add(applyResult.remainingApply);
+                                        hitUnknown = true;
+                                    }
                                     continue;
                                 }
                                 hitUnknown = true;
@@ -668,7 +675,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         Expression chained = ((Expression) built).withPrefix(Space.EMPTY);
                         for (J.MethodInvocation suffix : suffixCalls) {
                             J.MethodInvocation annotated = isApplyBlock(suffix) ?
-                                    addApplyTodoComment(suffix, simpleMapperName) : suffix;
+                                    addApplyTodoComment(suffix) : suffix;
                             chained = annotated.withSelect(chained);
                         }
                         return chained;
@@ -902,47 +909,145 @@ public class MigrateMapperSettersToBuilder extends Recipe {
     }
 
     /**
-     * Attach a TODO comment before a preserved {@code .apply { ... }} suffix call. In
-     * Jackson 2 the block ran on the mutable mapper mid-chain, so setter calls inside
-     * took effect. In Jackson 3 the same block runs on the built, immutable mapper —
-     * any mutator calls inside will throw at runtime. The comment warns the reader to
-     * move setter calls into the builder chain.
-     * <p>
-     * The comment is placed in the whitespace after the select (i.e. between the
-     * previous call and the {@code .}) so it renders on its own line directly above
-     * {@code .apply} rather than bubbling up to the start of the whole expression.
+     * True if the method invocation is definitively a call on the mapper receiver inside a
+     * Kotlin {@code .apply { ... }} block. Uses two signals: an explicit {@code this.} select
+     * (always the receiver in apply scope), or resolved method type info declaring an
+     * ObjectMapper subtype. Returns {@code false} for ambiguous calls (null select, no type
+     * info) like {@code println()} which can't be distinguished from implicit-receiver setter
+     * calls without type attribution.
      */
-    private static J.MethodInvocation addApplyTodoComment(J.MethodInvocation apply, String simpleMapperName) {
-        String commentText = String.format(
-                " TODO This .apply {} now runs on the immutable %s returned by .build(); " +
-                        "any setter calls inside it will fail at runtime. Move them into the builder chain above.",
-                simpleMapperName);
+    private static boolean isMapperReceiverCall(J.MethodInvocation mi) {
+        Expression select = mi.getSelect();
+        if (select != null) {
+            if (select instanceof J.Identifier && "this".equals(((J.Identifier) select).getSimpleName())) {
+                return true;
+            }
+            Class<?> c = select.getClass();
+            return "This".equals(c.getSimpleName()) && c.getName().startsWith("org.openrewrite.kotlin.");
+        }
+        JavaType.Method methodType = mi.getMethodType();
+        if (methodType != null) {
+            return matchingMapperType(methodType.getDeclaringType()) != null;
+        }
+        return false;
+    }
+
+    /**
+     * Attach TODO comments before a preserved {@code .apply { ... }} suffix call, providing
+     * per-setter migration guidance for any recognized setter calls remaining in the block.
+     * <p>
+     * For setters with a simple builder rename, shows {@code setX -> builderX}. For special
+     * cases like {@code setDefaultPropertyInclusion} whose builder equivalent has a different
+     * signature, describes the final Jackson 3 form. For unrecognized setters, links to the
+     * official migration guide. If the block contains no setter calls (e.g. only
+     * {@code println}), no comment is added.
+     * <p>
+     * Comments are placed in the whitespace after the select (i.e. between the previous call
+     * and the {@code .}) so they render on their own lines directly above {@code .apply}.
+     */
+    private static J.MethodInvocation addApplyTodoComment(J.MethodInvocation apply) {
+        if (!(apply.getArguments().get(0) instanceof J.Lambda)) {
+            return apply;
+        }
+        J.Lambda lambda = (J.Lambda) apply.getArguments().get(0);
+        if (!(lambda.getBody() instanceof J.Block)) {
+            return apply;
+        }
+        J.Block body = (J.Block) lambda.getBody();
+
+        // Scan the remaining apply body for setter calls that need migration guidance.
+        // Uses isMapperReceiverCall to distinguish mapper methods (explicit this or type-
+        // attributed) from unrelated calls like println() that happen to share null select.
+        List<String> guidanceLines = new ArrayList<>();
+        boolean hasUnrecognized = false;
+        for (Statement stmt : body.getStatements()) {
+            J.MethodInvocation mi = extractMethodInvocation(stmt);
+            if (mi == null || !isMapperReceiverCall(mi)) {
+                continue;
+            }
+            SetterToBuilderMapping mapping = SetterToBuilderMapping.fromSetter(mi.getName().getSimpleName());
+            if (mapping == null) {
+                hasUnrecognized = true;
+                continue;
+            }
+            if (mapping == SetterToBuilderMapping.SET_DEFAULT_PROPERTY_INCLUSION ||
+                    mapping == SetterToBuilderMapping.SET_SERIALIZATION_INCLUSION) {
+                guidanceLines.add(String.format("   `%s` -> `changeDefaultPropertyInclusion" +
+                                " { incl -> incl.withValueInclusion(...).withContentInclusion(...) }`",
+                        mapping.setterName));
+            } else if (!mapping.setterName.equals(mapping.builderName)) {
+                guidanceLines.add(String.format("   `%s` -> `%s`", mapping.setterName, mapping.builderName));
+            } else {
+                guidanceLines.add(String.format("   `%s`", mapping.setterName));
+            }
+        }
+
+        if (guidanceLines.isEmpty() && !hasUnrecognized) {
+            return apply;
+        }
+
         JRightPadded<Expression> selectPad = apply.getPadding().getSelect();
         if (selectPad == null) {
             return apply;
         }
         Space after = selectPad.getAfter();
+
+        // Dedup: skip if a TODO comment is already present
         for (Comment existing : after.getComments()) {
             if (existing instanceof TextComment &&
-                    ((TextComment) existing).getText().trim().equals(commentText.trim())) {
+                    ((TextComment) existing).getText().trim().startsWith("TODO")) {
                 return apply;
             }
         }
-        TextComment comment = new TextComment(false, commentText, after.getWhitespace(), Markers.EMPTY);
-        Space newAfter = after.withComments(ListUtils.concat(after.getComments(), comment));
+
+        String indent = after.getWhitespace();
+        List<Comment> newComments = new ArrayList<>(after.getComments());
+        if (!guidanceLines.isEmpty()) {
+            newComments.add(new TextComment(false,
+                    " TODO Move these setters into the builder chain above:", indent, Markers.EMPTY));
+            for (String line : guidanceLines) {
+                newComments.add(new TextComment(false, line, indent, Markers.EMPTY));
+            }
+        } else {
+            newComments.add(new TextComment(false,
+                    " TODO Migrate setter calls below into the builder chain above.", indent, Markers.EMPTY));
+        }
+        newComments.add(new TextComment(false,
+                " See " + JACKSON_3_MIGRATION_GUIDE, indent, Markers.EMPTY));
+
+        Space newAfter = after.withComments(newComments);
         return apply.getPadding().withSelect(selectPad.withAfter(newAfter));
     }
 
     /**
-     * If {@code call} is a Kotlin scope function {@code .apply { ... }} whose body consists
-     * entirely of simple expression statements that invoke setters mapped by
-     * {@link SetterToBuilderMapping}, return those inner invocations in body order so they
-     * can be folded into the builder chain. Returns {@code null} if the block contains
-     * anything else (variable declarations, control flow, calls on something other than
-     * the implicit receiver, unknown setters) — in which case the {@code .apply(...)}
-     * call should be left alone.
+     * Result of partially extracting setter calls from a Kotlin {@code .apply { ... }} block.
+     * Contains the setters that were extracted (for folding into the builder chain) and,
+     * if the block was only partially extracted, a modified apply block retaining the
+     * remaining statements.
      */
-    private static @Nullable List<J.MethodInvocation> tryUnwrapApplyBlock(J.MethodInvocation call) {
+    private static class ApplyBlockResult {
+        final List<J.MethodInvocation> extractedSetters;
+        // null when all statements were extracted (fully unwrapped)
+        final J.MethodInvocation remainingApply;
+
+        ApplyBlockResult(List<J.MethodInvocation> extractedSetters, J.MethodInvocation remainingApply) {
+            this.extractedSetters = extractedSetters;
+            this.remainingApply = remainingApply;
+        }
+    }
+
+    /**
+     * If {@code call} is a Kotlin scope function {@code .apply { ... }}, extract recognized
+     * setter calls from the front of its body until the first non-movable statement is hit
+     * (variable declarations, control flow, calls on something other than the implicit
+     * receiver, unknown setters, or non-setter expressions like {@code println}).
+     * <p>
+     * Returns {@code null} if the call is not an apply block or no setters could be extracted.
+     * When all statements are extracted, {@link ApplyBlockResult#remainingApply} is {@code null}.
+     * When only a prefix was extracted, {@code remainingApply} contains the modified apply
+     * block with the extracted statements removed.
+     */
+    private static @Nullable ApplyBlockResult tryUnwrapApplyBlock(J.MethodInvocation call) {
         if (!"apply".equals(call.getName().getSimpleName()) ||
                 call.getArguments().size() != 1 ||
                 !(call.getArguments().get(0) instanceof J.Lambda)) {
@@ -956,24 +1061,33 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         if (body.getStatements().isEmpty()) {
             return null;
         }
-        List<J.MethodInvocation> result = new ArrayList<>();
+        List<J.MethodInvocation> extracted = new ArrayList<>();
+        List<Statement> remaining = new ArrayList<>();
+        boolean hitNonSetter = false;
         for (Statement stmt : body.getStatements()) {
-            if (!isSimpleExpressionStatement(stmt)) {
-                return null;
+            if (!hitNonSetter) {
+                if (isSimpleExpressionStatement(stmt)) {
+                    J.MethodInvocation mi = extractMethodInvocation(stmt);
+                    if (mi != null && isImplicitOrThisSelect(mi.getSelect()) &&
+                            SetterToBuilderMapping.fromSetter(mi.getName().getSimpleName()) != null) {
+                        extracted.add(mi);
+                        continue;
+                    }
+                }
+                hitNonSetter = true;
             }
-            J.MethodInvocation mi = extractMethodInvocation(stmt);
-            if (mi == null) {
-                return null;
-            }
-            if (!isImplicitOrThisSelect(mi.getSelect())) {
-                return null;
-            }
-            if (SetterToBuilderMapping.fromSetter(mi.getName().getSimpleName()) == null) {
-                return null;
-            }
-            result.add(mi);
+            remaining.add(stmt);
         }
-        return result;
+        if (extracted.isEmpty()) {
+            return null;
+        }
+        if (remaining.isEmpty()) {
+            return new ApplyBlockResult(extracted, null);
+        }
+        J.Block remainingBody = body.withStatements(remaining);
+        J.Lambda remainingLambda = lambda.withBody(remainingBody);
+        J.MethodInvocation remainingApply = call.withArguments(Collections.singletonList(remainingLambda));
+        return new ApplyBlockResult(extracted, remainingApply);
     }
 
     /**
