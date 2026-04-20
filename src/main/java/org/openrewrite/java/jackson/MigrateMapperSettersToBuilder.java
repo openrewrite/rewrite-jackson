@@ -177,11 +177,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         for (String mapper : ALL_MAPPERS) {
             preconditions.add(new UsesType<>(mapper, false));
         }
-        // Kotlin: jacksonObjectMapper() returns ObjectMapper, so files using it may not
-        // import any format-aligned mapper. UsesType(ObjectMapper) is the reliable fallback
-        // because the Kotlin parser does not currently populate JavaType.Method for top-level
-        // extension function calls, making UsesMethod inert for this case. UsesMethod is kept
-        // so it takes over naturally if the Kotlin parser improves.
+        // https://github.com/openrewrite/rewrite/issues/7434
         preconditions.add(new UsesType<>("com.fasterxml.jackson.databind.ObjectMapper", false));
         preconditions.add(new UsesMethod<>(KOTLIN_EXTENSIONS_FQN + " " + JACKSON_OBJECT_MAPPER_NAME + "()", false));
         return Preconditions.check(
