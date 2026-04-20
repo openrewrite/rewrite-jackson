@@ -68,13 +68,6 @@ public class MigrateMapperSettersToBuilder extends Recipe {
             "https://github.com/FasterXML/jackson/blob/main/jackson3/MIGRATING_TO_JACKSON_3.md" +
                     "#6-immutability-of-objectmapper-jsonfactory";
 
-    /**
-     * Kotlin top-level extension function {@code com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()}
-     * that returns a {@link com.fasterxml.jackson.databind.ObjectMapper} pre-configured with the Kotlin module.
-     * Treated as an alternate fluent-chain root equivalent to {@code new JsonMapper()}; emits
-     * {@code jacksonMapperBuilder()} from the same Kotlin extensions package so the implicit
-     * Kotlin module registration is preserved.
-     */
     private static final String KOTLIN_EXTENSIONS_PACKAGE = "com.fasterxml.jackson.module.kotlin";
     private static final String KOTLIN_EXTENSIONS_FQN = KOTLIN_EXTENSIONS_PACKAGE + ".ExtensionsKt";
     private static final String JACKSON_MAPPER_BUILDER_FQN = KOTLIN_EXTENSIONS_FQN + ".jacksonMapperBuilder";
