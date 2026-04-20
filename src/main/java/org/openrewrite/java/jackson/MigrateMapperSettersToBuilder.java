@@ -365,16 +365,9 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                     }
 
                     /**
-                     * Returns true if the enclosing compilation unit imports
-                     * {@code com.fasterxml.jackson.module.kotlin.jacksonObjectMapper}. Used as a
-                     * fallback signal for matching the Kotlin top-level extension function when
-                     * its method type info is not resolved (e.g. when only a type table — without
-                     * jars — is on the parser classpath).
+                     * Used as a fallback signal for matching the Kotlin top-level extension function. (https://github.com/openrewrite/rewrite/issues/7434)
                      */
                     private boolean compilationUnitImportsJacksonObjectMapper() {
-                        // Use JavaSourceFile rather than J.CompilationUnit so this matches both
-                        // J.CompilationUnit (Java) and K.CompilationUnit (Kotlin), which only
-                        // implement JavaSourceFile.
                         JavaSourceFile cu = getCursor().firstEnclosing(JavaSourceFile.class);
                         if (cu == null) {
                             return false;
@@ -407,8 +400,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         String builderEntry = mapperHolder[1];
 
                         // Split chain into known setters (prefix) and remaining calls (suffix).
-                        // A Kotlin `.apply { this.setX(...); setY(...) }` whose body is entirely
-                        // known setters is unwrapped so the inner setters join the prefix.
+                        // A Kotlin `.apply { this.setX(...); setY(...) }` whose body is entirely known setters is collected also.
                         List<J.MethodInvocation> setterCalls = new ArrayList<>();
                         List<J.MethodInvocation> suffixCalls = new ArrayList<>();
                         boolean hitUnknown = false;
