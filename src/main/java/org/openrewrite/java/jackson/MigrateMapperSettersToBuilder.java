@@ -22,6 +22,7 @@ import org.openrewrite.*;
 import org.openrewrite.internal.ListUtils;
 import org.openrewrite.java.*;
 import org.openrewrite.java.search.SemanticallyEqual;
+import org.openrewrite.java.search.UsesMethod;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.*;
 import org.openrewrite.marker.Markers;
@@ -63,6 +64,17 @@ public class MigrateMapperSettersToBuilder extends Recipe {
 
     private static final String INVOCATIONS_TO_REMOVE = "INVOCATIONS_TO_REMOVE";
     private static final String JSON_INCLUDE = "com.fasterxml.jackson.annotation.JsonInclude";
+    private static final String JACKSON_3_MIGRATION_GUIDE =
+            "https://github.com/FasterXML/jackson/blob/main/jackson3/MIGRATING_TO_JACKSON_3.md" +
+                    "#6-immutability-of-objectmapper-jsonfactory";
+
+    private static final String KOTLIN_EXTENSIONS_PACKAGE = "com.fasterxml.jackson.module.kotlin";
+    private static final String KOTLIN_EXTENSIONS_FQN = KOTLIN_EXTENSIONS_PACKAGE + ".ExtensionsKt";
+    private static final String JACKSON_MAPPER_BUILDER_FQN = KOTLIN_EXTENSIONS_FQN + ".jacksonMapperBuilder";
+    private static final String JACKSON_OBJECT_MAPPER_NAME = "jacksonObjectMapper";
+    private static final String JACKSON_MAPPER_BUILDER_NAME = "jacksonMapperBuilder";
+    private static final MethodMatcher JACKSON_OBJECT_MAPPER_MATCHER =
+            new MethodMatcher(KOTLIN_EXTENSIONS_FQN + " " + JACKSON_OBJECT_MAPPER_NAME + "()");
 
     @RequiredArgsConstructor
     enum SetterToBuilderMapping {
@@ -154,11 +166,15 @@ public class MigrateMapperSettersToBuilder extends Recipe {
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
-        TreeVisitor<?, ExecutionContext>[] preconditions = ALL_MAPPERS.stream()
-                .map(m -> new UsesType<>(m, false))
-                .toArray(TreeVisitor[]::new);
+        List<TreeVisitor<?, ExecutionContext>> preconditions = new ArrayList<>();
+        for (String mapper : ALL_MAPPERS) {
+            preconditions.add(new UsesType<>(mapper, false));
+        }
+        // https://github.com/openrewrite/rewrite/issues/7434
+        preconditions.add(new UsesType<>("com.fasterxml.jackson.databind.ObjectMapper", false));
+        preconditions.add(new UsesMethod<>(KOTLIN_EXTENSIONS_FQN + " " + JACKSON_OBJECT_MAPPER_NAME + "()", false));
         return Preconditions.check(
-                Preconditions.or(preconditions),
+                Preconditions.or(preconditions.toArray(new TreeVisitor[0])),
                 new JavaVisitor<ExecutionContext>() {
 
                     @Override
@@ -349,31 +365,58 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                     }
 
                     /**
+                     * Used as a fallback signal for matching the Kotlin top-level extension function. (https://github.com/openrewrite/rewrite/issues/7434)
+                     */
+                    private boolean compilationUnitImportsJacksonObjectMapper() {
+                        JavaSourceFile cu = getCursor().firstEnclosing(JavaSourceFile.class);
+                        if (cu == null) {
+                            return false;
+                        }
+                        String expected = KOTLIN_EXTENSIONS_PACKAGE + "." + JACKSON_OBJECT_MAPPER_NAME;
+                        for (J.Import imp : cu.getImports()) {
+                            if (expected.equals(imp.getTypeName()) ||
+                                    expected.equals(imp.getQualid().toString())) {
+                                return true;
+                            }
+                        }
+                        return false;
+                    }
+
+                    /**
                      * If this method invocation is the outermost call of a fluent chain rooted
                      * at a format-aligned mapper constructor, migrate the chain to the builder pattern.
                      * When the chain is assigned to a variable, also collects standalone setter calls
                      * that follow the assignment and folds them into the builder.
                      */
                     private @Nullable J tryMigrateFluentChain(J.MethodInvocation mi, ExecutionContext ctx) {
-                        String[] mapperHolder = new String[1];
-                        List<J.MethodInvocation> chainCalls = collectFluentChain(mi, mapperHolder);
+                        String[] mapperHolder = new String[2];
+                        List<J.MethodInvocation> chainCalls = collectFluentChain(mi, mapperHolder,
+                                compilationUnitImportsJacksonObjectMapper());
                         if (chainCalls == null) {
                             return null;
                         }
 
                         String mapperFqn = mapperHolder[0];
+                        String builderEntry = mapperHolder[1];
 
-                        // Split chain into known setters (prefix) and remaining calls (suffix)
+                        // Split chain into known setters (prefix) and remaining calls (suffix).
+                        // A Kotlin `.apply { this.setX(...); setY(...) }` whose body is entirely known setters is collected also.
                         List<J.MethodInvocation> setterCalls = new ArrayList<>();
-                        List<SetterToBuilderMapping> mappings = new ArrayList<>();
                         List<J.MethodInvocation> suffixCalls = new ArrayList<>();
                         boolean hitUnknown = false;
                         for (J.MethodInvocation call : chainCalls) {
                             if (!hitUnknown) {
-                                SetterToBuilderMapping m = SetterToBuilderMapping.fromSetter(call.getName().getSimpleName());
-                                if (m != null) {
+                                if (SetterToBuilderMapping.fromSetter(call.getName().getSimpleName()) != null) {
                                     setterCalls.add(call);
-                                    mappings.add(m);
+                                    continue;
+                                }
+                                ApplyBlockResult applyResult = tryUnwrapApplyBlock(call);
+                                if (applyResult != null) {
+                                    setterCalls.addAll(applyResult.extractedSetters);
+                                    if (applyResult.remainingApply != null) {
+                                        suffixCalls.add(applyResult.remainingApply);
+                                        hitUnknown = true;
+                                    }
                                     continue;
                                 }
                                 hitUnknown = true;
@@ -395,12 +438,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                 List<J.MethodInvocation> standaloneSetters = collectStandaloneSetters(
                                         block, varIdent, new HashSet<>());
                                 if (!standaloneSetters.isEmpty()) {
-                                    // Add standalone setters after the chain setters
-                                    for (J.MethodInvocation setter : standaloneSetters) {
-                                        SetterToBuilderMapping m = SetterToBuilderMapping.fromSetter(setter.getName().getSimpleName());
-                                        setterCalls.add(setter);
-                                        mappings.add(m);
-                                    }
+                                    setterCalls.addAll(standaloneSetters);
 
                                     // Mark standalone setters for removal
                                     Cursor blockCursor = getCursor().dropParentUntil(J.Block.class::isInstance);
@@ -419,7 +457,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             }
                         }
 
-                        return applyBuilderTemplate(mapperFqn, setterCalls, mappings, suffixCalls,
+                        return applyBuilderTemplate(mapperFqn, setterCalls, builderEntry, suffixCalls,
                                 mi.getCoordinates().replace(), ctx);
                     }
 
@@ -540,18 +578,16 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                      * Builds and applies the {@code Mapper.builder()...build()} template for a list of setter calls.
                      */
                     private J applyBuilderTemplate(String mapperFqn, List<J.MethodInvocation> setters,
-                                                   @Nullable List<SetterToBuilderMapping> resolvedMappings,
+                                                   @Nullable String builderEntry,
                                                    List<J.MethodInvocation> suffixCalls,
                                                    JavaCoordinates coordinates, ExecutionContext ctx) {
                         String simpleMapperName = mapperFqn.substring(mapperFqn.lastIndexOf('.') + 1);
-                        StringBuilder templateCode = new StringBuilder(simpleMapperName + ".builder()");
+                        String entryExpr = builderEntry != null ? builderEntry : (simpleMapperName + ".builder()");
+                        StringBuilder templateCode = new StringBuilder(entryExpr);
                         List<Expression> templateArgs = new ArrayList<>();
                         List<J.MethodInvocation> unknownSetters = new ArrayList<>();
-                        for (int i = 0; i < setters.size(); i++) {
-                            J.MethodInvocation setter = setters.get(i);
-                            SetterToBuilderMapping mapping = resolvedMappings != null ?
-                                    resolvedMappings.get(i) :
-                                    SetterToBuilderMapping.fromSetter(setter.getName().getSimpleName());
+                        for (J.MethodInvocation setter : setters) {
+                            SetterToBuilderMapping mapping = SetterToBuilderMapping.fromSetter(setter.getName().getSimpleName());
                             if (mapping != null) {
                                 appendBuilderCall(setter, mapping, templateCode, templateArgs);
                             } else {
@@ -577,36 +613,53 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         }
                         templateCode.append("\n.build()");
 
-                        // Append any non-setter calls that follow the known setters
-                        for (J.MethodInvocation suffix : suffixCalls) {
-                            templateCode.append("\n.").append(suffix.getName().getSimpleName()).append("(");
-                            boolean first = true;
-                            for (Expression arg : suffix.getArguments()) {
-                                if (arg instanceof J.Empty) {
-                                    continue;
-                                }
-                                if (!first) {
-                                    templateCode.append(", ");
-                                }
-                                first = false;
-                                templateCode.append("#{any()}");
-                                templateArgs.add(arg);
-                            }
-                            templateCode.append(")");
+                        boolean useKotlinFactory = builderEntry != null &&
+                                builderEntry.startsWith(JACKSON_MAPPER_BUILDER_NAME);
+                        if (useKotlinFactory) {
+                            // Kotlin top-level extension functions are imported by their bare name
+                            // (e.g. `import com.fasterxml.jackson.module.kotlin.jacksonMapperBuilder`),
+                            // not as a static member of the synthetic `ExtensionsKt` class.
+                            maybeRemoveImport(KOTLIN_EXTENSIONS_PACKAGE + "." + JACKSON_OBJECT_MAPPER_NAME);
+                            maybeAddImport(KOTLIN_EXTENSIONS_PACKAGE + "." + JACKSON_MAPPER_BUILDER_NAME, false);
+                        } else {
+                            maybeAddImport(mapperFqn);
                         }
-
-                        maybeAddImport(mapperFqn);
                         maybeAddImport(JSON_INCLUDE);
 
                         JavaParser.Builder<?, ?> parser = JavaParser.fromJavaVersion()
                                 .classpathFromResources(ctx, "jackson-annotations-2", "jackson-core-2", "jackson-databind-2")
                                 .dependsOn(mapperStub(mapperFqn, unknownSetters));
+                        if (useKotlinFactory) {
+                            parser = parser.dependsOn(kotlinExtensionsStub());
+                        }
 
-                        return JavaTemplate.builder(templateCode.toString())
+                        JavaTemplate.Builder templateBuilder = JavaTemplate.builder(templateCode.toString())
                                 .imports(mapperFqn, JSON_INCLUDE)
-                                .javaParser(parser)
+                                .javaParser(parser);
+                        if (useKotlinFactory) {
+                            templateBuilder = templateBuilder.staticImports(JACKSON_MAPPER_BUILDER_FQN);
+                        }
+                        J built = templateBuilder
                                 .build()
                                 .apply(getCursor(), coordinates, templateArgs.toArray());
+
+                        // Reattach non-setter calls that followed the known setters by swapping
+                        // each suffix's select to the previous result. Keeping the original
+                        // J.MethodInvocation nodes preserves formatting details the JavaTemplate
+                        // cannot round-trip (e.g. Kotlin trailing-lambda syntax on `.apply { }`).
+                        // Strip the template result's prefix: the outermost suffix already owns
+                        // the outer whitespace (it was the outermost MI before rewrite), so
+                        // keeping the prefix on `built` would double the leading space.
+                        if (suffixCalls.isEmpty() || !(built instanceof Expression)) {
+                            return built;
+                        }
+                        Expression chained = ((Expression) built).withPrefix(Space.EMPTY);
+                        for (J.MethodInvocation suffix : suffixCalls) {
+                            J.MethodInvocation annotated = isApplyBlock(suffix) ?
+                                    addApplyTodoComment(suffix) : suffix;
+                            chained = annotated.withSelect(chained);
+                        }
+                        return chained;
                     }
                 }
         );
@@ -640,12 +693,17 @@ public class MigrateMapperSettersToBuilder extends Recipe {
     }
 
     /**
-     * Walk the select chain of a method invocation to find a fluent chain rooted at
-     * a format-aligned mapper constructor. Returns the chain calls in innermost-first order
-     * and sets {@code mapperFqnHolder[0]} to the matched mapper FQN,
-     * or returns {@code null} if the chain is not rooted at a mapper constructor.
+     * Walk the select chain of a method invocation to find a fluent chain rooted at either
+     * a format-aligned mapper constructor (e.g. {@code new JsonMapper()}) or a known factory
+     * call (e.g. the Kotlin {@code jacksonObjectMapper()} extension function). Returns the
+     * chain calls in chain order (excluding the root) and sets {@code mapperFqnHolder[0]} to
+     * the matched mapper FQN; sets {@code mapperFqnHolder[1]} to a non-null builder entry
+     * expression (e.g. {@code "jacksonMapperBuilder()"}) when the rewritten output should use
+     * a different builder entry than {@code SimpleName.builder()}. Returns {@code null} if
+     * the chain is not rooted at a recognized mapper.
      */
-    private static @Nullable List<J.MethodInvocation> collectFluentChain(J.MethodInvocation mi, String[] mapperFqnHolder) {
+    private static @Nullable List<J.MethodInvocation> collectFluentChain(J.MethodInvocation mi, String[] mapperFqnHolder,
+                                                                          boolean importsJacksonObjectMapper) {
         List<J.MethodInvocation> calls = new ArrayList<>();
         Expression current = mi;
         while (current instanceof J.MethodInvocation) {
@@ -660,7 +718,57 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                 return calls;
             }
         }
+        // Kotlin: chains rooted at the top-level extension function jacksonObjectMapper().
+        // The factory call itself is the last element added to `calls` (it has no select).
+        if (current == null && !calls.isEmpty()) {
+            J.MethodInvocation rootCandidate = calls.get(calls.size() - 1);
+            if (isJacksonObjectMapperFactory(rootCandidate, importsJacksonObjectMapper)) {
+                calls.remove(calls.size() - 1);
+                mapperFqnHolder[0] = JSON_MAPPER;
+                mapperFqnHolder[1] = JACKSON_MAPPER_BUILDER_NAME + "()";
+                reverse(calls);
+                return calls;
+            }
+        }
         return null;
+    }
+
+    /**
+     * Detect a top-level call to {@code com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()}.
+     * Uses {@link MethodMatcher} when the call has resolved type info. When type attribution is
+     * partial (e.g. the parser is using a type table without the backing jar), falls back to a
+     * structural check: no select, no args, simple name matches, and the enclosing compilation
+     * unit imports the function.
+     */
+    private static boolean isJacksonObjectMapperFactory(J.MethodInvocation mi, boolean importsJacksonObjectMapper) {
+        if (JACKSON_OBJECT_MAPPER_MATCHER.matches(mi)) {
+            return true;
+        }
+        if (mi.getSelect() != null || !mi.getArguments().isEmpty() && !(mi.getArguments().get(0) instanceof J.Empty)) {
+            return false;
+        }
+        if (!JACKSON_OBJECT_MAPPER_NAME.equals(mi.getName().getSimpleName())) {
+            return false;
+        }
+        JavaType.Method methodType = mi.getMethodType();
+        if (methodType != null && methodType.getDeclaringType() != null &&
+                KOTLIN_EXTENSIONS_FQN.equals(methodType.getDeclaringType().getFullyQualifiedName())) {
+            return true;
+        }
+        return importsJacksonObjectMapper;
+    }
+
+    /**
+     * Stub for {@code com.fasterxml.jackson.module.kotlin.ExtensionsKt} so the JavaTemplate
+     * parser can resolve {@code jacksonMapperBuilder()} as a static method import. The Kotlin
+     * call site renders without the {@code ExtensionsKt} qualifier; the import is rewritten
+     * separately via {@link #maybeAddImport(String, boolean)}.
+     */
+    private static String kotlinExtensionsStub() {
+        return "package com.fasterxml.jackson.module.kotlin;\n" +
+                "public class ExtensionsKt {\n" +
+                "    public static com.fasterxml.jackson.databind.json.JsonMapper.Builder jacksonMapperBuilder() { return null; }\n" +
+                "}\n";
     }
 
     /**
@@ -768,6 +876,232 @@ public class MigrateMapperSettersToBuilder extends Recipe {
             return fq.getFullyQualifiedName();
         }
         return "Object";
+    }
+
+    /**
+     * True if {@code call} is a Kotlin scope function {@code .apply { ... }} invocation
+     * (single-argument lambda). Does not inspect the body — used to decide whether a
+     * preserved suffix call warrants a semantic-shift TODO comment.
+     */
+    private static boolean isApplyBlock(J.MethodInvocation call) {
+        return "apply".equals(call.getName().getSimpleName()) &&
+                call.getArguments().size() == 1 &&
+                call.getArguments().get(0) instanceof J.Lambda;
+    }
+
+    /**
+     * True if the method invocation is definitively a call on the mapper receiver inside a
+     * Kotlin {@code .apply { ... }} block. Uses two signals: an explicit {@code this.} select
+     * (always the receiver in apply scope), or resolved method type info declaring an
+     * ObjectMapper subtype. Returns {@code false} for ambiguous calls (null select, no type
+     * info) like {@code println()} which can't be distinguished from implicit-receiver setter
+     * calls without type attribution.
+     */
+    private static boolean isMapperReceiverCall(J.MethodInvocation mi) {
+        Expression select = mi.getSelect();
+        if (select != null) {
+            if (select instanceof J.Identifier && "this".equals(((J.Identifier) select).getSimpleName())) {
+                return true;
+            }
+            Class<?> c = select.getClass();
+            return "This".equals(c.getSimpleName()) && c.getName().startsWith("org.openrewrite.kotlin.");
+        }
+        JavaType.Method methodType = mi.getMethodType();
+        if (methodType != null) {
+            return matchingMapperType(methodType.getDeclaringType()) != null;
+        }
+        return false;
+    }
+
+    /**
+     * Attach TODO comments before a preserved {@code .apply { ... }} suffix call, providing
+     * per-setter migration guidance for any recognized setter calls remaining in the block.
+     * <p>
+     * For setters with a simple builder rename, shows {@code setX -> builderX}. For special
+     * cases like {@code setDefaultPropertyInclusion} whose builder equivalent has a different
+     * signature, describes the final Jackson 3 form. For unrecognized setters, links to the
+     * official migration guide. If the block contains no setter calls (e.g. only
+     * {@code println}), no comment is added.
+     * <p>
+     * Comments are placed in the whitespace after the select (i.e. between the previous call
+     * and the {@code .}) so they render on their own lines directly above {@code .apply}.
+     */
+    private static J.MethodInvocation addApplyTodoComment(J.MethodInvocation apply) {
+        if (!(apply.getArguments().get(0) instanceof J.Lambda)) {
+            return apply;
+        }
+        J.Lambda lambda = (J.Lambda) apply.getArguments().get(0);
+        if (!(lambda.getBody() instanceof J.Block)) {
+            return apply;
+        }
+        J.Block body = (J.Block) lambda.getBody();
+
+        // Scan the remaining apply body for setter calls that need migration guidance.
+        // Uses isMapperReceiverCall to distinguish mapper methods (explicit this or type-
+        // attributed) from unrelated calls like println() that happen to share null select.
+        List<String> guidanceLines = new ArrayList<>();
+        boolean hasUnrecognized = false;
+        for (Statement stmt : body.getStatements()) {
+            J.MethodInvocation mi = extractMethodInvocation(stmt);
+            if (mi == null || !isMapperReceiverCall(mi)) {
+                continue;
+            }
+            SetterToBuilderMapping mapping = SetterToBuilderMapping.fromSetter(mi.getName().getSimpleName());
+            if (mapping == null) {
+                hasUnrecognized = true;
+                continue;
+            }
+            if (mapping == SetterToBuilderMapping.SET_DEFAULT_PROPERTY_INCLUSION ||
+                    mapping == SetterToBuilderMapping.SET_SERIALIZATION_INCLUSION) {
+                guidanceLines.add(String.format("   `%s` -> `changeDefaultPropertyInclusion" +
+                                " { incl -> incl.withValueInclusion(...).withContentInclusion(...) }`",
+                        mapping.setterName));
+            } else if (!mapping.setterName.equals(mapping.builderName)) {
+                guidanceLines.add(String.format("   `%s` -> `%s`", mapping.setterName, mapping.builderName));
+            } else {
+                guidanceLines.add(String.format("   `%s`", mapping.setterName));
+            }
+        }
+
+        if (guidanceLines.isEmpty() && !hasUnrecognized) {
+            return apply;
+        }
+
+        JRightPadded<Expression> selectPad = apply.getPadding().getSelect();
+        if (selectPad == null) {
+            return apply;
+        }
+        Space after = selectPad.getAfter();
+
+        // Dedup: skip if a TODO comment is already present
+        for (Comment existing : after.getComments()) {
+            if (existing instanceof TextComment &&
+                    ((TextComment) existing).getText().trim().startsWith("TODO")) {
+                return apply;
+            }
+        }
+
+        String indent = after.getWhitespace();
+        List<Comment> newComments = new ArrayList<>(after.getComments());
+        if (!guidanceLines.isEmpty()) {
+            newComments.add(new TextComment(false,
+                    " TODO Move these setters into the builder chain above:", indent, Markers.EMPTY));
+            for (String line : guidanceLines) {
+                newComments.add(new TextComment(false, line, indent, Markers.EMPTY));
+            }
+        } else {
+            newComments.add(new TextComment(false,
+                    " TODO Migrate setter calls below into the builder chain above.", indent, Markers.EMPTY));
+        }
+        newComments.add(new TextComment(false,
+                " See " + JACKSON_3_MIGRATION_GUIDE, indent, Markers.EMPTY));
+
+        Space newAfter = after.withComments(newComments);
+        return apply.getPadding().withSelect(selectPad.withAfter(newAfter));
+    }
+
+    /**
+     * Result of partially extracting setter calls from a Kotlin {@code .apply { ... }} block.
+     * Contains the setters that were extracted (for folding into the builder chain) and,
+     * if the block was only partially extracted, a modified apply block retaining the
+     * remaining statements.
+     */
+    private static class ApplyBlockResult {
+        final List<J.MethodInvocation> extractedSetters;
+        // null when all statements were extracted (fully unwrapped)
+        final J.MethodInvocation remainingApply;
+
+        ApplyBlockResult(List<J.MethodInvocation> extractedSetters, J.MethodInvocation remainingApply) {
+            this.extractedSetters = extractedSetters;
+            this.remainingApply = remainingApply;
+        }
+    }
+
+    /**
+     * If {@code call} is a Kotlin scope function {@code .apply { ... }}, extract recognized
+     * setter calls from the front of its body until the first non-movable statement is hit
+     * (variable declarations, control flow, calls on something other than the implicit
+     * receiver, unknown setters, or non-setter expressions like {@code println}).
+     * <p>
+     * Returns {@code null} if the call is not an apply block or no setters could be extracted.
+     * When all statements are extracted, {@link ApplyBlockResult#remainingApply} is {@code null}.
+     * When only a prefix was extracted, {@code remainingApply} contains the modified apply
+     * block with the extracted statements removed.
+     */
+    private static @Nullable ApplyBlockResult tryUnwrapApplyBlock(J.MethodInvocation call) {
+        if (!"apply".equals(call.getName().getSimpleName()) ||
+                call.getArguments().size() != 1 ||
+                !(call.getArguments().get(0) instanceof J.Lambda)) {
+            return null;
+        }
+        J.Lambda lambda = (J.Lambda) call.getArguments().get(0);
+        if (!(lambda.getBody() instanceof J.Block)) {
+            return null;
+        }
+        J.Block body = (J.Block) lambda.getBody();
+        if (body.getStatements().isEmpty()) {
+            return null;
+        }
+        List<J.MethodInvocation> extracted = new ArrayList<>();
+        List<Statement> remaining = new ArrayList<>();
+        boolean hitNonSetter = false;
+        for (Statement stmt : body.getStatements()) {
+            if (!hitNonSetter) {
+                if (isSimpleExpressionStatement(stmt)) {
+                    J.MethodInvocation mi = extractMethodInvocation(stmt);
+                    if (mi != null && isImplicitOrThisSelect(mi.getSelect()) &&
+                            SetterToBuilderMapping.fromSetter(mi.getName().getSimpleName()) != null) {
+                        extracted.add(mi);
+                        continue;
+                    }
+                }
+                hitNonSetter = true;
+            }
+            remaining.add(stmt);
+        }
+        if (extracted.isEmpty()) {
+            return null;
+        }
+        if (remaining.isEmpty()) {
+            return new ApplyBlockResult(extracted, null);
+        }
+        J.Block remainingBody = body.withStatements(remaining);
+        J.Lambda remainingLambda = lambda.withBody(remainingBody);
+        J.MethodInvocation remainingApply = call.withArguments(Collections.singletonList(remainingLambda));
+        return new ApplyBlockResult(extracted, remainingApply);
+    }
+
+    /**
+     * True if {@code select} is either {@code null} (implicit receiver) or a reference
+     * to {@code this}. Accepts both Java's {@code J.Identifier} named {@code "this"}
+     * and Kotlin's {@code K.This} (matched by class name to avoid a direct dependency
+     * on {@code rewrite-kotlin}).
+     */
+    private static boolean isImplicitOrThisSelect(@Nullable Expression select) {
+        if (select == null) {
+            return true;
+        }
+        if (select instanceof J.Identifier && "this".equals(((J.Identifier) select).getSimpleName())) {
+            return true;
+        }
+        Class<?> c = select.getClass();
+        return "This".equals(c.getSimpleName()) && c.getName().startsWith("org.openrewrite.kotlin.");
+    }
+
+    /**
+     * True if {@code stmt} is a Java method-invocation statement or a Kotlin
+     * {@code K.ExpressionStatement} wrapping one. Used to reject variable declarations
+     * and control-flow statements inside lambda bodies we would otherwise unwrap.
+     * Matches {@code K.ExpressionStatement} by class name so {@code rewrite-kotlin}
+     * stays a runtime-only dependency.
+     */
+    private static boolean isSimpleExpressionStatement(Statement stmt) {
+        if (stmt instanceof J.MethodInvocation) {
+            return true;
+        }
+        Class<?> c = stmt.getClass();
+        return "ExpressionStatement".equals(c.getSimpleName()) &&
+                c.getName().startsWith("org.openrewrite.kotlin.");
     }
 
     /**

@@ -23,6 +23,7 @@ import org.openrewrite.Issue;
 import org.openrewrite.kotlin.KotlinParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
+import org.openrewrite.test.TypeValidation;
 
 import static org.openrewrite.kotlin.Assertions.kotlin;
 
@@ -141,6 +142,258 @@ class KotlinMigrateMapperSettersToBuilderTest implements RewriteTest {
                               .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
                               .build()
                       }
+                  }
+                  """
+              )
+            );
+        }
+    }
+
+    @Nested
+    class JacksonObjectMapperFactory {
+
+        @Test
+        void fluentChainOnJacksonObjectMapper() {
+            rewriteRun(
+              spec -> spec
+                .parser(KotlinParser.builder()
+                  .classpathFromResources(new InMemoryExecutionContext(),
+                    "jackson-annotations-2", "jackson-core-2", "jackson-databind-2",
+                    "jackson-module-kotlin-2"))
+                .typeValidationOptions(TypeValidation.builder().methodInvocations(false).build()),
+              //language=kotlin
+              kotlin(
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude
+                  import com.fasterxml.jackson.databind.DeserializationFeature
+                  import com.fasterxml.jackson.databind.ObjectMapper
+                  import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+
+                  fun mapper(): ObjectMapper = jacksonObjectMapper()
+                      .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
+                      .setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL)
+                  """,
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude
+                  import com.fasterxml.jackson.databind.DeserializationFeature
+                  import com.fasterxml.jackson.databind.ObjectMapper
+                  import com.fasterxml.jackson.module.kotlin.jacksonMapperBuilder
+
+                  fun mapper(): ObjectMapper = jacksonMapperBuilder()
+                      .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
+                      .changeDefaultPropertyInclusion({ incl -> incl.withContentInclusion(JsonInclude.Include.NON_NULL).withValueInclusion(JsonInclude.Include.NON_NULL)})
+                      .build()
+                  """
+              )
+            );
+        }
+
+        @Test
+        void fluentChainWithApplyBlockAtTail() {
+            rewriteRun(
+              spec -> spec
+                .parser(KotlinParser.builder()
+                  .classpathFromResources(new InMemoryExecutionContext(),
+                    "jackson-annotations-2", "jackson-core-2", "jackson-databind-2",
+                    "jackson-module-kotlin-2"))
+                .typeValidationOptions(TypeValidation.builder().methodInvocations(false).build()),
+              //language=kotlin
+              kotlin(
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude
+                  import com.fasterxml.jackson.databind.DeserializationFeature
+                  import com.fasterxml.jackson.databind.ObjectMapper
+                  import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+
+                  fun mapper(): ObjectMapper = jacksonObjectMapper()
+                      .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
+                      .apply {
+                          this.setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL)
+                      }
+                  """,
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude
+                  import com.fasterxml.jackson.databind.DeserializationFeature
+                  import com.fasterxml.jackson.databind.ObjectMapper
+                  import com.fasterxml.jackson.module.kotlin.jacksonMapperBuilder
+
+                  fun mapper(): ObjectMapper = jacksonMapperBuilder()
+                      .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
+                      .changeDefaultPropertyInclusion({ incl -> incl.withContentInclusion(JsonInclude.Include.NON_NULL).withValueInclusion(JsonInclude.Include.NON_NULL)})
+                      .build()
+                  """
+              )
+            );
+        }
+
+        @Test
+        void fluentChainWithApplyBlockImplicitReceiver() {
+            rewriteRun(
+              spec -> spec
+                .parser(KotlinParser.builder()
+                  .classpathFromResources(new InMemoryExecutionContext(),
+                    "jackson-annotations-2", "jackson-core-2", "jackson-databind-2",
+                    "jackson-module-kotlin-2"))
+                .typeValidationOptions(TypeValidation.builder().methodInvocations(false).build()),
+              //language=kotlin
+              kotlin(
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude
+                  import com.fasterxml.jackson.databind.DeserializationFeature
+                  import com.fasterxml.jackson.databind.ObjectMapper
+                  import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+
+                  fun mapper(): ObjectMapper = jacksonObjectMapper()
+                      .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
+                      .apply {
+                          setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL)
+                      }
+                  """,
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude
+                  import com.fasterxml.jackson.databind.DeserializationFeature
+                  import com.fasterxml.jackson.databind.ObjectMapper
+                  import com.fasterxml.jackson.module.kotlin.jacksonMapperBuilder
+
+                  fun mapper(): ObjectMapper = jacksonMapperBuilder()
+                      .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
+                      .changeDefaultPropertyInclusion({ incl -> incl.withContentInclusion(JsonInclude.Include.NON_NULL).withValueInclusion(JsonInclude.Include.NON_NULL)})
+                      .build()
+                  """
+              )
+            );
+        }
+
+        @Test
+        void applyBlockPartiallyExtracted() {
+            // When the apply block has recognized setters followed by non-setter statements,
+            // the setters at the front are extracted into the builder chain. The remaining
+            // apply block (with only non-setter statements like println) is preserved as a
+            // suffix with no TODO comment since there are no setter calls left in it.
+            rewriteRun(
+              spec -> spec
+                .parser(KotlinParser.builder()
+                  .classpathFromResources(new InMemoryExecutionContext(),
+                    "jackson-annotations-2", "jackson-core-2", "jackson-databind-2",
+                    "jackson-module-kotlin-2"))
+                .typeValidationOptions(TypeValidation.builder().methodInvocations(false).build()),
+              //language=kotlin
+              kotlin(
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude
+                  import com.fasterxml.jackson.databind.DeserializationFeature
+                  import com.fasterxml.jackson.databind.ObjectMapper
+                  import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+
+                  fun mapper(): ObjectMapper = jacksonObjectMapper()
+                      .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
+                      .apply {
+                          this.setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL)
+                          println("configured")
+                      }
+                  """,
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude
+                  import com.fasterxml.jackson.databind.DeserializationFeature
+                  import com.fasterxml.jackson.databind.ObjectMapper
+                  import com.fasterxml.jackson.module.kotlin.jacksonMapperBuilder
+
+                  fun mapper(): ObjectMapper = jacksonMapperBuilder()
+                      .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
+                      .changeDefaultPropertyInclusion({ incl -> incl.withContentInclusion(JsonInclude.Include.NON_NULL).withValueInclusion(JsonInclude.Include.NON_NULL)})
+                      .build()
+                      .apply {
+                          println("configured")
+                      }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void applyBlockWithNonSetterFirstGetsGuidanceComment() {
+            // When the first statement in the apply block is a non-setter (println), no
+            // setters can be extracted (conservative approach). The entire apply block is
+            // kept as a suffix and a TODO comment provides per-setter migration guidance.
+            rewriteRun(
+              spec -> spec
+                .parser(KotlinParser.builder()
+                  .classpathFromResources(new InMemoryExecutionContext(),
+                    "jackson-annotations-2", "jackson-core-2", "jackson-databind-2",
+                    "jackson-module-kotlin-2"))
+                .typeValidationOptions(TypeValidation.builder().methodInvocations(false).build()),
+              //language=kotlin
+              kotlin(
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude
+                  import com.fasterxml.jackson.databind.DeserializationFeature
+                  import com.fasterxml.jackson.databind.ObjectMapper
+                  import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+
+                  fun mapper(): ObjectMapper = jacksonObjectMapper()
+                      .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
+                      .apply {
+                          println("about to configure")
+                          this.setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL)
+                      }
+                  """,
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude
+                  import com.fasterxml.jackson.databind.DeserializationFeature
+                  import com.fasterxml.jackson.databind.ObjectMapper
+                  import com.fasterxml.jackson.module.kotlin.jacksonMapperBuilder
+
+                  fun mapper(): ObjectMapper = jacksonMapperBuilder()
+                      .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
+                      .build()
+                      // TODO Move these setters into the builder chain above:
+                      //   `setDefaultPropertyInclusion` -> `changeDefaultPropertyInclusion { incl -> incl.withValueInclusion(...).withContentInclusion(...) }`
+                      // See https://github.com/FasterXML/jackson/blob/main/jackson3/MIGRATING_TO_JACKSON_3.md#6-immutability-of-objectmapper-jsonfactory
+                      .apply {
+                          println("about to configure")
+                          this.setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL)
+                      }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void operationalMethodAtChainTailIsKeptAsSuffix() {
+            // Same bug class as openrewrite/rewrite-jackson#130, but via the fluent-chain path:
+            // a call like writeValueAsString that tails the chain must NOT be folded into the
+            // builder. Our chain-split treats unknown-named calls as suffix; this test locks in
+            // that behavior alongside main's isSetterReturnType gate for standalone calls.
+            rewriteRun(
+              spec -> spec
+                .parser(KotlinParser.builder()
+                  .classpathFromResources(new InMemoryExecutionContext(),
+                    "jackson-annotations-2", "jackson-core-2", "jackson-databind-2",
+                    "jackson-module-kotlin-2"))
+                .typeValidationOptions(TypeValidation.builder().methodInvocations(false).build()),
+              //language=kotlin
+              kotlin(
+                """
+                  import com.fasterxml.jackson.databind.ObjectMapper
+                  import com.fasterxml.jackson.databind.SerializationFeature
+                  import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+
+                  class Serializer(private val source: ObjectMapper) {
+                      fun serialize(value: Any): String = jacksonObjectMapper()
+                          .disable(SerializationFeature.INDENT_OUTPUT)
+                          .writeValueAsString(value)
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.ObjectMapper
+                  import com.fasterxml.jackson.databind.SerializationFeature
+                  import com.fasterxml.jackson.module.kotlin.jacksonMapperBuilder
+
+                  class Serializer(private val source: ObjectMapper) {
+                      fun serialize(value: Any): String = jacksonMapperBuilder()
+                          .disable(SerializationFeature.INDENT_OUTPUT)
+                          .build()
+                          .writeValueAsString(value)
                   }
                   """
               )
