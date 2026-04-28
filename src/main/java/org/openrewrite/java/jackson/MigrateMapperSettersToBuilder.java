@@ -32,6 +32,7 @@ import java.util.*;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.reverse;
 import static java.util.Collections.singleton;
+import static java.util.Collections.singletonList;
 
 @Getter
 public class MigrateMapperSettersToBuilder extends Recipe {
@@ -1067,7 +1068,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         }
         J.Block remainingBody = body.withStatements(remaining);
         J.Lambda remainingLambda = lambda.withBody(remainingBody);
-        J.MethodInvocation remainingApply = call.withArguments(Collections.singletonList(remainingLambda));
+        J.MethodInvocation remainingApply = call.withArguments(singletonList(remainingLambda));
         return new ApplyBlockResult(extracted, remainingApply);
     }
 
