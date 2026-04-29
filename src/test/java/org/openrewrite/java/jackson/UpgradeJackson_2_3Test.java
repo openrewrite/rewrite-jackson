@@ -87,7 +87,7 @@ class UpgradeJackson_2_3Test implements RewriteTest {
               """,
             spec -> spec.after(pom -> {
                 Matcher versionMatcher = Pattern.compile("3\\.\\d+\\.\\d+").matcher(pom);
-                assertThat(versionMatcher.find()).describedAs("Expected 3.0.x in %s", pom).isTrue();
+                assertThat(versionMatcher.find()).describedAs("Expected 3.1.x in %s", pom).isTrue();
                 String jacksonVersion = versionMatcher.group(0);
 
                 //language=xml
