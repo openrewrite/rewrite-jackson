@@ -502,6 +502,12 @@ recipeList:
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: com.fasterxml.jackson.core.JsonParser nextTextValue()
       newMethodName: nextStringValue
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonParser getCurrentToken()
+      newMethodName: currentToken
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonParser getCurrentName()
+      newMethodName: currentName
 
 # Based on https://github.com/FasterXML/jackson-future-ideas/wiki/JSTEP-3
 

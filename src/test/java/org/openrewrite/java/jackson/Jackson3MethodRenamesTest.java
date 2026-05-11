@@ -330,6 +330,62 @@ class Jackson3MethodRenamesTest implements RewriteTest {
     }
 
     @Test
+    void jsonParserGetCurrentToken() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonParser;
+              import com.fasterxml.jackson.core.JsonToken;
+
+              class Test {
+                  JsonToken test(JsonParser parser) throws Exception {
+                      return parser.getCurrentToken();
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonParser;
+              import tools.jackson.core.JsonToken;
+
+              class Test {
+                  JsonToken test(JsonParser parser) throws Exception {
+                      return parser.currentToken();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void jsonParserGetCurrentName() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonParser;
+
+              class Test {
+                  String test(JsonParser parser) throws Exception {
+                      return parser.getCurrentName();
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonParser;
+
+              class Test {
+                  String test(JsonParser parser) throws Exception {
+                      return parser.currentName();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void jsonParserTextMethods() {
         rewriteRun(
           //language=java
