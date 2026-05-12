@@ -66,11 +66,84 @@ class Jackson3DependenciesTest implements RewriteTest {
                       <dependency>
                           <groupId>com.fasterxml.jackson.core</groupId>
                           <artifactId>jackson-annotations</artifactId>
-                          <version>2.21</version>
+                          <version>2.20</version>
                       </dependency>
                   </dependencies>
               </project>
               """
+          )
+        );
+    }
+
+    @Issue("https://github.com/moderneinc/customer-requests/issues/2360")
+    @Test
+    void jacksonAnnotationsWithSharedVersionProperty() {
+        rewriteRun(
+          pomXml(
+            //language=xml
+            """
+              <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>org.example</groupId>
+                  <artifactId>example</artifactId>
+                  <version>1.0.0</version>
+                  <properties>
+                      <jackson.version>2.19.0</jackson.version>
+                  </properties>
+                  <dependencies>
+                      <dependency>
+                          <groupId>com.fasterxml.jackson.core</groupId>
+                          <artifactId>jackson-annotations</artifactId>
+                          <version>${jackson.version}</version>
+                      </dependency>
+                      <dependency>
+                          <groupId>com.fasterxml.jackson.core</groupId>
+                          <artifactId>jackson-databind</artifactId>
+                          <version>${jackson.version}</version>
+                      </dependency>
+                  </dependencies>
+              </project>
+              """,
+            spec -> spec.after(pom ->
+              assertThat(pom)
+                .contains("<artifactId>jackson-annotations</artifactId>")
+                .contains("<jackson.version>2.20</jackson.version>")
+                .doesNotContain("2.21")
+                .contains(">tools.jackson.core<")
+                .contains(">jackson-databind<")
+                .containsPattern("3\\.\\d+\\.\\d+")
+                .doesNotContain("~~(")
+                .actual())
+          )
+        );
+    }
+
+    @Test
+    void lombokMinimumVersionBumped() {
+        rewriteRun(
+          pomXml(
+            //language=xml
+            """
+              <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>org.example</groupId>
+                  <artifactId>example</artifactId>
+                  <version>1.0.0</version>
+                  <dependencies>
+                      <dependency>
+                          <groupId>org.projectlombok</groupId>
+                          <artifactId>lombok</artifactId>
+                          <version>1.18.40</version>
+                          <scope>provided</scope>
+                      </dependency>
+                  </dependencies>
+              </project>
+              """,
+            spec -> spec.after(pom ->
+              assertThat(pom)
+                .contains("<groupId>org.projectlombok</groupId>")
+                .containsPattern("<version>1\\.18\\.(4[4-9]|[5-9]\\d|\\d{3,})")
+                .actual())
           )
         );
     }
