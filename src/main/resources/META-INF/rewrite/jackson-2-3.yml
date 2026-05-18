@@ -93,10 +93,6 @@ description: Upgrade Jackson Maven dependencies from 2.x to 3.x versions and upd
 tags:
   - jackson-3
 recipeList:
-  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
-      groupId: com.fasterxml.jackson.core
-      artifactId: jackson-annotations
-      newVersion: "2.21"
   - org.openrewrite.java.dependencies.ChangeDependency:
       oldGroupId: com.fasterxml.jackson.core
       oldArtifactId: jackson-core
@@ -248,6 +244,16 @@ recipeList:
       oldArtifactId: "*"
       newGroupId: tools.jackson.jr
       newVersion: 3.1.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: com.fasterxml.jackson.core
+      artifactId: jackson-annotations
+      newVersion: "2.21"
+      overrideManagedVersion: true
+  # Lombok 1.18.44 introduced support for `lombok.jacksonized.jacksonVersion`, which `LombokJacksonizedConfig` writes to `lombok.config`.
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: org.projectlombok
+      artifactId: lombok
+      newVersion: "1.18.44"
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
