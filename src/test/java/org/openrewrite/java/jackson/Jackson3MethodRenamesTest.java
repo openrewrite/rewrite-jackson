@@ -115,6 +115,59 @@ class Jackson3MethodRenamesTest implements RewriteTest {
     }
 
     @Test
+    void jsonGeneratorLegacyAccessorMethods() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonGenerator;
+              import com.fasterxml.jackson.core.JsonStreamContext;
+
+              class Test {
+                  JsonStreamContext context(JsonGenerator gen) {
+                      return gen.getOutputContext();
+                  }
+
+                  Object target(JsonGenerator gen) {
+                      return gen.getOutputTarget();
+                  }
+
+                  int buffered(JsonGenerator gen) {
+                      return gen.getOutputBuffered();
+                  }
+
+                  boolean canOmit(JsonGenerator gen) {
+                      return gen.canOmitFields();
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonGenerator;
+              import tools.jackson.core.TokenStreamContext;
+
+              class Test {
+                  TokenStreamContext context(JsonGenerator gen) {
+                      return gen.streamWriteContext();
+                  }
+
+                  Object target(JsonGenerator gen) {
+                      return gen.streamWriteOutputTarget();
+                  }
+
+                  int buffered(JsonGenerator gen) {
+                      return gen.streamWriteOutputBuffered();
+                  }
+
+                  boolean canOmit(JsonGenerator gen) {
+                      return gen.canOmitProperties();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void jsonGeneratorSetCurrentValue() {
         rewriteRun(
           //language=java
@@ -322,6 +375,117 @@ class Jackson3MethodRenamesTest implements RewriteTest {
               class Test {
                   void test(JsonParser parser, Object value) {
                       parser.assignCurrentValue(value);
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void jsonParserGetCurrentToken() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonParser;
+              import com.fasterxml.jackson.core.JsonToken;
+
+              class Test {
+                  JsonToken test(JsonParser parser) throws Exception {
+                      return parser.getCurrentToken();
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonParser;
+              import tools.jackson.core.JsonToken;
+
+              class Test {
+                  JsonToken test(JsonParser parser) throws Exception {
+                      return parser.currentToken();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void jsonParserLegacyAccessorMethods() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonParser;
+              import com.fasterxml.jackson.core.JsonStreamContext;
+              import com.fasterxml.jackson.core.SerializableString;
+
+              class Test {
+                  JsonStreamContext context(JsonParser parser) {
+                      return parser.getParsingContext();
+                  }
+
+                  Object inputSource(JsonParser parser) {
+                      return parser.getInputSource();
+                  }
+
+                  String nextFieldName(JsonParser parser) throws Exception {
+                      return parser.nextFieldName();
+                  }
+
+                  boolean nextFieldName(JsonParser parser, SerializableString name) throws Exception {
+                      return parser.nextFieldName(name);
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonParser;
+              import tools.jackson.core.SerializableString;
+              import tools.jackson.core.TokenStreamContext;
+
+              class Test {
+                  TokenStreamContext context(JsonParser parser) {
+                      return parser.streamReadContext();
+                  }
+
+                  Object inputSource(JsonParser parser) {
+                      return parser.streamReadInputSource();
+                  }
+
+                  String nextFieldName(JsonParser parser) throws Exception {
+                      return parser.nextName();
+                  }
+
+                  boolean nextFieldName(JsonParser parser, SerializableString name) throws Exception {
+                      return parser.nextName(name);
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void jsonParserGetCurrentName() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonParser;
+
+              class Test {
+                  String test(JsonParser parser) throws Exception {
+                      return parser.getCurrentName();
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonParser;
+
+              class Test {
+                  String test(JsonParser parser) throws Exception {
+                      return parser.currentName();
                   }
               }
               """

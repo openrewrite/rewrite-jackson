@@ -413,6 +413,18 @@ tags:
   - jackson-3
 recipeList:
   - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonGenerator getOutputContext()
+      newMethodName: streamWriteContext
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonGenerator getOutputTarget()
+      newMethodName: streamWriteOutputTarget
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonGenerator getOutputBuffered()
+      newMethodName: streamWriteOutputBuffered
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonGenerator canOmitFields()
+      newMethodName: canOmitProperties
+  - org.openrewrite.java.ChangeMethodName:
       methodPattern: com.fasterxml.jackson.core.JsonGenerator getCodec()
       newMethodName: objectWriteContext
   - org.openrewrite.java.ChangeMethodName:
@@ -473,6 +485,15 @@ recipeList:
       methodPattern: com.fasterxml.jackson.core.JsonParser getCodec()
       newMethodName: objectReadContext
   - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonParser getParsingContext()
+      newMethodName: streamReadContext
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonParser getInputSource()
+      newMethodName: streamReadInputSource
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonParser nextFieldName(..)
+      newMethodName: nextName
+  - org.openrewrite.java.ChangeMethodName:
       methodPattern: com.fasterxml.jackson.core.JsonParser getCurrentLocation()
       newMethodName: currentLocation
   - org.openrewrite.java.ChangeMethodName:
@@ -502,6 +523,12 @@ recipeList:
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: com.fasterxml.jackson.core.JsonParser nextTextValue()
       newMethodName: nextStringValue
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonParser getCurrentToken()
+      newMethodName: currentToken
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.core.JsonParser getCurrentName()
+      newMethodName: currentName
 
 # Based on https://github.com/FasterXML/jackson-future-ideas/wiki/JSTEP-3
 
