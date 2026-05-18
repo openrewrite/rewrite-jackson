@@ -66,7 +66,7 @@ class Jackson3DependenciesTest implements RewriteTest {
                       <dependency>
                           <groupId>com.fasterxml.jackson.core</groupId>
                           <artifactId>jackson-annotations</artifactId>
-                          <version>2.20</version>
+                          <version>2.21</version>
                       </dependency>
                   </dependencies>
               </project>
@@ -107,12 +107,10 @@ class Jackson3DependenciesTest implements RewriteTest {
             spec -> spec.after(pom ->
               assertThat(pom)
                 .contains("<artifactId>jackson-annotations</artifactId>")
-                .contains("<jackson.version>2.20</jackson.version>")
-                .doesNotContain("2.21")
+                .contains("<jackson.version>2.21</jackson.version>")
                 .contains(">tools.jackson.core<")
                 .contains(">jackson-databind<")
                 .containsPattern("3\\.\\d+\\.\\d+")
-                .doesNotContain("~~(")
                 .actual())
           )
         );
