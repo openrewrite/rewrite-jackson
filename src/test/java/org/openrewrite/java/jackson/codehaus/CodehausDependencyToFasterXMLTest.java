@@ -21,6 +21,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.test.RewriteTest;
 
+import java.util.List;
 import java.util.regex.Pattern;
 
 import static org.openrewrite.maven.Assertions.pomXml;
@@ -55,7 +56,11 @@ class CodehausDependencyToFasterXMLTest implements RewriteTest {
               </project>
               """,
             after -> after.after(pomXml -> {
-                String version = Pattern.compile("<version>(2\\.\\d+\\.\\d+)</version>").matcher(pomXml).results().findFirst().get().group(1);
+                // jackson-core and jackson-databind resolve independently to their own latest
+                // release, which may differ when Jackson publishes the modules at different times.
+                List<String> versions = Pattern.compile("<version>(2\\.\\d+\\.\\d+)</version>").matcher(pomXml).results()
+                  .map(result -> result.group(1))
+                  .toList();
                 return """
                   <project>
                       <modelVersion>4.0.0</modelVersion>
@@ -71,11 +76,11 @@ class CodehausDependencyToFasterXMLTest implements RewriteTest {
                           <dependency>
                               <groupId>com.fasterxml.jackson.core</groupId>
                               <artifactId>jackson-databind</artifactId>
-                              <version>%1$s</version>
+                              <version>%2$s</version>
                           </dependency>
                       </dependencies>
                   </project>
-                  """.formatted(version);
+                  """.formatted(versions.get(0), versions.get(1));
             })
           )
         );
