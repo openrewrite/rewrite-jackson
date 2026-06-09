@@ -6,3 +6,5 @@ out/
 src/main/generated/
 .vscode/
 *.iml
+
+.context/
