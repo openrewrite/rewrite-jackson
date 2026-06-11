@@ -42,6 +42,7 @@ recipeList:
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_RemoveRedundantFeatureFlags
   - org.openrewrite.java.jackson.RemoveBuiltInModuleRegistrations
   - org.openrewrite.java.jackson.MigrateMapperSettersToBuilder
+  - org.openrewrite.java.jackson.MigrateFactorySettersToBuilder
   - org.openrewrite.java.jackson.UpdateSerializationInclusionConfiguration
   - org.openrewrite.java.jackson.UpdateAutoDetectVisibilityConfiguration
   - org.openrewrite.java.ReorderMethodArguments:
@@ -319,7 +320,10 @@ recipeList:
       newFullyQualifiedTypeName: tools.jackson.databind.DatabindException
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: com.fasterxml.jackson.core.JsonFactory
-      newFullyQualifiedTypeName: tools.jackson.core.TokenStreamFactory
+      newFullyQualifiedTypeName: tools.jackson.core.json.JsonFactory
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.core.JsonFactoryBuilder
+      newFullyQualifiedTypeName: tools.jackson.core.json.JsonFactoryBuilder
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: com.fasterxml.jackson.core.JsonStreamContext
       newFullyQualifiedTypeName: tools.jackson.core.TokenStreamContext

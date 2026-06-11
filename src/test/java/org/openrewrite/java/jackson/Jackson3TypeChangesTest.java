@@ -52,10 +52,11 @@ class Jackson3TypeChangesTest implements RewriteTest {
               }
               """,
             """
-              import tools.jackson.core.TokenStreamFactory;
+              import tools.jackson.core.json.JsonFactory;
 
               class Test {
-                  TokenStreamFactory factory = new TokenStreamFactory();
+                  JsonFactory factory = JsonFactory.builder()
+                          .build();
               }
               """
           )

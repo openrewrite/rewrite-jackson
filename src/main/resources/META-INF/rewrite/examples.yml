@@ -202,6 +202,26 @@ examples:
     language: java
 ---
 type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.jackson.MigrateFactorySettersToBuilder
+examples:
+- description: '`MigrateFactorySettersToBuilderTest#bareConstructorMigratedToBuilder`'
+  sources:
+  - before: |
+      import com.fasterxml.jackson.core.JsonFactory;
+
+      class A {
+          JsonFactory factory = new JsonFactory();
+      }
+    after: |
+      import com.fasterxml.jackson.core.JsonFactory;
+
+      class A {
+          JsonFactory factory = JsonFactory.builder()
+                  .build();
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.MigrateMapperSettersToBuilder
 examples:
 - description: '`KotlinMigrateMapperSettersToBuilderTest#fluentChainInFunction`'
@@ -718,10 +738,11 @@ examples:
           JsonFactory factory = new JsonFactory();
       }
     after: |
-      import tools.jackson.core.TokenStreamFactory;
+      import tools.jackson.core.json.JsonFactory;
 
       class Test {
-          TokenStreamFactory factory = new TokenStreamFactory();
+          JsonFactory factory = JsonFactory.builder()
+                  .build();
       }
     language: java
 - description: '`LombokJacksonizedConfigTest#addJacksonVersionToLombokConfig`'

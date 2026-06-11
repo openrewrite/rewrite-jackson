@@ -138,9 +138,9 @@ class UpgradeJackson_2_3Test implements RewriteTest {
               """,
             """
               import com.fasterxml.jackson.annotation.JsonProperty;
-              import tools.jackson.core.JsonFactoryBuilder;
               import tools.jackson.databind.ObjectMapper;
-              import tools.jackson.core.TokenStreamFactory;
+              import tools.jackson.core.json.JsonFactory;
+              import tools.jackson.core.json.JsonFactoryBuilder;
 
               class Test {
                   public String foo(@JsonProperty("foo") String foo) {
@@ -149,7 +149,7 @@ class UpgradeJackson_2_3Test implements RewriteTest {
 
                   static void helloJackson() {
                       Object[] input = new Object[] { "one", "two" };
-                      TokenStreamFactory factory = new JsonFactoryBuilder().build();
+                      JsonFactory factory = new JsonFactoryBuilder().build();
                   }
               }
               """
@@ -206,9 +206,9 @@ class UpgradeJackson_2_3Test implements RewriteTest {
               """,
             """
               import com.fasterxml.jackson.annotation.JsonProperty;
-              import tools.jackson.core.JsonFactoryBuilder;
               import tools.jackson.databind.ObjectMapper;
-              import tools.jackson.core.TokenStreamFactory;
+              import tools.jackson.core.json.JsonFactory;
+              import tools.jackson.core.json.JsonFactoryBuilder;
 
               class Test {
                   public String foo(@JsonProperty("foo") String foo) {
@@ -217,7 +217,7 @@ class UpgradeJackson_2_3Test implements RewriteTest {
 
                   static void helloJackson() {
                       Object[] input = new Object[] { "one", "two" };
-                      TokenStreamFactory factory = new JsonFactoryBuilder().build();
+                      JsonFactory factory = new JsonFactoryBuilder().build();
                   }
               }
               """
