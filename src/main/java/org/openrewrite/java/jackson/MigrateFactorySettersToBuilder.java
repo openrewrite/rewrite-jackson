@@ -52,21 +52,25 @@ public class MigrateFactorySettersToBuilder extends Recipe {
 
     @RequiredArgsConstructor
     enum SetterToBuilderMapping {
-        // Feature enable/disable/configure (covers all overloaded feature types via
-        // TSFBuilder<F, B> with B bound to the concrete JsonFactoryBuilder receiver type).
+        // Feature enable/disable/configure. UpgradeJackson_2_3_ModernizeJacksonCoreFeatures
+        // runs before this recipe, so the argument constant is always one of: JsonReadFeature,
+        // JsonWriteFeature, StreamReadFeature, StreamWriteFeature, or JsonFactory.Feature.
+        // With a concrete `new JsonFactoryBuilder()` receiver, JsonReadFeature / JsonWriteFeature
+        // args resolve through concrete overrides on JsonFactoryBuilder; the others resolve
+        // through methods inherited from TSFBuilder<F, B> with B bound to JsonFactoryBuilder.
         CONFIGURE("configure", "configure"),
         DISABLE("disable", "disable"),
         ENABLE("enable", "enable"),
 
-        // Character escapes and value separators (concrete on JsonFactoryBuilder).
+        // Character escapes and value separators — concrete on JsonFactoryBuilder.
         SET_CHARACTER_ESCAPES("setCharacterEscapes", "characterEscapes"),
         SET_ROOT_VALUE_SEPARATOR("setRootValueSeparator", "rootValueSeparator"),
 
-        // Stream-decoration (inherited from TSFBuilder).
+        // Stream-decoration — inherited from TSFBuilder<F, B>.
         SET_INPUT_DECORATOR("setInputDecorator", "inputDecorator"),
         SET_OUTPUT_DECORATOR("setOutputDecorator", "outputDecorator"),
 
-        // Read/write constraints (inherited from TSFBuilder).
+        // Read/write constraints — inherited from TSFBuilder<F, B>.
         SET_STREAM_READ_CONSTRAINTS("setStreamReadConstraints", "streamReadConstraints"),
         SET_STREAM_WRITE_CONSTRAINTS("setStreamWriteConstraints", "streamWriteConstraints");
 
