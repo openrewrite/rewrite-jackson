@@ -24,6 +24,13 @@ import org.openrewrite.test.RewriteTest;
 
 import static org.openrewrite.java.Assertions.java;
 
+/**
+ * The recipe's structural job is independent of feature-constant renames — those happen in a
+ * separate pipeline pass before this recipe runs. To keep these unit tests self-contained, they
+ * use setters that take non-feature arguments ({@code setCharacterEscapes},
+ * {@code setRootValueSeparator}). The full feature-constant-bearing flow is covered end-to-end
+ * in {@code Jackson3TypeChangesTest}.
+ */
 class MigrateFactorySettersToBuilderTest implements RewriteTest {
 
     @Override
@@ -47,9 +54,10 @@ class MigrateFactorySettersToBuilderTest implements RewriteTest {
               """,
             """
               import com.fasterxml.jackson.core.JsonFactory;
+              import com.fasterxml.jackson.core.JsonFactoryBuilder;
 
               class A {
-                  JsonFactory factory = JsonFactory.builder()
+                  JsonFactory factory = new JsonFactoryBuilder()
                           .build();
               }
               """
@@ -58,29 +66,30 @@ class MigrateFactorySettersToBuilderTest implements RewriteTest {
     }
 
     @Test
-    void singleEnable() {
+    void singleSetterMigratesToBuilder() {
         rewriteRun(
           java(
             """
               import com.fasterxml.jackson.core.JsonFactory;
-              import com.fasterxml.jackson.core.JsonParser;
+              import com.fasterxml.jackson.core.io.CharacterEscapes;
 
               class A {
-                  JsonFactory create() {
+                  JsonFactory create(CharacterEscapes escapes) {
                       JsonFactory factory = new JsonFactory();
-                      factory.enable(JsonParser.Feature.ALLOW_COMMENTS);
+                      factory.setCharacterEscapes(escapes);
                       return factory;
                   }
               }
               """,
             """
               import com.fasterxml.jackson.core.JsonFactory;
-              import com.fasterxml.jackson.core.JsonParser;
+              import com.fasterxml.jackson.core.JsonFactoryBuilder;
+              import com.fasterxml.jackson.core.io.CharacterEscapes;
 
               class A {
-                  JsonFactory create() {
-                      JsonFactory factory = JsonFactory.builder()
-                              .enable(JsonParser.Feature.ALLOW_COMMENTS)
+                  JsonFactory create(CharacterEscapes escapes) {
+                      JsonFactory factory = new JsonFactoryBuilder()
+                              .characterEscapes(escapes)
                               .build();
                       return factory;
                   }
@@ -91,33 +100,32 @@ class MigrateFactorySettersToBuilderTest implements RewriteTest {
     }
 
     @Test
-    void multipleSetters() {
+    void multipleSettersMigrateToBuilder() {
         rewriteRun(
           java(
             """
               import com.fasterxml.jackson.core.JsonFactory;
-              import com.fasterxml.jackson.core.JsonGenerator;
-              import com.fasterxml.jackson.core.JsonParser;
+              import com.fasterxml.jackson.core.io.CharacterEscapes;
 
               class A {
-                  JsonFactory create() {
+                  JsonFactory create(CharacterEscapes escapes) {
                       JsonFactory factory = new JsonFactory();
-                      factory.enable(JsonParser.Feature.ALLOW_COMMENTS);
-                      factory.disable(JsonGenerator.Feature.QUOTE_FIELD_NAMES);
+                      factory.setCharacterEscapes(escapes);
+                      factory.setRootValueSeparator(",");
                       return factory;
                   }
               }
               """,
             """
               import com.fasterxml.jackson.core.JsonFactory;
-              import com.fasterxml.jackson.core.JsonGenerator;
-              import com.fasterxml.jackson.core.JsonParser;
+              import com.fasterxml.jackson.core.JsonFactoryBuilder;
+              import com.fasterxml.jackson.core.io.CharacterEscapes;
 
               class A {
-                  JsonFactory create() {
-                      JsonFactory factory = JsonFactory.builder()
-                              .enable(JsonParser.Feature.ALLOW_COMMENTS)
-                              .disable(JsonGenerator.Feature.QUOTE_FIELD_NAMES)
+                  JsonFactory create(CharacterEscapes escapes) {
+                      JsonFactory factory = new JsonFactoryBuilder()
+                              .characterEscapes(escapes)
+                              .rootValueSeparator(",")
                               .build();
                       return factory;
                   }
@@ -136,23 +144,24 @@ class MigrateFactorySettersToBuilderTest implements RewriteTest {
               java(
                 """
                   import com.fasterxml.jackson.core.JsonFactory;
-                  import com.fasterxml.jackson.core.JsonParser;
+                  import com.fasterxml.jackson.core.io.CharacterEscapes;
 
                   class A {
-                      JsonFactory create() {
+                      JsonFactory create(CharacterEscapes escapes) {
                           return new JsonFactory()
-                                  .enable(JsonParser.Feature.ALLOW_COMMENTS);
+                                  .setCharacterEscapes(escapes);
                       }
                   }
                   """,
                 """
                   import com.fasterxml.jackson.core.JsonFactory;
-                  import com.fasterxml.jackson.core.JsonParser;
+                  import com.fasterxml.jackson.core.JsonFactoryBuilder;
+                  import com.fasterxml.jackson.core.io.CharacterEscapes;
 
                   class A {
-                      JsonFactory create() {
-                          return JsonFactory.builder()
-                                  .enable(JsonParser.Feature.ALLOW_COMMENTS)
+                      JsonFactory create(CharacterEscapes escapes) {
+                          return new JsonFactoryBuilder()
+                                  .characterEscapes(escapes)
                                   .build();
                       }
                   }
@@ -171,22 +180,22 @@ class MigrateFactorySettersToBuilderTest implements RewriteTest {
               java(
                 """
                   import com.fasterxml.jackson.core.JsonFactory;
-                  import com.fasterxml.jackson.core.JsonParser;
+                  import com.fasterxml.jackson.core.io.CharacterEscapes;
 
                   class A {
-                      void configure(JsonFactory factory) {
-                          factory.enable(JsonParser.Feature.ALLOW_COMMENTS);
+                      void configure(JsonFactory factory, CharacterEscapes escapes) {
+                          factory.setCharacterEscapes(escapes);
                       }
                   }
                   """,
                 """
                   import com.fasterxml.jackson.core.JsonFactory;
-                  import com.fasterxml.jackson.core.JsonParser;
+                  import com.fasterxml.jackson.core.io.CharacterEscapes;
 
                   class A {
-                      void configure(JsonFactory factory) {
-                          // TODO enable could not be folded to the builder of JsonFactory. Use factory.rebuild().enable(...).build() or move to the factory's instantiation site.
-                          factory.enable(JsonParser.Feature.ALLOW_COMMENTS);
+                      void configure(JsonFactory factory, CharacterEscapes escapes) {
+                          // TODO setCharacterEscapes could not be folded to the builder of JsonFactory. Use factory.rebuild().characterEscapes(...).build() or move to the factory's instantiation site.
+                          factory.setCharacterEscapes(escapes);
                       }
                   }
                   """
@@ -200,12 +209,12 @@ class MigrateFactorySettersToBuilderTest implements RewriteTest {
               java(
                 """
                   import com.fasterxml.jackson.core.JsonFactory;
-                  import com.fasterxml.jackson.core.JsonParser;
+                  import com.fasterxml.jackson.core.io.CharacterEscapes;
 
                   class A {
-                      void configure() {
+                      void configure(CharacterEscapes escapes) {
                           JsonFactory factory = new JsonFactory();
-                          factory.enable(JsonParser.Feature.ALLOW_COMMENTS);
+                          factory.setCharacterEscapes(escapes);
                           doSomething(factory);
                       }
                       void doSomething(JsonFactory factory) {}
@@ -213,12 +222,13 @@ class MigrateFactorySettersToBuilderTest implements RewriteTest {
                   """,
                 """
                   import com.fasterxml.jackson.core.JsonFactory;
-                  import com.fasterxml.jackson.core.JsonParser;
+                  import com.fasterxml.jackson.core.JsonFactoryBuilder;
+                  import com.fasterxml.jackson.core.io.CharacterEscapes;
 
                   class A {
-                      void configure() {
-                          JsonFactory factory = JsonFactory.builder()
-                                  .enable(JsonParser.Feature.ALLOW_COMMENTS)
+                      void configure(CharacterEscapes escapes) {
+                          JsonFactory factory = new JsonFactoryBuilder()
+                                  .characterEscapes(escapes)
                                   .build();
                           doSomething(factory);
                       }

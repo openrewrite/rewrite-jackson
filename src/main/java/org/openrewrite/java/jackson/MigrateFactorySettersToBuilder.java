@@ -52,20 +52,21 @@ public class MigrateFactorySettersToBuilder extends Recipe {
 
     @RequiredArgsConstructor
     enum SetterToBuilderMapping {
-        // Feature enable/disable/configure (covers all overloaded feature types)
+        // Feature enable/disable/configure (covers all overloaded feature types via
+        // TSFBuilder<F, B> with B bound to the concrete JsonFactoryBuilder receiver type).
         CONFIGURE("configure", "configure"),
         DISABLE("disable", "disable"),
         ENABLE("enable", "enable"),
 
-        // Character escapes and value separators
+        // Character escapes and value separators (concrete on JsonFactoryBuilder).
         SET_CHARACTER_ESCAPES("setCharacterEscapes", "characterEscapes"),
         SET_ROOT_VALUE_SEPARATOR("setRootValueSeparator", "rootValueSeparator"),
 
-        // Stream-decoration
+        // Stream-decoration (inherited from TSFBuilder).
         SET_INPUT_DECORATOR("setInputDecorator", "inputDecorator"),
         SET_OUTPUT_DECORATOR("setOutputDecorator", "outputDecorator"),
 
-        // Read/write constraints
+        // Read/write constraints (inherited from TSFBuilder).
         SET_STREAM_READ_CONSTRAINTS("setStreamReadConstraints", "streamReadConstraints"),
         SET_STREAM_WRITE_CONSTRAINTS("setStreamWriteConstraints", "streamWriteConstraints");
 
@@ -346,14 +347,18 @@ public class MigrateFactorySettersToBuilder extends Recipe {
                     }
 
                     /**
-                     * Builds and applies the {@code Factory.builder()...build()} template for a list of setter calls.
+                     * Builds and applies the {@code new FactoryBuilder()...build()} template for a list
+                     * of setter calls. We construct the concrete builder type directly so the chain's
+                     * receiver type is concrete from the start (avoids the wildcard-typed
+                     * {@code TSFBuilder<?, ?>} that {@code JsonFactory.builder()} returns in Jackson 2).
                      */
                     private J applyBuilderTemplate(String factoryFqn, List<J.MethodInvocation> setters,
                                                    @Nullable List<SetterToBuilderMapping> resolvedMappings,
                                                    List<J.MethodInvocation> suffixCalls,
                                                    JavaCoordinates coordinates, ExecutionContext ctx) {
-                        String simpleFactoryName = factoryFqn.substring(factoryFqn.lastIndexOf('.') + 1);
-                        StringBuilder templateCode = new StringBuilder(simpleFactoryName + ".builder()");
+                        String factoryBuilderFqn = factoryFqn + "Builder";
+                        String simpleFactoryBuilderName = factoryBuilderFqn.substring(factoryBuilderFqn.lastIndexOf('.') + 1);
+                        StringBuilder templateCode = new StringBuilder("new " + simpleFactoryBuilderName + "()");
                         List<Expression> templateArgs = new ArrayList<>();
                         for (int i = 0; i < setters.size(); i++) {
                             J.MethodInvocation setter = setters.get(i);
@@ -383,14 +388,17 @@ public class MigrateFactorySettersToBuilder extends Recipe {
                             templateCode.append(")");
                         }
 
-                        maybeAddImport(factoryFqn);
+                        maybeAddImport(factoryBuilderFqn);
 
+                        // Real Jackson 2 classpath only. With a concrete `new JsonFactoryBuilder()`
+                        // receiver, the entire chain resolves through concrete-typed methods on
+                        // JsonFactoryBuilder (or inherited methods on TSFBuilder<F, B> with F/B
+                        // already bound), so no parser stub is needed.
                         JavaParser.Builder<?, ?> parser = JavaParser.fromJavaVersion()
-                                .classpathFromResources(ctx, "jackson-annotations-2", "jackson-core-2", "jackson-databind-2")
-                                .dependsOn(factoryStub(factoryFqn), factoryBuilderStub(factoryFqn));
+                                .classpathFromResources(ctx, "jackson-annotations-2", "jackson-core-2", "jackson-databind-2");
 
                         return JavaTemplate.builder(templateCode.toString())
-                                .imports(factoryFqn)
+                                .imports(factoryBuilderFqn)
                                 .javaParser(parser)
                                 .build()
                                 .apply(getCursor(), coordinates, templateArgs.toArray());
@@ -451,56 +459,10 @@ public class MigrateFactorySettersToBuilder extends Recipe {
     }
 
     /**
-     * Generates a stub for {@code JsonFactory} so the JavaTemplate parser can resolve
-     * {@code JsonFactory.builder()} to a builder type with the relevant setter overloads.
-     */
-    private static String factoryStub(String factoryFqn) {
-        int lastDot = factoryFqn.lastIndexOf('.');
-        String packageName = factoryFqn.substring(0, lastDot);
-        String simpleName = factoryFqn.substring(lastDot + 1);
-        String builderSimple = simpleName + "Builder";
-        return "package " + packageName + ";\n" +
-                "public class " + simpleName + " {\n" +
-                "    public " + simpleName + "() {}\n" +
-                "    public " + simpleName + " enable(Object f) { return this; }\n" +
-                "    public " + simpleName + " disable(Object f) { return this; }\n" +
-                "    public " + simpleName + " configure(Object f, boolean state) { return this; }\n" +
-                "    public " + simpleName + " setCharacterEscapes(Object e) { return this; }\n" +
-                "    public " + simpleName + " setRootValueSeparator(Object s) { return this; }\n" +
-                "    public " + simpleName + " setInputDecorator(Object d) { return this; }\n" +
-                "    public " + simpleName + " setOutputDecorator(Object d) { return this; }\n" +
-                "    public " + simpleName + " setStreamReadConstraints(Object c) { return this; }\n" +
-                "    public " + simpleName + " setStreamWriteConstraints(Object c) { return this; }\n" +
-                "    public static " + builderSimple + " builder() { return null; }\n" +
-                "}\n";
-    }
-
-    /**
-     * Generates a stub for the factory's top-level builder companion (e.g. {@code JsonFactoryBuilder}).
-     */
-    private static String factoryBuilderStub(String factoryFqn) {
-        int lastDot = factoryFqn.lastIndexOf('.');
-        String packageName = factoryFqn.substring(0, lastDot);
-        String simpleName = factoryFqn.substring(lastDot + 1);
-        String builderSimple = simpleName + "Builder";
-        return "package " + packageName + ";\n" +
-                "public class " + builderSimple + " {\n" +
-                "    public " + builderSimple + "() {}\n" +
-                "    public " + builderSimple + " enable(Object f) { return this; }\n" +
-                "    public " + builderSimple + " disable(Object f) { return this; }\n" +
-                "    public " + builderSimple + " configure(Object f, boolean state) { return this; }\n" +
-                "    public " + builderSimple + " characterEscapes(Object e) { return this; }\n" +
-                "    public " + builderSimple + " rootValueSeparator(Object s) { return this; }\n" +
-                "    public " + builderSimple + " inputDecorator(Object d) { return this; }\n" +
-                "    public " + builderSimple + " outputDecorator(Object d) { return this; }\n" +
-                "    public " + builderSimple + " streamReadConstraints(Object c) { return this; }\n" +
-                "    public " + builderSimple + " streamWriteConstraints(Object c) { return this; }\n" +
-                "    public " + simpleName + " build() { return null; }\n" +
-                "}\n";
-    }
-
-    /**
-     * Appends a single builder method call to the template string.
+     * Appends a single builder method call to the template string. Arguments are passed
+     * through unchanged via {@code #{any()}} substitution; constant renames (Jackson 2
+     * legacy feature constants → modern {@code JsonReadFeature}/{@code JsonWriteFeature})
+     * happen in a separate pipeline pass before this recipe runs.
      */
     private static void appendBuilderCall(J.MethodInvocation mi, SetterToBuilderMapping mapping,
                                           StringBuilder templateCode, List<Expression> templateArgs) {
