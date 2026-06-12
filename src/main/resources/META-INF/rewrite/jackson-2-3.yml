@@ -39,6 +39,7 @@ recipeList:
   - org.openrewrite.java.jackson.LombokJacksonizedConfig
   - org.openrewrite.java.jackson.UpdateSerializationInclusionConfiguration
   - org.openrewrite.java.jackson.UseFormatAlignedObjectMappers
+  - org.openrewrite.java.jackson.UpgradeJackson_2_3_ModernizeJacksonCoreFeatures
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_RemoveRedundantFeatureFlags
   - org.openrewrite.java.jackson.RemoveBuiltInModuleRegistrations
   - org.openrewrite.java.jackson.MigrateMapperSettersToBuilder
@@ -761,3 +762,124 @@ recipeList:
   - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
       existingFullyQualifiedConstantName: com.fasterxml.jackson.databind.DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_USING_DEFAULT_VALUE
       fullyQualifiedConstantName: tools.jackson.databind.cfg.EnumFeature.READ_UNKNOWN_ENUM_VALUES_USING_DEFAULT_VALUE
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.jackson.UpgradeJackson_2_3_ModernizeJacksonCoreFeatures
+displayName: Modernize legacy `jackson-core` feature constants
+description: >-
+  Jackson 2.10 moved most flag constants out of `JsonParser.Feature` and
+  `JsonGenerator.Feature` into the new `JsonReadFeature` / `JsonWriteFeature` (for
+  JSON-specific flags) and `StreamReadFeature` / `StreamWriteFeature` (for
+  format-agnostic flags). Jackson 3 keeps only the modern locations. This recipe
+  rewrites every legacy constant to its Jackson 2-modern equivalent so the rest of the
+  Jackson 2 → 3 pipeline (in particular the builder migrations) sees flags the
+  modern API will accept.
+tags:
+  - jackson-3
+recipeList:
+  # JsonParser.Feature -> JsonReadFeature (JSON-specific reads)
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_COMMENTS
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.json.JsonReadFeature.ALLOW_JAVA_COMMENTS
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_YAML_COMMENTS
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.json.JsonReadFeature.ALLOW_YAML_COMMENTS
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_UNQUOTED_FIELD_NAMES
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.json.JsonReadFeature.ALLOW_UNQUOTED_FIELD_NAMES
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_SINGLE_QUOTES
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.json.JsonReadFeature.ALLOW_SINGLE_QUOTES
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_UNQUOTED_CONTROL_CHARS
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.json.JsonReadFeature.ALLOW_UNESCAPED_CONTROL_CHARS
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_RS_CONTROL_CHAR
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.json.JsonReadFeature.ALLOW_RS_CONTROL_CHAR
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_BACKSLASH_ESCAPING_ANY_CHARACTER
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.json.JsonReadFeature.ALLOW_BACKSLASH_ESCAPING_ANY_CHARACTER
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_NUMERIC_LEADING_ZEROS
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.json.JsonReadFeature.ALLOW_LEADING_ZEROS_FOR_NUMBERS
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_LEADING_PLUS_SIGN_FOR_NUMBERS
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.json.JsonReadFeature.ALLOW_LEADING_PLUS_SIGN_FOR_NUMBERS
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_LEADING_DECIMAL_POINT_FOR_NUMBERS
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.json.JsonReadFeature.ALLOW_LEADING_DECIMAL_POINT_FOR_NUMBERS
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_TRAILING_DECIMAL_POINT_FOR_NUMBERS
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.json.JsonReadFeature.ALLOW_TRAILING_DECIMAL_POINT_FOR_NUMBERS
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_NON_NUMERIC_NUMBERS
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.json.JsonReadFeature.ALLOW_NON_NUMERIC_NUMBERS
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_MISSING_VALUES
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.json.JsonReadFeature.ALLOW_MISSING_VALUES
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_TRAILING_COMMA
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.json.JsonReadFeature.ALLOW_TRAILING_COMMA
+  # JsonParser.Feature -> StreamReadFeature (format-agnostic reads)
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonParser.Feature.AUTO_CLOSE_SOURCE
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.StreamReadFeature.AUTO_CLOSE_SOURCE
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.StreamReadFeature.STRICT_DUPLICATE_DETECTION
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonParser.Feature.IGNORE_UNDEFINED
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.StreamReadFeature.IGNORE_UNDEFINED
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonParser.Feature.INCLUDE_SOURCE_IN_LOCATION
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonParser.Feature.USE_FAST_DOUBLE_PARSER
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.StreamReadFeature.USE_FAST_DOUBLE_PARSER
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonParser.Feature.USE_FAST_BIG_NUMBER_PARSER
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.StreamReadFeature.USE_FAST_BIG_NUMBER_PARSER
+  # JsonGenerator.Feature -> JsonWriteFeature (JSON-specific writes)
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonGenerator.Feature.QUOTE_FIELD_NAMES
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.json.JsonWriteFeature.QUOTE_FIELD_NAMES
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonGenerator.Feature.QUOTE_NON_NUMERIC_NUMBERS
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.json.JsonWriteFeature.WRITE_NAN_AS_STRINGS
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonGenerator.Feature.WRITE_NUMBERS_AS_STRINGS
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.json.JsonWriteFeature.WRITE_NUMBERS_AS_STRINGS
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonGenerator.Feature.ESCAPE_NON_ASCII
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.json.JsonWriteFeature.ESCAPE_NON_ASCII
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonGenerator.Feature.WRITE_HEX_UPPER_CASE
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.json.JsonWriteFeature.WRITE_HEX_UPPER_CASE
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonGenerator.Feature.ESCAPE_FORWARD_SLASHES
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.json.JsonWriteFeature.ESCAPE_FORWARD_SLASHES
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonGenerator.Feature.COMBINE_UNICODE_SURROGATES_IN_UTF8
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.json.JsonWriteFeature.COMBINE_UNICODE_SURROGATES_IN_UTF8
+  # JsonGenerator.Feature -> StreamWriteFeature (format-agnostic writes)
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonGenerator.Feature.AUTO_CLOSE_TARGET
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.StreamWriteFeature.AUTO_CLOSE_TARGET
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonGenerator.Feature.AUTO_CLOSE_JSON_CONTENT
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.StreamWriteFeature.AUTO_CLOSE_CONTENT
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonGenerator.Feature.FLUSH_PASSED_TO_STREAM
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.StreamWriteFeature.FLUSH_PASSED_TO_STREAM
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.StreamWriteFeature.WRITE_BIGDECIMAL_AS_PLAIN
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonGenerator.Feature.STRICT_DUPLICATE_DETECTION
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.StreamWriteFeature.STRICT_DUPLICATE_DETECTION
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonGenerator.Feature.IGNORE_UNKNOWN
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.StreamWriteFeature.IGNORE_UNKNOWN
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonGenerator.Feature.USE_FAST_DOUBLE_WRITER
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.StreamWriteFeature.USE_FAST_DOUBLE_WRITER
