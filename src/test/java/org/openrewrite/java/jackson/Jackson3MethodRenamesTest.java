@@ -718,6 +718,35 @@ class Jackson3MethodRenamesTest implements RewriteTest {
     }
 
     @Test
+    void referenceGetFieldName() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.exc.InvalidFormatException;
+
+              class Test {
+                  String test(InvalidFormatException ife) {
+                      return ife.getPath().isEmpty() ? "unknown" :
+                          ife.getPath().get(ife.getPath().size() - 1).getFieldName();
+                  }
+              }
+              """,
+            """
+              import tools.jackson.databind.exc.InvalidFormatException;
+
+              class Test {
+                  String test(InvalidFormatException ife) {
+                      return ife.getPath().isEmpty() ? "unknown" :
+                          ife.getPath().get(ife.getPath().size() - 1).getPropertyName();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void objectNodePutJsonNode() {
         rewriteRun(
           //language=java
