@@ -58,7 +58,6 @@ recipeList:
       oldParameterNames: [msg, cause, gen]
   - org.openrewrite.java.jackson.AddMissingJacksonDependencies
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_Dependencies
-  - org.openrewrite.java.jackson.UpgradeJackson_2_3_TypeChanges
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_MethodRenames
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_RelocatedFeatureConstants
   - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
@@ -82,6 +81,7 @@ recipeList:
   - org.openrewrite.java.AddCommentToMethodInvocations:
       methodPattern: "com.fasterxml.jackson.databind.ObjectMapper deserializationConfig()"
       comment: "TODO deserializationConfig() is not to be used by application code in Jackson 3 (see https://github.com/FasterXML/jackson-databind/blob/3.x/src/main/java/tools/jackson/databind/ObjectMapper.java#L427). Consider using builder configuration instead."
+  - org.openrewrite.java.jackson.UpgradeJackson_2_3_TypeChanges
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_PackageChanges
   - org.openrewrite.java.jackson.SimplifyJacksonExceptionCatch
 
