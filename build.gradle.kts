@@ -42,10 +42,23 @@ recipeDependencies {
     parserClasspath("com.fasterxml.jackson.core:jackson-databind:2.19.2")
     parserClasspath("com.fasterxml.jackson.module:jackson-module-kotlin:2.19.2")
 
+    // Needed by MigrateFactorySettersToBuilder so its template parser can resolve the
+    // format-aligned FactoryBuilder types (AvroFactoryBuilder, CBORFactoryBuilder, etc.).
+    parserClasspath("com.fasterxml.jackson.dataformat:jackson-dataformat-avro:2.19.2")
+    parserClasspath("com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:2.19.2")
+    parserClasspath("com.fasterxml.jackson.dataformat:jackson-dataformat-csv:2.19.2")
+    parserClasspath("com.fasterxml.jackson.dataformat:jackson-dataformat-smile:2.19.2")
+    parserClasspath("com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.19.2")
+    parserClasspath("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.19.2")
+
     parserClasspath("tools.jackson.core:jackson-core:3.+")
     parserClasspath("tools.jackson.core:jackson-databind:3.+")
 
-    testParserClasspath("com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.17.3")
+    testParserClasspath("com.fasterxml.jackson.dataformat:jackson-dataformat-avro:2.19.2")
+    testParserClasspath("com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:2.19.2")
+    testParserClasspath("com.fasterxml.jackson.dataformat:jackson-dataformat-csv:2.19.2")
+    testParserClasspath("com.fasterxml.jackson.dataformat:jackson-dataformat-smile:2.19.2")
+    testParserClasspath("com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.19.2")
     testParserClasspath("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.19.2")
     testParserClasspath("com.fasterxml.jackson.datatype:jackson-datatype-joda:2.19.2")
 }

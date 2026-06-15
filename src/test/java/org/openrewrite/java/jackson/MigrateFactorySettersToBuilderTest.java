@@ -18,6 +18,7 @@ package org.openrewrite.java.jackson;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
+import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
@@ -37,7 +38,11 @@ class MigrateFactorySettersToBuilderTest implements RewriteTest {
     public void defaults(RecipeSpec spec) {
         spec.recipe(new MigrateFactorySettersToBuilder())
           .parser(JavaParser.fromJavaVersion()
-            .classpath("jackson-core", "jackson-databind", "jackson-annotations"));
+            .classpathFromResources(new InMemoryExecutionContext(),
+              "jackson-annotations-2", "jackson-core-2", "jackson-databind-2",
+              "jackson-dataformat-avro-2", "jackson-dataformat-cbor-2",
+              "jackson-dataformat-csv-2", "jackson-dataformat-smile-2",
+              "jackson-dataformat-xml-2", "jackson-dataformat-yaml-2"));
     }
 
     @DocumentExample
@@ -233,6 +238,146 @@ class MigrateFactorySettersToBuilderTest implements RewriteTest {
                           doSomething(factory);
                       }
                       void doSomething(JsonFactory factory) {}
+                  }
+                  """
+              )
+            );
+        }
+    }
+
+    /**
+     * Format-aligned factories (Avro, CBOR, Csv, Smile, Xml, YAML) migrate via the concrete
+     * {@code XFactory.builder()} static, not {@code new XFactoryBuilder()} — the no-arg
+     * {@code XFactoryBuilder} constructor is package-protected, so a direct {@code new}
+     * call would emit uncompilable code outside its package. IonFactory is omitted from
+     * the migration because it has no plain {@code IonFactory.builder()} static.
+     * <p>
+     * Stream-constraint setters resolve through {@link com.fasterxml.jackson.core.TSFBuilder}
+     * inherited methods. {@code characterEscapes} / {@code rootValueSeparator} are only
+     * present on {@code JsonFactoryBuilder}, so calls to {@code setCharacterEscapes} /
+     * {@code setRootValueSeparator} on a format-aligned factory fall through to the TODO
+     * path rather than fold.
+     */
+    @Nested
+    class FormatAlignedFactories {
+
+        @Test
+        void yamlBareConstructorMigratedToBuilder() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+
+                  class A {
+                      YAMLFactory factory = new YAMLFactory();
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+
+                  class A {
+                      YAMLFactory factory = YAMLFactory.builder()
+                              .build();
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void cborStreamReadConstraintsMigrateToBuilder() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.core.StreamReadConstraints;
+                  import com.fasterxml.jackson.dataformat.cbor.CBORFactory;
+
+                  class A {
+                      CBORFactory create(StreamReadConstraints c) {
+                          CBORFactory factory = new CBORFactory();
+                          factory.setStreamReadConstraints(c);
+                          return factory;
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.core.StreamReadConstraints;
+                  import com.fasterxml.jackson.dataformat.cbor.CBORFactory;
+
+                  class A {
+                      CBORFactory create(StreamReadConstraints c) {
+                          CBORFactory factory = CBORFactory.builder()
+                                  .streamReadConstraints(c)
+                                  .build();
+                          return factory;
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void xmlFluentChainOnConstructor() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.core.StreamReadConstraints;
+                  import com.fasterxml.jackson.dataformat.xml.XmlFactory;
+
+                  class A {
+                      XmlFactory create(StreamReadConstraints c) {
+                          return new XmlFactory()
+                                  .setStreamReadConstraints(c);
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.core.StreamReadConstraints;
+                  import com.fasterxml.jackson.dataformat.xml.XmlFactory;
+
+                  class A {
+                      XmlFactory create(StreamReadConstraints c) {
+                          return XmlFactory.builder()
+                                  .streamReadConstraints(c)
+                                  .build();
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void yamlCharacterEscapesFallsBackToTodoComment() {
+            // characterEscapes() is concrete on JsonFactoryBuilder only — YAMLFactoryBuilder
+            // doesn't expose it, so we leave the original setter call in place with a TODO.
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.core.io.CharacterEscapes;
+                  import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+
+                  class A {
+                      YAMLFactory create(CharacterEscapes escapes) {
+                          YAMLFactory factory = new YAMLFactory();
+                          factory.setCharacterEscapes(escapes);
+                          return factory;
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.core.io.CharacterEscapes;
+                  import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+
+                  class A {
+                      YAMLFactory create(CharacterEscapes escapes) {
+                          YAMLFactory factory = YAMLFactory.builder()
+                                  .build();
+                          // TODO setCharacterEscapes could not be folded to the builder of YAMLFactory. Use factory.rebuild().characterEscapes(...).build() or move to the factory's instantiation site.
+                          factory.setCharacterEscapes(escapes);
+                          return factory;
+                      }
                   }
                   """
               )

@@ -37,15 +37,43 @@ public class MigrateFactorySettersToBuilder extends Recipe {
 
     private static final String JSON_FACTORY = "com.fasterxml.jackson.core.JsonFactory";
 
-    private static final List<String> ALL_FACTORIES = Collections.singletonList(JSON_FACTORY);
+    private static final List<String> ALL_FACTORIES = Arrays.asList(
+            JSON_FACTORY,
+            "com.fasterxml.jackson.dataformat.avro.AvroFactory",
+            "com.fasterxml.jackson.dataformat.cbor.CBORFactory",
+            "com.fasterxml.jackson.dataformat.csv.CsvFactory",
+            "com.fasterxml.jackson.dataformat.smile.SmileFactory",
+            "com.fasterxml.jackson.dataformat.xml.XmlFactory",
+            "com.fasterxml.jackson.dataformat.yaml.YAMLFactory"
+    );
+    // IonFactory deliberately omitted: it has no plain `IonFactory.builder()` static — it
+    // exposes `builderForBinaryWriters()` / `builderForTextualWriters()` instead, and choosing
+    // between them isn't safe to automate.
 
-    private static final Map<MethodMatcher, String> FACTORY_CTORS;
+    private static final String[] CORE_PARSER_CLASSPATH = {
+            "jackson-annotations-2", "jackson-core-2", "jackson-databind-2"
+    };
 
-    static {
-        FACTORY_CTORS = new LinkedHashMap<>();
-        for (String factory : ALL_FACTORIES) {
-            FACTORY_CTORS.put(new MethodMatcher(factory + " <constructor>()"), factory);
+    // Per-factory dataformat artifact to add to the template parser's classpath alongside
+    // jackson-core/databind/annotations so its `new <Format>FactoryBuilder()` reference resolves.
+    private static final Map<String, String> FACTORY_FQN_TO_PARSER_RESOURCE = new HashMap<String, String>() {{
+        put("com.fasterxml.jackson.dataformat.avro.AvroFactory", "jackson-dataformat-avro-2");
+        put("com.fasterxml.jackson.dataformat.cbor.CBORFactory", "jackson-dataformat-cbor-2");
+        put("com.fasterxml.jackson.dataformat.csv.CsvFactory", "jackson-dataformat-csv-2");
+        put("com.fasterxml.jackson.dataformat.smile.SmileFactory", "jackson-dataformat-smile-2");
+        put("com.fasterxml.jackson.dataformat.xml.XmlFactory", "jackson-dataformat-xml-2");
+        put("com.fasterxml.jackson.dataformat.yaml.YAMLFactory", "jackson-dataformat-yaml-2");
+    }};
+
+    private static String[] parserClasspathFor(String factoryFqn) {
+        String extra = FACTORY_FQN_TO_PARSER_RESOURCE.get(factoryFqn);
+        if (extra == null) {
+            return CORE_PARSER_CLASSPATH;
         }
+        String[] combined = new String[CORE_PARSER_CLASSPATH.length + 1];
+        System.arraycopy(CORE_PARSER_CLASSPATH, 0, combined, 0, CORE_PARSER_CLASSPATH.length);
+        combined[CORE_PARSER_CLASSPATH.length] = extra;
+        return combined;
     }
 
     private static final String INVOCATIONS_TO_REMOVE = "INVOCATIONS_TO_REMOVE";
@@ -55,27 +83,32 @@ public class MigrateFactorySettersToBuilder extends Recipe {
         // Feature enable/disable/configure. UpgradeJackson_2_3_ModernizeJacksonCoreFeatures
         // runs before this recipe, so the argument constant is always one of: JsonReadFeature,
         // JsonWriteFeature, StreamReadFeature, StreamWriteFeature, or JsonFactory.Feature.
-        // With a concrete `new JsonFactoryBuilder()` receiver, JsonReadFeature / JsonWriteFeature
-        // args resolve through concrete overrides on JsonFactoryBuilder; the others resolve
-        // through methods inherited from TSFBuilder<F, B> with B bound to JsonFactoryBuilder.
-        CONFIGURE("configure", "configure"),
-        DISABLE("disable", "disable"),
-        ENABLE("enable", "enable"),
+        // With a concrete receiver (either `new JsonFactoryBuilder()` for JsonFactory or
+        // `XFactory.builder()` for the format-aligned factories), JsonReadFeature /
+        // JsonWriteFeature args resolve through concrete overrides on JsonFactoryBuilder
+        // and the others resolve through methods inherited from TSFBuilder<F, B> with F/B
+        // already bound to the concrete factory/builder pair.
+        CONFIGURE("configure", "configure", false),
+        DISABLE("disable", "disable", false),
+        ENABLE("enable", "enable", false),
 
-        // Character escapes and value separators — concrete on JsonFactoryBuilder.
-        SET_CHARACTER_ESCAPES("setCharacterEscapes", "characterEscapes"),
-        SET_ROOT_VALUE_SEPARATOR("setRootValueSeparator", "rootValueSeparator"),
+        // Concrete on JsonFactoryBuilder only — the format-aligned builders extend
+        // TSFBuilder<F, B> directly, not JsonFactoryBuilder, and don't expose these.
+        // For non-Json factories the setter falls through to the TODO-comment path.
+        SET_CHARACTER_ESCAPES("setCharacterEscapes", "characterEscapes", true),
+        SET_ROOT_VALUE_SEPARATOR("setRootValueSeparator", "rootValueSeparator", true),
 
         // Stream-decoration — inherited from TSFBuilder<F, B>.
-        SET_INPUT_DECORATOR("setInputDecorator", "inputDecorator"),
-        SET_OUTPUT_DECORATOR("setOutputDecorator", "outputDecorator"),
+        SET_INPUT_DECORATOR("setInputDecorator", "inputDecorator", false),
+        SET_OUTPUT_DECORATOR("setOutputDecorator", "outputDecorator", false),
 
         // Read/write constraints — inherited from TSFBuilder<F, B>.
-        SET_STREAM_READ_CONSTRAINTS("setStreamReadConstraints", "streamReadConstraints"),
-        SET_STREAM_WRITE_CONSTRAINTS("setStreamWriteConstraints", "streamWriteConstraints");
+        SET_STREAM_READ_CONSTRAINTS("setStreamReadConstraints", "streamReadConstraints", false),
+        SET_STREAM_WRITE_CONSTRAINTS("setStreamWriteConstraints", "streamWriteConstraints", false);
 
         final String setterName;
         final String builderName;
+        final boolean jsonFactoryOnly;
 
         private static final Map<String, SetterToBuilderMapping> BY_SETTER_NAME;
 
@@ -89,6 +122,14 @@ public class MigrateFactorySettersToBuilder extends Recipe {
 
         static @Nullable SetterToBuilderMapping fromSetter(String name) {
             return BY_SETTER_NAME.get(name);
+        }
+
+        static @Nullable SetterToBuilderMapping fromSetter(String name, String factoryFqn) {
+            SetterToBuilderMapping m = BY_SETTER_NAME.get(name);
+            if (m == null || (m.jsonFactoryOnly && !JSON_FACTORY.equals(factoryFqn))) {
+                return null;
+            }
+            return m;
         }
     }
 
@@ -175,7 +216,7 @@ public class MigrateFactorySettersToBuilder extends Recipe {
                             if (stmt instanceof J.MethodInvocation) {
                                 J.MethodInvocation mi = (J.MethodInvocation) stmt;
                                 if (isCallOnVariable(mi, varIdent)) {
-                                    SetterToBuilderMapping mapping = SetterToBuilderMapping.fromSetter(mi.getName().getSimpleName());
+                                    SetterToBuilderMapping mapping = SetterToBuilderMapping.fromSetter(mi.getName().getSimpleName(), factoryFqn);
                                     if (mapping != null) {
                                         // Can't fold if arguments reference variables declared after the constructor
                                         if (argumentReferencesAny(mi, intermediateVars)) {
@@ -243,6 +284,9 @@ public class MigrateFactorySettersToBuilder extends Recipe {
                             return mi;
                         }
 
+                        // Use the unrestricted lookup here so JsonFactoryBuilder-only setters
+                        // (characterEscapes / rootValueSeparator) called on a format-aligned factory
+                        // still get a TODO comment explaining the unsupported migration.
                         SetterToBuilderMapping mapping = SetterToBuilderMapping.fromSetter(mi.getName().getSimpleName());
                         if (mapping == null) {
                             return mi;
@@ -335,7 +379,7 @@ public class MigrateFactorySettersToBuilder extends Recipe {
                         boolean hitUnknown = false;
                         for (J.MethodInvocation call : chainCalls) {
                             if (!hitUnknown) {
-                                SetterToBuilderMapping m = SetterToBuilderMapping.fromSetter(call.getName().getSimpleName());
+                                SetterToBuilderMapping m = SetterToBuilderMapping.fromSetter(call.getName().getSimpleName(), factoryFqn);
                                 if (m != null) {
                                     setterCalls.add(call);
                                     mappings.add(m);
@@ -351,18 +395,28 @@ public class MigrateFactorySettersToBuilder extends Recipe {
                     }
 
                     /**
-                     * Builds and applies the {@code new FactoryBuilder()...build()} template for a list
-                     * of setter calls. We construct the concrete builder type directly so the chain's
-                     * receiver type is concrete from the start (avoids the wildcard-typed
-                     * {@code TSFBuilder<?, ?>} that {@code JsonFactory.builder()} returns in Jackson 2).
+                     * Builds and applies the builder-chain template for a list of setter calls. The
+                     * chain's receiver type is concrete from the start so feature-typed args resolve
+                     * through concrete overrides and the rest resolve through inherited
+                     * {@link com.fasterxml.jackson.core.TSFBuilder} methods with F/B already bound.
+                     * <p>
+                     * For {@link #JSON_FACTORY} we use {@code new JsonFactoryBuilder()} because
+                     * {@code JsonFactory.builder()} returns the wildcard {@code TSFBuilder<?, ?>}.
+                     * For the format-aligned factories we use {@code XFactory.builder()} — their
+                     * static {@code builder()} returns a concretely-typed {@code XFactoryBuilder},
+                     * and their no-arg {@code XFactoryBuilder} ctor is {@code protected}, so
+                     * {@code new XFactoryBuilder()} would emit uncompilable code.
                      */
                     private J applyBuilderTemplate(String factoryFqn, List<J.MethodInvocation> setters,
                                                    @Nullable List<SetterToBuilderMapping> resolvedMappings,
                                                    List<J.MethodInvocation> suffixCalls,
                                                    JavaCoordinates coordinates, ExecutionContext ctx) {
-                        String factoryBuilderFqn = factoryFqn + "Builder";
-                        String simpleFactoryBuilderName = factoryBuilderFqn.substring(factoryBuilderFqn.lastIndexOf('.') + 1);
-                        StringBuilder templateCode = new StringBuilder("new " + simpleFactoryBuilderName + "()");
+                        boolean useStaticBuilder = !JSON_FACTORY.equals(factoryFqn);
+                        String simpleFactoryName = factoryFqn.substring(factoryFqn.lastIndexOf('.') + 1);
+                        String chainEntry = useStaticBuilder ?
+                                simpleFactoryName + ".builder()" :
+                                "new " + simpleFactoryName + "Builder()";
+                        StringBuilder templateCode = new StringBuilder(chainEntry);
                         List<Expression> templateArgs = new ArrayList<>();
                         for (int i = 0; i < setters.size(); i++) {
                             J.MethodInvocation setter = setters.get(i);
@@ -392,19 +446,23 @@ public class MigrateFactorySettersToBuilder extends Recipe {
                             templateCode.append(")");
                         }
 
-                        maybeAddImport(factoryBuilderFqn);
-
-                        // Real Jackson 2 classpath only. With a concrete `new JsonFactoryBuilder()`
-                        // receiver, the entire chain resolves through concrete-typed methods on
-                        // JsonFactoryBuilder (or inherited methods on TSFBuilder<F, B> with F/B
-                        // already bound), so no parser stub is needed.
-                        JavaParser.Builder<?, ?> parser = JavaParser.fromJavaVersion()
-                                .classpathFromResources(ctx, "jackson-annotations-2", "jackson-core-2", "jackson-databind-2");
-
-                        return JavaTemplate.builder(templateCode.toString())
-                                .imports(factoryBuilderFqn)
-                                .javaParser(parser)
-                                .build()
+                        // JsonFactory branch: emits `new JsonFactoryBuilder()` so we add the
+                        // builder import. Format-aligned branch: emits `XFactory.builder()` —
+                        // the template snippet references `XFactory` qualifier-free, so the
+                        // parser needs that FQN on its imports list to attribute the type. The
+                        // user's source already imports XFactory (it appeared in `new XFactory()`),
+                        // so we don't add a new import to the final compilation unit.
+                        JavaTemplate.Builder templateBuilder = JavaTemplate.builder(templateCode.toString())
+                                .javaParser(JavaParser.fromJavaVersion()
+                                        .classpathFromResources(ctx, parserClasspathFor(factoryFqn)));
+                        if (useStaticBuilder) {
+                            templateBuilder = templateBuilder.imports(factoryFqn);
+                        } else {
+                            String factoryBuilderFqn = factoryFqn + "Builder";
+                            maybeAddImport(factoryBuilderFqn);
+                            templateBuilder = templateBuilder.imports(factoryBuilderFqn);
+                        }
+                        return templateBuilder.build()
                                 .apply(getCursor(), coordinates, templateArgs.toArray());
                     }
                 }
@@ -413,22 +471,37 @@ public class MigrateFactorySettersToBuilder extends Recipe {
 
     /**
      * Returns the FQN of the factory type matched by the given new class, or null if none match.
+     * Equivalent to the prior per-factory {@code MethodMatcher(fqn + " <constructor>()")} lookup
+     * collapsed into a single exact-FQN check — constructors don't have override semantics, so an
+     * exact-type comparison preserves the old behavior across all factories without needing an
+     * 8-entry matcher map.
      */
     private static @Nullable String matchingFactoryFqn(J.NewClass nc) {
-        for (Map.Entry<MethodMatcher, String> entry : FACTORY_CTORS.entrySet()) {
-            if (entry.getKey().matches(nc)) {
-                return entry.getValue();
-            }
+        if (nc.getArguments().stream().anyMatch(a -> !(a instanceof J.Empty))) {
+            return null;
         }
-        return null;
+        if (!(nc.getType() instanceof JavaType.FullyQualified)) {
+            return null;
+        }
+        String fqn = ((JavaType.FullyQualified) nc.getType()).getFullyQualifiedName();
+        return ALL_FACTORIES.contains(fqn) ? fqn : null;
     }
 
     /**
      * Returns the FQN of the factory type that the given type is assignable to, or null if none match.
+     * Prefers an exact FQN match before falling back to an assignable match — the format-aligned
+     * factories all extend {@link #JSON_FACTORY}, so a naive assignable scan in declaration order
+     * would always report a {@code YAMLFactory} call site as {@code JsonFactory}.
      */
     private static @Nullable String matchingFactoryType(@Nullable JavaType type) {
         if (type == null) {
             return null;
+        }
+        if (type instanceof JavaType.FullyQualified) {
+            String fqn = ((JavaType.FullyQualified) type).getFullyQualifiedName();
+            if (ALL_FACTORIES.contains(fqn)) {
+                return fqn;
+            }
         }
         for (String factory : ALL_FACTORIES) {
             if (TypeUtils.isAssignableTo(factory, type)) {
