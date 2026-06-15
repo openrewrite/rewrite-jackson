@@ -53,10 +53,9 @@ class Jackson3TypeChangesTest implements RewriteTest {
               """,
             """
               import tools.jackson.core.json.JsonFactory;
-              import tools.jackson.core.json.JsonFactoryBuilder;
 
               class Test {
-                  JsonFactory factory = new JsonFactoryBuilder()
+                  JsonFactory factory = JsonFactory.builder()
                           .build();
               }
               """
@@ -368,10 +367,9 @@ class Jackson3TypeChangesTest implements RewriteTest {
             """
               import tools.jackson.core.json.JsonReadFeature;
               import tools.jackson.core.json.JsonFactory;
-              import tools.jackson.core.json.JsonFactoryBuilder;
 
               class Test {
-                  JsonFactory factory = new JsonFactoryBuilder()
+                  JsonFactory factory = JsonFactory.builder()
                           .enable(JsonReadFeature.ALLOW_JAVA_COMMENTS)
                           .disable(tools.jackson.core.json.JsonWriteFeature.QUOTE_PROPERTY_NAMES)
                           .build();

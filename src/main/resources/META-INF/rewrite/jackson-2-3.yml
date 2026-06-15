@@ -84,6 +84,7 @@ recipeList:
       methodPattern: "com.fasterxml.jackson.databind.ObjectMapper deserializationConfig()"
       comment: "TODO deserializationConfig() is not to be used by application code in Jackson 3 (see https://github.com/FasterXML/jackson-databind/blob/3.x/src/main/java/tools/jackson/databind/ObjectMapper.java#L427). Consider using builder configuration instead."
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_TypeChanges
+  - org.openrewrite.java.jackson.UseJsonFactoryStaticBuilder  # After TypeChanges retargets to tools.jackson.core.json.*
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_PackageChanges
   - org.openrewrite.java.jackson.SimplifyJacksonExceptionCatch
 
