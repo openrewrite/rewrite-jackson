@@ -202,6 +202,26 @@ examples:
     language: java
 ---
 type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.jackson.MigrateFactorySettersToBuilder
+examples:
+- description: '`MigrateFactorySettersToBuilderTest#bareConstructorMigratedToBuilder`'
+  sources:
+  - before: |
+      import com.fasterxml.jackson.core.JsonFactory;
+
+      class A {
+          JsonFactory factory = new JsonFactory();
+      }
+    after: |
+      import com.fasterxml.jackson.core.JsonFactory;
+
+      class A {
+          JsonFactory factory = JsonFactory.builder()
+                  .build();
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.MigrateMapperSettersToBuilder
 examples:
 - description: '`KotlinMigrateMapperSettersToBuilderTest#fluentChainInFunction`'
@@ -718,10 +738,11 @@ examples:
           JsonFactory factory = new JsonFactory();
       }
     after: |
-      import tools.jackson.core.TokenStreamFactory;
+      import tools.jackson.core.json.JsonFactory;
 
       class Test {
-          TokenStreamFactory factory = new TokenStreamFactory();
+          JsonFactory factory = JsonFactory.builder()
+                  .build();
       }
     language: java
 - description: '`LombokJacksonizedConfigTest#addJacksonVersionToLombokConfig`'
@@ -951,6 +972,27 @@ examples:
       </project>
     path: pom.xml
     language: xml
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.jackson.UpgradeJackson_2_3_ModernizeJacksonCoreFeatures
+examples:
+- description: '`UpgradeJackson_2_3_ModernizeJacksonCoreFeaturesTest#allowCommentsRenamedToAllowJavaComments`'
+  sources:
+  - before: |
+      import com.fasterxml.jackson.core.JsonFactory;
+      import com.fasterxml.jackson.core.JsonParser;
+
+      class A {
+          JsonFactory factory = new JsonFactory().enable(JsonParser.Feature.ALLOW_COMMENTS);
+      }
+    after: |
+      import com.fasterxml.jackson.core.JsonFactory;
+      import com.fasterxml.jackson.core.json.JsonReadFeature;
+
+      class A {
+          JsonFactory factory = new JsonFactory().enable(JsonReadFeature.ALLOW_JAVA_COMMENTS);
+      }
+    language: java
 ---
 type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.UpgradeJackson_2_3_RelocatedFeatureConstants

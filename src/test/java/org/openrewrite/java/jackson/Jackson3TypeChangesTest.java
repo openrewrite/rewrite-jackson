@@ -52,10 +52,11 @@ class Jackson3TypeChangesTest implements RewriteTest {
               }
               """,
             """
-              import tools.jackson.core.TokenStreamFactory;
+              import tools.jackson.core.json.JsonFactory;
 
               class Test {
-                  TokenStreamFactory factory = new TokenStreamFactory();
+                  JsonFactory factory = JsonFactory.builder()
+                          .build();
               }
               """
           )
@@ -338,6 +339,40 @@ class Jackson3TypeChangesTest implements RewriteTest {
                   void handle(StreamWriteException e) {
                       e.printStackTrace();
                   }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void jsonFactoryWithFeatureFlags() {
+        // End-to-end: legacy JsonParser.Feature/JsonGenerator.Feature constants, plus a mix of
+        // constants whose names changed across Jackson 2 modern → Jackson 3, should all land at
+        // their correct Jackson 3 destinations after the full pipeline.
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonFactory;
+              import com.fasterxml.jackson.core.JsonGenerator;
+              import com.fasterxml.jackson.core.JsonParser;
+
+              class Test {
+                  JsonFactory factory = new JsonFactory()
+                          .enable(JsonParser.Feature.ALLOW_COMMENTS)
+                          .disable(JsonGenerator.Feature.QUOTE_FIELD_NAMES);
+              }
+              """,
+            """
+              import tools.jackson.core.json.JsonReadFeature;
+              import tools.jackson.core.json.JsonFactory;
+
+              class Test {
+                  JsonFactory factory = JsonFactory.builder()
+                          .enable(JsonReadFeature.ALLOW_JAVA_COMMENTS)
+                          .disable(tools.jackson.core.json.JsonWriteFeature.QUOTE_PROPERTY_NAMES)
+                          .build();
               }
               """
           )
