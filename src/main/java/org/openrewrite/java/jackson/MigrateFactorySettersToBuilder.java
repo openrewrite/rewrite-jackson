@@ -50,30 +50,26 @@ public class MigrateFactorySettersToBuilder extends Recipe {
     // exposes `builderForBinaryWriters()` / `builderForTextualWriters()` instead, and choosing
     // between them isn't safe to automate.
 
-    private static final String[] CORE_PARSER_CLASSPATH = {
-            "jackson-annotations-2", "jackson-core-2", "jackson-databind-2"
-    };
+    private static final List<String> CORE_PARSER_CLASSPATH = Arrays.asList(
+            "jackson-annotations-2", "jackson-core-2", "jackson-databind-2");
 
     // Per-factory dataformat artifact to add to the template parser's classpath alongside
     // jackson-core/databind/annotations so its `new <Format>FactoryBuilder()` reference resolves.
-    private static final Map<String, String> FACTORY_FQN_TO_PARSER_RESOURCE = new HashMap<String, String>() {{
-        put("com.fasterxml.jackson.dataformat.avro.AvroFactory", "jackson-dataformat-avro-2");
-        put("com.fasterxml.jackson.dataformat.cbor.CBORFactory", "jackson-dataformat-cbor-2");
-        put("com.fasterxml.jackson.dataformat.csv.CsvFactory", "jackson-dataformat-csv-2");
-        put("com.fasterxml.jackson.dataformat.smile.SmileFactory", "jackson-dataformat-smile-2");
-        put("com.fasterxml.jackson.dataformat.xml.XmlFactory", "jackson-dataformat-xml-2");
-        put("com.fasterxml.jackson.dataformat.yaml.YAMLFactory", "jackson-dataformat-yaml-2");
-    }};
+    private static final Map<String, String> FACTORY_FQN_TO_PARSER_RESOURCE = new HashMap<>();
+
+    static {
+        FACTORY_FQN_TO_PARSER_RESOURCE.put("com.fasterxml.jackson.dataformat.avro.AvroFactory", "jackson-dataformat-avro-2");
+        FACTORY_FQN_TO_PARSER_RESOURCE.put("com.fasterxml.jackson.dataformat.cbor.CBORFactory", "jackson-dataformat-cbor-2");
+        FACTORY_FQN_TO_PARSER_RESOURCE.put("com.fasterxml.jackson.dataformat.csv.CsvFactory", "jackson-dataformat-csv-2");
+        FACTORY_FQN_TO_PARSER_RESOURCE.put("com.fasterxml.jackson.dataformat.smile.SmileFactory", "jackson-dataformat-smile-2");
+        FACTORY_FQN_TO_PARSER_RESOURCE.put("com.fasterxml.jackson.dataformat.xml.XmlFactory", "jackson-dataformat-xml-2");
+        FACTORY_FQN_TO_PARSER_RESOURCE.put("com.fasterxml.jackson.dataformat.yaml.YAMLFactory", "jackson-dataformat-yaml-2");
+    }
 
     private static String[] parserClasspathFor(String factoryFqn) {
         String extra = FACTORY_FQN_TO_PARSER_RESOURCE.get(factoryFqn);
-        if (extra == null) {
-            return CORE_PARSER_CLASSPATH;
-        }
-        String[] combined = new String[CORE_PARSER_CLASSPATH.length + 1];
-        System.arraycopy(CORE_PARSER_CLASSPATH, 0, combined, 0, CORE_PARSER_CLASSPATH.length);
-        combined[CORE_PARSER_CLASSPATH.length] = extra;
-        return combined;
+        List<String> classpath = extra == null ? CORE_PARSER_CLASSPATH : ListUtils.concat(CORE_PARSER_CLASSPATH, extra);
+        return classpath.toArray(new String[0]);
     }
 
     private static final String INVOCATIONS_TO_REMOVE = "INVOCATIONS_TO_REMOVE";
@@ -174,7 +170,7 @@ public class MigrateFactorySettersToBuilder extends Recipe {
                             varIdent = (J.Identifier) assignment.getVariable();
                         } else {
                             // Bare `new JsonFactory()` with no surrounding setters still needs builder() form
-                            return applyBuilderTemplate(factoryFqn, emptyList(), null, emptyList(),
+                            return applyBuilderTemplate(factoryFqn, emptyList(), emptyList(), emptyList(),
                                     nc.getCoordinates().replace(), ctx);
                         }
 
@@ -186,6 +182,7 @@ public class MigrateFactorySettersToBuilder extends Recipe {
                         // Collect known setter calls that appear before any unknown factory
                         // usage (unknown call on the variable, or variable passed elsewhere).
                         List<J.MethodInvocation> builderSetters = new ArrayList<>();
+                        List<SetterToBuilderMapping> builderMappings = new ArrayList<>();
                         Set<J.Identifier> intermediateVars = new HashSet<>();
                         boolean collecting = true;
 
@@ -224,6 +221,7 @@ public class MigrateFactorySettersToBuilder extends Recipe {
                                             continue;
                                         }
                                         builderSetters.add(mi);
+                                        builderMappings.add(mapping);
                                         continue;
                                     }
                                     collecting = false;
@@ -238,7 +236,7 @@ public class MigrateFactorySettersToBuilder extends Recipe {
 
                         if (builderSetters.isEmpty()) {
                             // Even with no setters, migrate `new JsonFactory()` to `JsonFactory.builder().build()`
-                            return applyBuilderTemplate(factoryFqn, emptyList(), null, emptyList(),
+                            return applyBuilderTemplate(factoryFqn, emptyList(), emptyList(), emptyList(),
                                     nc.getCoordinates().replace(), ctx);
                         }
 
@@ -253,7 +251,7 @@ public class MigrateFactorySettersToBuilder extends Recipe {
                             toRemove.add(setter.getId());
                         }
 
-                        return applyBuilderTemplate(factoryFqn, builderSetters, null, emptyList(),
+                        return applyBuilderTemplate(factoryFqn, builderSetters, builderMappings, emptyList(),
                                 nc.getCoordinates().replace(), ctx);
                     }
 
@@ -408,7 +406,7 @@ public class MigrateFactorySettersToBuilder extends Recipe {
                      * {@code new XFactoryBuilder()} would emit uncompilable code.
                      */
                     private J applyBuilderTemplate(String factoryFqn, List<J.MethodInvocation> setters,
-                                                   @Nullable List<SetterToBuilderMapping> resolvedMappings,
+                                                   List<SetterToBuilderMapping> resolvedMappings,
                                                    List<J.MethodInvocation> suffixCalls,
                                                    JavaCoordinates coordinates, ExecutionContext ctx) {
                         boolean useStaticBuilder = !JSON_FACTORY.equals(factoryFqn);
@@ -419,31 +417,13 @@ public class MigrateFactorySettersToBuilder extends Recipe {
                         StringBuilder templateCode = new StringBuilder(chainEntry);
                         List<Expression> templateArgs = new ArrayList<>();
                         for (int i = 0; i < setters.size(); i++) {
-                            J.MethodInvocation setter = setters.get(i);
-                            SetterToBuilderMapping mapping = resolvedMappings != null ?
-                                    resolvedMappings.get(i) :
-                                    SetterToBuilderMapping.fromSetter(setter.getName().getSimpleName());
-                            assert mapping != null;
-                            appendBuilderCall(setter, mapping, templateCode, templateArgs);
+                            appendBuilderCall(setters.get(i), resolvedMappings.get(i), templateCode, templateArgs);
                         }
                         templateCode.append("\n.build()");
 
                         // Append any non-setter calls that follow the known setters
                         for (J.MethodInvocation suffix : suffixCalls) {
-                            templateCode.append("\n.").append(suffix.getName().getSimpleName()).append("(");
-                            boolean first = true;
-                            for (Expression arg : suffix.getArguments()) {
-                                if (arg instanceof J.Empty) {
-                                    continue;
-                                }
-                                if (!first) {
-                                    templateCode.append(", ");
-                                }
-                                first = false;
-                                templateCode.append("#{any()}");
-                                templateArgs.add(arg);
-                            }
-                            templateCode.append(")");
+                            appendCall(suffix.getName().getSimpleName(), suffix.getArguments(), templateCode, templateArgs);
                         }
 
                         // JsonFactory branch: emits `new JsonFactoryBuilder()` so we add the
@@ -543,9 +523,19 @@ public class MigrateFactorySettersToBuilder extends Recipe {
      */
     private static void appendBuilderCall(J.MethodInvocation mi, SetterToBuilderMapping mapping,
                                           StringBuilder templateCode, List<Expression> templateArgs) {
-        templateCode.append("\n.").append(mapping.builderName).append("(");
+        appendCall(mapping.builderName, mi.getArguments(), templateCode, templateArgs);
+    }
+
+    /**
+     * Appends {@code \n.<methodName>(<args>)} to the template, emitting a {@code #{any()}}
+     * placeholder for each non-empty argument and collecting the live argument expressions
+     * into {@code templateArgs} for substitution.
+     */
+    private static void appendCall(String methodName, List<Expression> args,
+                                   StringBuilder templateCode, List<Expression> templateArgs) {
+        templateCode.append("\n.").append(methodName).append("(");
         boolean first = true;
-        for (Expression arg : mi.getArguments()) {
+        for (Expression arg : args) {
             if (arg instanceof J.Empty) {
                 continue;
             }
