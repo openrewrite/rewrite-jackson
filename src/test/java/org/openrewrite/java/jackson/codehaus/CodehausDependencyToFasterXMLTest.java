@@ -80,7 +80,7 @@ class CodehausDependencyToFasterXMLTest implements RewriteTest {
                           </dependency>
                       </dependencies>
                   </project>
-                  """.formatted(versions.get(0), versions.get(1));
+                  """.formatted(versions.getFirst(), versions.get(1));
             })
           )
         );
