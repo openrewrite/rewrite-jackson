@@ -17,6 +17,7 @@ package org.openrewrite.java.jackson;
 
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
+import org.openrewrite.Issue;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
@@ -657,7 +658,7 @@ class Jackson3MethodRenamesTest implements RewriteTest {
                       List<String> textValues = node.findValuesAsString("mango");
                       boolean isContainer = node.isContainer();
                       boolean isString = node.isString();
-                      String textValue = node.asString();
+                      String textValue = node.stringValue();
                       var modifiedNode = node.withObject("pineapple");
                   }
               }
@@ -708,8 +709,40 @@ class Jackson3MethodRenamesTest implements RewriteTest {
                       List<String> textValues = node.findValuesAsString("mango");
                       boolean isContainer = node.isContainer();
                       boolean isString = node.isString();
-                      String textValue = node.asString();
+                      String textValue = node.stringValue();
                       var modifiedNode = node.withObject("pineapple");
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Issue("https://github.com/openrewrite/rewrite-jackson/issues/144")
+    @Test
+    void jsonNodeAsTextVersusTextValue() {
+        // asText() coerces (null node -> ""), textValue() does not (null node -> null);
+        // Jackson 3 preserves this distinction as asString() and stringValue(). See gh-144.
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.JsonNode;
+
+              class Test {
+                  void test(JsonNode node) {
+                      String coerced = node.asText();
+                      String exact = node.textValue();
+                  }
+              }
+              """,
+            """
+              import tools.jackson.databind.JsonNode;
+
+              class Test {
+                  void test(JsonNode node) {
+                      String coerced = node.asString();
+                      String exact = node.stringValue();
                   }
               }
               """

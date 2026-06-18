@@ -573,7 +573,7 @@ recipeList:
       matchOverrides: true
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: com.fasterxml.jackson.databind.JsonNode textValue()
-      newMethodName: asString
+      newMethodName: stringValue
       matchOverrides: true
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: com.fasterxml.jackson.databind.JsonNode with(..)
