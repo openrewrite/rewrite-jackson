@@ -657,7 +657,7 @@ class Jackson3MethodRenamesTest implements RewriteTest {
                       List<String> textValues = node.findValuesAsString("mango");
                       boolean isContainer = node.isContainer();
                       boolean isString = node.isString();
-                      String textValue = node.asString();
+                      String textValue = node.stringValue();
                       var modifiedNode = node.withObject("pineapple");
                   }
               }
@@ -708,7 +708,7 @@ class Jackson3MethodRenamesTest implements RewriteTest {
                       List<String> textValues = node.findValuesAsString("mango");
                       boolean isContainer = node.isContainer();
                       boolean isString = node.isString();
-                      String textValue = node.asString();
+                      String textValue = node.stringValue();
                       var modifiedNode = node.withObject("pineapple");
                   }
               }
