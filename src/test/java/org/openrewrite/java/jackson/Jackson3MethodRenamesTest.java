@@ -718,6 +718,37 @@ class Jackson3MethodRenamesTest implements RewriteTest {
     }
 
     @Test
+    void jsonNodeAsTextVersusTextValue() {
+        // asText() coerces (null node -> ""), textValue() does not (null node -> null);
+        // Jackson 3 preserves this distinction as asString() and stringValue(). See gh-144.
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.JsonNode;
+
+              class Test {
+                  void test(JsonNode node) {
+                      String coerced = node.asText();
+                      String exact = node.textValue();
+                  }
+              }
+              """,
+            """
+              import tools.jackson.databind.JsonNode;
+
+              class Test {
+                  void test(JsonNode node) {
+                      String coerced = node.asString();
+                      String exact = node.stringValue();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void referenceGetFieldName() {
         rewriteRun(
           //language=java
