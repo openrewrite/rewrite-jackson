@@ -575,6 +575,46 @@ class RemoveRedundantFeatureFlagsTest implements RewriteTest {
             );
         }
         @Test
+        void removeConfigureInParenthesizedChain() {
+            rewriteRun(
+              //language=java
+              java(
+                """
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.MapperFeature;
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+                  import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class Test {
+                      private static ObjectMapper createJsonObjectMapper() {
+                          return ((((JsonMapper.builder()
+                                  .findAndAddModules()).configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false))
+                                  .configure(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES, true))
+                                  .propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)).build();
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.MapperFeature;
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+                  import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class Test {
+                      private static ObjectMapper createJsonObjectMapper() {
+                          return (((JsonMapper.builder()
+                                  .findAndAddModules())
+                                  .configure(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES, true))
+                                  .propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)).build();
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
         void removeMultipleChainedRedundantFlags() {
             rewriteRun(
               //language=java
