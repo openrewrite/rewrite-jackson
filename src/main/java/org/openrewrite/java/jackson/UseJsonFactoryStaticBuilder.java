@@ -64,8 +64,8 @@ public class UseJsonFactoryStaticBuilder extends Recipe {
                         if (!BUILDER_NO_ARG_CTOR.matches(nc)) {
                             return nc;
                         }
-                        maybeAddImport(JSON_FACTORY);
                         maybeRemoveImport(JSON_FACTORY_BUILDER);
+                        maybeAddImport(JSON_FACTORY);
                         return JavaTemplate.builder("JsonFactory.builder()")
                                 .imports(JSON_FACTORY)
                                 .javaParser(JavaParser.fromJavaVersion()
