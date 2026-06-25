@@ -23,7 +23,6 @@ description: >-
 tags:
   - jackson-2
 recipeList:
-  - org.openrewrite.java.jackson.codehaus.RemoveDoublyAnnotatedCodehausAnnotations
   - org.openrewrite.java.jackson.codehaus.TransferJsonSerializeArgumentsFromCodehausToFasterXML
   - org.openrewrite.java.jackson.CodehausClassesToFasterXML
   - org.openrewrite.java.jackson.codehaus.CodehausDependencyToFasterXML:
@@ -40,6 +39,7 @@ tags:
 recipeList:
   - org.openrewrite.java.jackson.codehaus.JsonIncludeAnnotation
   - org.openrewrite.java.jackson.codehaus.ReplaceSerializationConfigAnnotationIntrospector
+  - org.openrewrite.java.jackson.codehaus.RemoveDoublyAnnotatedCodehausAnnotations
 
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: org.codehaus.jackson.map.JsonSerializer
@@ -89,4 +89,3 @@ recipeList:
       newPackageName: com.fasterxml.jackson.databind.ser
       recursive: true
 
-  - org.openrewrite.java.ShortenFullyQualifiedTypeReferences

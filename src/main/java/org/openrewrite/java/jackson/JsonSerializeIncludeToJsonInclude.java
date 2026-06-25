@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 the original author or authors.
+ * Copyright 2026 the original author or authors.
  * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.openrewrite.java.jackson.codehaus;
+package org.openrewrite.java.jackson;
 
 import lombok.Getter;
 import org.jspecify.annotations.Nullable;
@@ -30,24 +30,41 @@ import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.J;
 
 import java.util.Comparator;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
-public class JsonIncludeAnnotation extends Recipe {
-    private static final String ORG_CODEHAUS_JACKSON_MAP_ANNOTATE_JSON_SERIALIZE = "org.codehaus.jackson.map.annotate.JsonSerialize";
+/**
+ * Migrates the deprecated {@code com.fasterxml.jackson.databind.annotation.JsonSerialize(include = Inclusion.X)}
+ * shape to {@code com.fasterxml.jackson.annotation.JsonInclude(JsonInclude.Include.X)}. The {@code include}
+ * attribute on {@code @JsonSerialize} was deprecated in Jackson 2.x and removed entirely in Jackson 3.x; running
+ * this recipe before the Jackson&nbsp;2&nbsp;→&nbsp;3 package rename produces the correct
+ * {@code tools.jackson.annotation.JsonInclude} on the Jackson 3 side instead of a broken
+ * {@code tools.jackson.databind.annotation.JsonSerialize(include = ...)}.
+ *
+ * <p>Other arguments on the original {@code @JsonSerialize} (e.g. {@code using}) are preserved on the annotation;
+ * if {@code include} was the only argument the annotation is removed entirely. If a sibling {@code @JsonInclude}
+ * already exists on the same target, the recipe strips {@code include} from {@code @JsonSerialize} but does not add
+ * a duplicate {@code @JsonInclude} ({@code @JsonInclude} is not {@code @Repeatable}).
+ */
+public class JsonSerializeIncludeToJsonInclude extends Recipe {
+    private static final String COM_FASTERXML_JACKSON_DATABIND_ANNOTATION_JSON_SERIALIZE = "com.fasterxml.jackson.databind.annotation.JsonSerialize";
     private static final String COM_FASTERXML_JACKSON_ANNOTATION_JSON_INCLUDE = "com.fasterxml.jackson.annotation.JsonInclude";
-    private static final AnnotationMatcher JSON_SERIALIZE_MATCHER = new AnnotationMatcher("@" + ORG_CODEHAUS_JACKSON_MAP_ANNOTATE_JSON_SERIALIZE, false);
+    private static final AnnotationMatcher JSON_SERIALIZE_MATCHER = new AnnotationMatcher("@" + COM_FASTERXML_JACKSON_DATABIND_ANNOTATION_JSON_SERIALIZE, false);
     private static final AnnotationMatcher JSON_INCLUDE_MATCHER = new AnnotationMatcher("@" + COM_FASTERXML_JACKSON_ANNOTATION_JSON_INCLUDE, false);
 
     @Getter
-    final String displayName = "Migrate to Jackson `@JsonInclude`";
+    final String displayName = "Migrate deprecated `@JsonSerialize(include = ...)` to `@JsonInclude`";
 
     @Getter
-    final String description = "Move Codehaus' `@JsonSerialize.include` argument to FasterXMLs `@JsonInclude` annotation.";
+    final String description = "Move the deprecated `include` attribute of FasterXML's `@JsonSerialize` to a " +
+            "separate `@JsonInclude` annotation. The `include` attribute was deprecated in Jackson 2.x and " +
+            "removed in Jackson 3.x; running this recipe before the Jackson 2 → 3 package rename produces " +
+            "a correct `tools.jackson.annotation.JsonInclude` on the Jackson 3 side.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
         return Preconditions.check(
-                new UsesType<>(ORG_CODEHAUS_JACKSON_MAP_ANNOTATE_JSON_SERIALIZE, false),
+                new UsesType<>(COM_FASTERXML_JACKSON_DATABIND_ANNOTATION_JSON_SERIALIZE, false),
                 new IntroduceJsonIncludeVisitor());
     }
 
@@ -56,14 +73,10 @@ public class JsonIncludeAnnotation extends Recipe {
         public J visitClassDeclaration(J.ClassDeclaration decl, ExecutionContext ctx) {
             J.ClassDeclaration cd = (J.ClassDeclaration) super.visitClassDeclaration(decl, ctx);
 
-            // Loop over annotations and extract the include argument from the old JsonSerialize annotation
             AtomicReference<String> includeArgument = new AtomicReference<>();
             cd = cd.withLeadingAnnotations(ListUtils.map(cd.getLeadingAnnotations(),
                     ann -> mapAnnotation(ann, includeArgument)));
 
-            // Skip the add if a @JsonInclude sibling is already present (any value).
-            // Same-value siblings would produce a duplicate non-@Repeatable annotation (compile error);
-            // different-value siblings are user-authored, so defer to them rather than overwrite.
             if (includeArgument.get() != null && !hasJsonIncludeSibling(cd.getLeadingAnnotations())) {
                 cd = JavaTemplate.builder("@JsonInclude(value = JsonInclude.Include." + includeArgument.get() + ")")
                         .imports(COM_FASTERXML_JACKSON_ANNOTATION_JSON_INCLUDE)
@@ -80,7 +93,6 @@ public class JsonIncludeAnnotation extends Recipe {
         public J visitMethodDeclaration(J.MethodDeclaration decl, ExecutionContext ctx) {
             J.MethodDeclaration md = (J.MethodDeclaration) super.visitMethodDeclaration(decl, ctx);
 
-            // Loop over annotations and extract the include argument from the old JsonSerialize annotation
             AtomicReference<String> includeArgument = new AtomicReference<>();
             md = md.withLeadingAnnotations(ListUtils.map(md.getLeadingAnnotations(),
                     ann -> mapAnnotation(ann, includeArgument)));
@@ -101,7 +113,6 @@ public class JsonIncludeAnnotation extends Recipe {
         public J visitVariableDeclarations(J.VariableDeclarations decl, ExecutionContext ctx) {
             J.VariableDeclarations vd = (J.VariableDeclarations) super.visitVariableDeclarations(decl, ctx);
 
-            // Loop over annotations and extract the include argument from the old JsonSerialize annotation
             AtomicReference<String> includeArgument = new AtomicReference<>();
             vd = vd.withLeadingAnnotations(ListUtils.map(vd.getLeadingAnnotations(),
                     ann -> mapAnnotation(ann, includeArgument)));
@@ -117,30 +128,21 @@ public class JsonIncludeAnnotation extends Recipe {
             return vd;
         }
 
-        private static boolean hasJsonIncludeSibling(java.util.List<J.Annotation> annotations) {
-            for (J.Annotation ann : annotations) {
-                if (JSON_INCLUDE_MATCHER.matches(ann)) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
         private J.@Nullable Annotation mapAnnotation(J.Annotation ann, AtomicReference<String> includeArgument) {
             if (!JSON_SERIALIZE_MATCHER.matches(ann)) {
-                maybeRemoveImport(ORG_CODEHAUS_JACKSON_MAP_ANNOTATE_JSON_SERIALIZE);
                 return ann;
             }
 
-            // Strip out the include argument from the old JsonSerialize annotation
             ann = ann.withArguments(ListUtils.map(ann.getArguments(), arg -> {
+                if (!(arg instanceof J.Assignment)) {
+                    return arg;
+                }
                 J.Assignment assignment = (J.Assignment) arg;
                 J.Identifier variable = (J.Identifier) assignment.getVariable();
                 if (!"include".equals(variable.getSimpleName())) {
                     return arg;
                 }
 
-                // Extract the include argument value as String for the new JsonInclude annotation
                 J right = assignment.getAssignment();
                 if (right instanceof J.FieldAccess) {
                     includeArgument.set(((J.FieldAccess) right).getName().getSimpleName());
@@ -148,18 +150,29 @@ public class JsonIncludeAnnotation extends Recipe {
                     includeArgument.set(((J.Identifier) right).getSimpleName());
                 }
 
-                maybeRemoveImport(ORG_CODEHAUS_JACKSON_MAP_ANNOTATE_JSON_SERIALIZE + ".Inclusion");
-                maybeRemoveImport(ORG_CODEHAUS_JACKSON_MAP_ANNOTATE_JSON_SERIALIZE + ".Inclusion." + includeArgument.get());
+                maybeRemoveImport(COM_FASTERXML_JACKSON_DATABIND_ANNOTATION_JSON_SERIALIZE + ".Inclusion");
+                if (includeArgument.get() != null) {
+                    maybeRemoveImport(COM_FASTERXML_JACKSON_DATABIND_ANNOTATION_JSON_SERIALIZE + ".Inclusion." + includeArgument.get());
+                }
                 return null;
             }));
 
             // If arguments are now empty remove the entire annotation
             if (ann.getArguments() == null || ann.getArguments().isEmpty()) {
-                maybeRemoveImport(ORG_CODEHAUS_JACKSON_MAP_ANNOTATE_JSON_SERIALIZE);
+                maybeRemoveImport(COM_FASTERXML_JACKSON_DATABIND_ANNOTATION_JSON_SERIALIZE);
                 return null;
             }
 
             return ann;
+        }
+
+        private static boolean hasJsonIncludeSibling(List<J.Annotation> annotations) {
+            for (J.Annotation ann : annotations) {
+                if (JSON_INCLUDE_MATCHER.matches(ann)) {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 }
