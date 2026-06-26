@@ -161,6 +161,67 @@ class CodehausToFasterXMLTest implements RewriteTest {
         }
 
         @Test
+        void doublyAnnotatedCodehausIncludeExtractedToJsonInclude() {
+            // Both codehaus and fasterxml `@JsonSerialize(include = NON_NULL)` on the same target.
+            // The codehaus side's `include` is lifted into `@JsonInclude(NON_NULL)`, the now-empty
+            // codehaus annotation is removed, and the fasterxml `@JsonSerialize(include = ...)`
+            // is left for the Jackson 2-3 chain's `JsonSerializeIncludeToJsonInclude` to handle.
+            rewriteRun(
+              //language=java
+              java(
+                """
+                  import org.codehaus.jackson.map.annotate.JsonSerialize;
+                  import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+
+                  @org.codehaus.jackson.map.annotate.JsonSerialize(include = org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL)
+                  @com.fasterxml.jackson.databind.annotation.JsonSerialize(include = com.fasterxml.jackson.databind.annotation.JsonSerialize.Inclusion.NON_NULL)
+                  class Test {
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude;
+                  import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+
+                  @JsonInclude(value = JsonInclude.Include.NON_NULL)
+                  @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
+                  class Test {
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void doublyAnnotatedCodehausUsingTransferredBeforeRemove() {
+            // Regression for the previous chain order: `RemoveDoublyAnnotatedCodehausAnnotations`
+            // ran before `TransferJsonSerializeArgumentsFromCodehausToFasterXML`, which dropped the
+            // codehaus annotation before its `using = ...` could be moved to the fasterxml side.
+            // The reorder runs the transfer first.
+            rewriteRun(
+              //language=java
+              java(
+                """
+                  import com.fasterxml.jackson.databind.JsonSerializer.None;
+
+                  @org.codehaus.jackson.map.annotate.JsonSerialize(using = org.codehaus.jackson.map.JsonSerializer.None.class)
+                  @com.fasterxml.jackson.databind.annotation.JsonSerialize
+                  class Test {
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.JsonSerializer;
+                  import com.fasterxml.jackson.databind.JsonSerializer.None;
+                  import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+
+                  @JsonSerialize(using = JsonSerializer.None.class)
+                  class Test {
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
         void staticImport() {
             //language=java
             rewriteRun(

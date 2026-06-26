@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 the original author or authors.
+ * Copyright 2026 the original author or authors.
  * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,10 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.openrewrite.java.jackson.codehaus;
+package org.openrewrite.java.jackson;
 
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
+import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
@@ -24,34 +25,35 @@ import org.openrewrite.test.RewriteTest;
 import static org.openrewrite.java.Assertions.java;
 
 @SuppressWarnings("DefaultAnnotationParam")
-class JsonIncludeAnnotationTest implements RewriteTest {
+class JsonSerializeIncludeToJsonIncludeTest implements RewriteTest {
 
     @Override
     public void defaults(RecipeSpec spec) {
         spec
-          .recipe(new JsonIncludeAnnotation())
-          .parser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()));
+          .recipe(new JsonSerializeIncludeToJsonInclude())
+          .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
+            "jackson-annotations-2", "jackson-databind-2"));
     }
 
     @DocumentExample
     @Test
-    void retainOriginalAnnotation() {
+    void retainOriginalAnnotationWhenOtherArgumentsRemain() {
         rewriteRun(
           //language=java
           java(
             """
-              import org.codehaus.jackson.map.annotate.JsonSerialize;
-              import org.codehaus.jackson.map.JsonSerializer.None;
-              import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
+              import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+              import com.fasterxml.jackson.databind.JsonSerializer.None;
+              import static com.fasterxml.jackson.databind.annotation.JsonSerialize.Inclusion.NON_NULL;
 
               @JsonSerialize(include = NON_NULL, using = None.class)
               class Test {
               }
               """,
             """
-              import org.codehaus.jackson.map.annotate.JsonSerialize;
+              import com.fasterxml.jackson.databind.annotation.JsonSerialize;
               import com.fasterxml.jackson.annotation.JsonInclude;
-              import org.codehaus.jackson.map.JsonSerializer.None;
+              import com.fasterxml.jackson.databind.JsonSerializer.None;
 
               @JsonInclude(value = JsonInclude.Include.NON_NULL)
               @JsonSerialize(using = None.class)
@@ -63,63 +65,22 @@ class JsonIncludeAnnotationTest implements RewriteTest {
     }
 
     @Test
-    void removeUnusedJsonSerializeImport() {
-        //language=java
+    void removeJsonSerializeEntirelyWhenIncludeWasOnlyArgument() {
         rewriteRun(
+          //language=java
           java(
             """
-              import org.codehaus.jackson.map.annotate.JsonSerialize;
-              import com.fasterxml.jackson.annotation.JsonInclude;
-
-              @JsonInclude(value = JsonInclude.Include.NON_NULL)
-              class ViaAnnotationA {
-              }
-
-              @JsonInclude(value = JsonInclude.Include.NON_NULL)
-              class ViaAnnotationB {
-              }
-              """,
-            """
-              import com.fasterxml.jackson.annotation.JsonInclude;
-
-              @JsonInclude(value = JsonInclude.Include.NON_NULL)
-              class ViaAnnotationA {
-              }
-
-              @JsonInclude(value = JsonInclude.Include.NON_NULL)
-              class ViaAnnotationB {
-              }
-              """
-          )
-        );
-    }
-
-    @Test
-    void replaceAnnotationAndRemoveImportInMixedCase() {
-        //language=java
-        rewriteRun(
-          java(
-            """
-              import org.codehaus.jackson.map.annotate.JsonSerialize;
-              import com.fasterxml.jackson.annotation.JsonInclude;
+              import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
               @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
-              class ViaAnnotationA {
-              }
-
-              @JsonInclude(value = JsonInclude.Include.NON_NULL)
-              class ViaAnnotationB {
+              class Test {
               }
               """,
             """
               import com.fasterxml.jackson.annotation.JsonInclude;
 
               @JsonInclude(value = JsonInclude.Include.NON_NULL)
-              class ViaAnnotationA {
-              }
-
-              @JsonInclude(value = JsonInclude.Include.NON_NULL)
-              class ViaAnnotationB {
+              class Test {
               }
               """
           )
@@ -128,12 +89,12 @@ class JsonIncludeAnnotationTest implements RewriteTest {
 
     @Test
     void inclusionImport() {
-        //language=java
         rewriteRun(
+          //language=java
           java(
             """
-              import org.codehaus.jackson.map.annotate.JsonSerialize;
-              import org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion;
+              import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+              import com.fasterxml.jackson.databind.annotation.JsonSerialize.Inclusion;
 
               @JsonSerialize(include = Inclusion.NON_NULL)
               class ViaInclusion {
@@ -151,36 +112,13 @@ class JsonIncludeAnnotationTest implements RewriteTest {
     }
 
     @Test
-    void annotationImport() {
-        //language=java
-        rewriteRun(
-          java(
-            """
-              import org.codehaus.jackson.map.annotate.JsonSerialize;
-
-              @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
-              class ViaAnnotation {
-              }
-              """,
-            """
-              import com.fasterxml.jackson.annotation.JsonInclude;
-
-              @JsonInclude(value = JsonInclude.Include.NON_NULL)
-              class ViaAnnotation {
-              }
-              """
-          )
-        );
-    }
-
-    @Test
     void replaceFieldAnnotation() {
         rewriteRun(
           //language=java
           java(
             """
-              import org.codehaus.jackson.map.annotate.JsonSerialize;
-              import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
+              import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+              import static com.fasterxml.jackson.databind.annotation.JsonSerialize.Inclusion.NON_NULL;
 
               class Test {
                   @JsonSerialize(include = NON_NULL)
@@ -205,8 +143,8 @@ class JsonIncludeAnnotationTest implements RewriteTest {
           //language=java
           java(
             """
-              import org.codehaus.jackson.map.annotate.JsonSerialize;
-              import static org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion.NON_NULL;
+              import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+              import static com.fasterxml.jackson.databind.annotation.JsonSerialize.Inclusion.NON_NULL;
 
               class Test {
                   @JsonSerialize(include = NON_NULL)
@@ -226,16 +164,34 @@ class JsonIncludeAnnotationTest implements RewriteTest {
     }
 
     @Test
-    void skipWhenSiblingJsonIncludeAlreadyHasSameValue() {
-        // The class already has @JsonInclude with the same value the codehaus annotation would
-        // produce; just strip the `include` argument from @JsonSerialize without adding a duplicate
-        // @JsonInclude (which would be a compile error since @JsonInclude is not @Repeatable).
+    void leaveAnnotationsWithoutIncludeAlone() {
+        // No `include` argument → nothing for this recipe to do; `@JsonSerialize(using = ...)` is
+        // not deprecated and stays as-is in Jackson 3 (the package will be renamed by a later step).
         rewriteRun(
           //language=java
           java(
             """
-              import org.codehaus.jackson.map.annotate.JsonSerialize;
+              import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+              import com.fasterxml.jackson.databind.JsonSerializer.None;
+
+              @JsonSerialize(using = None.class)
+              class Test {
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void skipWhenSiblingJsonIncludeAlreadyHasSameValue() {
+        // Strip the `include` from @JsonSerialize but don't add a duplicate @JsonInclude — that
+        // would be a compile error since @JsonInclude is not @Repeatable.
+        rewriteRun(
+          //language=java
+          java(
+            """
               import com.fasterxml.jackson.annotation.JsonInclude;
+              import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
               @JsonInclude(value = JsonInclude.Include.NON_NULL)
               @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
@@ -255,15 +211,14 @@ class JsonIncludeAnnotationTest implements RewriteTest {
 
     @Test
     void deferToExistingJsonIncludeWhenValuesDiffer() {
-        // Existing @JsonInclude has a different value than what the codehaus annotation would
-        // produce. Defer to the existing one (user-authored, intentional), and strip the codehaus
-        // annotation. Adding a second @JsonInclude with the conflicting value would not compile.
+        // Existing @JsonInclude is user-authored and likely intentional; defer to it and strip
+        // the deprecated `include` from @JsonSerialize rather than introducing a conflict.
         rewriteRun(
           //language=java
           java(
             """
-              import org.codehaus.jackson.map.annotate.JsonSerialize;
               import com.fasterxml.jackson.annotation.JsonInclude;
+              import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
               @JsonInclude(value = JsonInclude.Include.NON_EMPTY)
               @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
@@ -287,7 +242,7 @@ class JsonIncludeAnnotationTest implements RewriteTest {
           //language=java
           java(
             """
-              import org.codehaus.jackson.map.annotate.JsonSerialize;
+              import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
               @JsonSerialize(include = JsonSerialize.Inclusion.ALWAYS)
               public class Person {

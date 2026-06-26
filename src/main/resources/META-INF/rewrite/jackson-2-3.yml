@@ -28,6 +28,7 @@ description: >-
 tags:
   - jackson-3
 recipeList:
+  - org.openrewrite.java.jackson.CodehausToFasterXML  # First, so any codehaus stragglers are on the fasterxml side
   - org.openrewrite.java.jackson.IOExceptionToJacksonException  # Before any type changes, to ensure we update catches
   - org.openrewrite.java.RemoveMethodThrows:
       methodPattern: com.fasterxml.jackson.databind.JsonSerializer serialize(..)
@@ -37,7 +38,6 @@ recipeList:
       exceptionTypePattern: java.io.IOException
   - org.openrewrite.java.jackson.StdDeserializerNullConstructor
   - org.openrewrite.java.jackson.LombokJacksonizedConfig
-  - org.openrewrite.java.jackson.UpdateSerializationInclusionConfiguration
   - org.openrewrite.java.jackson.UseFormatAlignedObjectMappers
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_ModernizeJacksonCoreFeatures
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_RemoveRedundantFeatureFlags
@@ -85,6 +85,7 @@ recipeList:
       comment: "TODO deserializationConfig() is not to be used by application code in Jackson 3 (see https://github.com/FasterXML/jackson-databind/blob/3.x/src/main/java/tools/jackson/databind/ObjectMapper.java#L427). Consider using builder configuration instead."
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_TypeChanges
   - org.openrewrite.java.jackson.UseJsonFactoryStaticBuilder  # After TypeChanges retargets to tools.jackson.core.json.*
+  - org.openrewrite.java.jackson.JsonSerializeIncludeToJsonInclude  # Before PackageChanges below
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_PackageChanges
   - org.openrewrite.java.jackson.SimplifyJacksonExceptionCatch
 

@@ -30,11 +30,14 @@ import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.J;
 
 import java.util.Comparator;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class JsonIncludeAnnotation extends Recipe {
     private static final String ORG_CODEHAUS_JACKSON_MAP_ANNOTATE_JSON_SERIALIZE = "org.codehaus.jackson.map.annotate.JsonSerialize";
     private static final String COM_FASTERXML_JACKSON_ANNOTATION_JSON_INCLUDE = "com.fasterxml.jackson.annotation.JsonInclude";
+    private static final AnnotationMatcher JSON_SERIALIZE_MATCHER = new AnnotationMatcher("@" + ORG_CODEHAUS_JACKSON_MAP_ANNOTATE_JSON_SERIALIZE, false);
+    private static final AnnotationMatcher JSON_INCLUDE_MATCHER = new AnnotationMatcher("@" + COM_FASTERXML_JACKSON_ANNOTATION_JSON_INCLUDE, false);
 
     @Getter
     final String displayName = "Migrate to Jackson `@JsonInclude`";
@@ -59,8 +62,10 @@ public class JsonIncludeAnnotation extends Recipe {
             cd = cd.withLeadingAnnotations(ListUtils.map(cd.getLeadingAnnotations(),
                     ann -> mapAnnotation(ann, includeArgument)));
 
-            // Add the new JsonInclude annotation with the include argument
-            if (includeArgument.get() != null) {
+            // Skip the add if a @JsonInclude sibling is already present (any value).
+            // Same-value siblings would produce a duplicate non-@Repeatable annotation (compile error);
+            // different-value siblings are user-authored, so defer to them rather than overwrite.
+            if (includeArgument.get() != null && !hasJsonIncludeSibling(cd.getLeadingAnnotations())) {
                 cd = JavaTemplate.builder("@JsonInclude(value = JsonInclude.Include." + includeArgument.get() + ")")
                         .imports(COM_FASTERXML_JACKSON_ANNOTATION_JSON_INCLUDE)
                         .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx, "jackson-annotations"))
@@ -81,8 +86,7 @@ public class JsonIncludeAnnotation extends Recipe {
             md = md.withLeadingAnnotations(ListUtils.map(md.getLeadingAnnotations(),
                     ann -> mapAnnotation(ann, includeArgument)));
 
-            // Add the new JsonInclude annotation with the include argument
-            if (includeArgument.get() != null) {
+            if (includeArgument.get() != null && !hasJsonIncludeSibling(md.getLeadingAnnotations())) {
                 md = JavaTemplate.builder("@JsonInclude(value = JsonInclude.Include." + includeArgument.get() + ")")
                         .imports(COM_FASTERXML_JACKSON_ANNOTATION_JSON_INCLUDE)
                         .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx, "jackson-annotations"))
@@ -103,8 +107,7 @@ public class JsonIncludeAnnotation extends Recipe {
             vd = vd.withLeadingAnnotations(ListUtils.map(vd.getLeadingAnnotations(),
                     ann -> mapAnnotation(ann, includeArgument)));
 
-            // Add the new JsonInclude annotation with the include argument
-            if (includeArgument.get() != null) {
+            if (includeArgument.get() != null && !hasJsonIncludeSibling(vd.getLeadingAnnotations())) {
                 vd = JavaTemplate.builder("@JsonInclude(value = JsonInclude.Include." + includeArgument.get() + ")")
                         .imports(COM_FASTERXML_JACKSON_ANNOTATION_JSON_INCLUDE)
                         .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx, "jackson-annotations"))
@@ -115,10 +118,17 @@ public class JsonIncludeAnnotation extends Recipe {
             return vd;
         }
 
-        private final AnnotationMatcher annotationMatcher = new AnnotationMatcher("@" + ORG_CODEHAUS_JACKSON_MAP_ANNOTATE_JSON_SERIALIZE, false);
+        private static boolean hasJsonIncludeSibling(List<J.Annotation> annotations) {
+            for (J.Annotation ann : annotations) {
+                if (JSON_INCLUDE_MATCHER.matches(ann)) {
+                    return true;
+                }
+            }
+            return false;
+        }
 
         private J.@Nullable Annotation mapAnnotation(J.Annotation ann, AtomicReference<String> includeArgument) {
-            if (!annotationMatcher.matches(ann)) {
+            if (!JSON_SERIALIZE_MATCHER.matches(ann)) {
                 maybeRemoveImport(ORG_CODEHAUS_JACKSON_MAP_ANNOTATE_JSON_SERIALIZE);
                 return ann;
             }
