@@ -30,6 +30,7 @@ import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.J;
 
 import java.util.Comparator;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class JsonIncludeAnnotation extends Recipe {
@@ -117,7 +118,7 @@ public class JsonIncludeAnnotation extends Recipe {
             return vd;
         }
 
-        private static boolean hasJsonIncludeSibling(java.util.List<J.Annotation> annotations) {
+        private static boolean hasJsonIncludeSibling(List<J.Annotation> annotations) {
             for (J.Annotation ann : annotations) {
                 if (JSON_INCLUDE_MATCHER.matches(ann)) {
                     return true;

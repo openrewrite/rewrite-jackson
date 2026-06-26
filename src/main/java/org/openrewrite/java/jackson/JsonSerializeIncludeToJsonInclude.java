@@ -65,114 +65,112 @@ public class JsonSerializeIncludeToJsonInclude extends Recipe {
     public TreeVisitor<?, ExecutionContext> getVisitor() {
         return Preconditions.check(
                 new UsesType<>(COM_FASTERXML_JACKSON_DATABIND_ANNOTATION_JSON_SERIALIZE, false),
-                new IntroduceJsonIncludeVisitor());
-    }
+                new JavaVisitor<ExecutionContext>() {
+                    @Override
+                    public J visitClassDeclaration(J.ClassDeclaration decl, ExecutionContext ctx) {
+                        J.ClassDeclaration cd = (J.ClassDeclaration) super.visitClassDeclaration(decl, ctx);
 
-    private static class IntroduceJsonIncludeVisitor extends JavaVisitor<ExecutionContext> {
-        @Override
-        public J visitClassDeclaration(J.ClassDeclaration decl, ExecutionContext ctx) {
-            J.ClassDeclaration cd = (J.ClassDeclaration) super.visitClassDeclaration(decl, ctx);
+                        AtomicReference<String> includeArgument = new AtomicReference<>();
+                        cd = cd.withLeadingAnnotations(ListUtils.map(cd.getLeadingAnnotations(),
+                                ann -> mapAnnotation(ann, includeArgument)));
 
-            AtomicReference<String> includeArgument = new AtomicReference<>();
-            cd = cd.withLeadingAnnotations(ListUtils.map(cd.getLeadingAnnotations(),
-                    ann -> mapAnnotation(ann, includeArgument)));
+                        if (includeArgument.get() != null && !hasJsonIncludeSibling(cd.getLeadingAnnotations())) {
+                            maybeAddImport(COM_FASTERXML_JACKSON_ANNOTATION_JSON_INCLUDE);
+                            return JavaTemplate.builder("@JsonInclude(value = JsonInclude.Include." + includeArgument.get() + ")")
+                                    .imports(COM_FASTERXML_JACKSON_ANNOTATION_JSON_INCLUDE)
+                                    .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx, "jackson-annotations"))
+                                    .build()
+                                    .apply(updateCursor(cd), cd.getCoordinates().addAnnotation(Comparator.comparing(J.Annotation::getSimpleName)));
+                        }
 
-            if (includeArgument.get() != null && !hasJsonIncludeSibling(cd.getLeadingAnnotations())) {
-                cd = JavaTemplate.builder("@JsonInclude(value = JsonInclude.Include." + includeArgument.get() + ")")
-                        .imports(COM_FASTERXML_JACKSON_ANNOTATION_JSON_INCLUDE)
-                        .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx, "jackson-annotations"))
-                        .build()
-                        .apply(updateCursor(cd), cd.getCoordinates().addAnnotation(Comparator.comparing(J.Annotation::getSimpleName)));
-                maybeAddImport(COM_FASTERXML_JACKSON_ANNOTATION_JSON_INCLUDE);
-            }
+                        return cd;
+                    }
 
-            return cd;
-        }
+                    @Override
+                    public J visitMethodDeclaration(J.MethodDeclaration decl, ExecutionContext ctx) {
+                        J.MethodDeclaration md = (J.MethodDeclaration) super.visitMethodDeclaration(decl, ctx);
 
-        @Override
-        public J visitMethodDeclaration(J.MethodDeclaration decl, ExecutionContext ctx) {
-            J.MethodDeclaration md = (J.MethodDeclaration) super.visitMethodDeclaration(decl, ctx);
+                        AtomicReference<String> includeArgument = new AtomicReference<>();
+                        md = md.withLeadingAnnotations(ListUtils.map(md.getLeadingAnnotations(),
+                                ann -> mapAnnotation(ann, includeArgument)));
 
-            AtomicReference<String> includeArgument = new AtomicReference<>();
-            md = md.withLeadingAnnotations(ListUtils.map(md.getLeadingAnnotations(),
-                    ann -> mapAnnotation(ann, includeArgument)));
+                        if (includeArgument.get() != null && !hasJsonIncludeSibling(md.getLeadingAnnotations())) {
+                            maybeAddImport(COM_FASTERXML_JACKSON_ANNOTATION_JSON_INCLUDE);
+                            return JavaTemplate.builder("@JsonInclude(value = JsonInclude.Include." + includeArgument.get() + ")")
+                                    .imports(COM_FASTERXML_JACKSON_ANNOTATION_JSON_INCLUDE)
+                                    .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx, "jackson-annotations"))
+                                    .build()
+                                    .apply(updateCursor(md), md.getCoordinates().addAnnotation(Comparator.comparing(J.Annotation::getSimpleName)));
+                        }
 
-            if (includeArgument.get() != null && !hasJsonIncludeSibling(md.getLeadingAnnotations())) {
-                md = JavaTemplate.builder("@JsonInclude(value = JsonInclude.Include." + includeArgument.get() + ")")
-                        .imports(COM_FASTERXML_JACKSON_ANNOTATION_JSON_INCLUDE)
-                        .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx, "jackson-annotations"))
-                        .build()
-                        .apply(updateCursor(md), md.getCoordinates().addAnnotation(Comparator.comparing(J.Annotation::getSimpleName)));
-                maybeAddImport(COM_FASTERXML_JACKSON_ANNOTATION_JSON_INCLUDE);
-            }
+                        return md;
+                    }
 
-            return md;
-        }
+                    @Override
+                    public J visitVariableDeclarations(J.VariableDeclarations decl, ExecutionContext ctx) {
+                        J.VariableDeclarations vd = (J.VariableDeclarations) super.visitVariableDeclarations(decl, ctx);
 
-        @Override
-        public J visitVariableDeclarations(J.VariableDeclarations decl, ExecutionContext ctx) {
-            J.VariableDeclarations vd = (J.VariableDeclarations) super.visitVariableDeclarations(decl, ctx);
+                        AtomicReference<String> includeArgument = new AtomicReference<>();
+                        vd = vd.withLeadingAnnotations(ListUtils.map(vd.getLeadingAnnotations(),
+                                ann -> mapAnnotation(ann, includeArgument)));
 
-            AtomicReference<String> includeArgument = new AtomicReference<>();
-            vd = vd.withLeadingAnnotations(ListUtils.map(vd.getLeadingAnnotations(),
-                    ann -> mapAnnotation(ann, includeArgument)));
+                        if (includeArgument.get() != null && !hasJsonIncludeSibling(vd.getLeadingAnnotations())) {
+                            maybeAddImport(COM_FASTERXML_JACKSON_ANNOTATION_JSON_INCLUDE);
+                            return JavaTemplate.builder("@JsonInclude(value = JsonInclude.Include." + includeArgument.get() + ")")
+                                    .imports(COM_FASTERXML_JACKSON_ANNOTATION_JSON_INCLUDE)
+                                    .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx, "jackson-annotations"))
+                                    .build()
+                                    .apply(updateCursor(vd), vd.getCoordinates().addAnnotation(Comparator.comparing(J.Annotation::getSimpleName)));
+                        }
+                        return vd;
+                    }
 
-            if (includeArgument.get() != null && !hasJsonIncludeSibling(vd.getLeadingAnnotations())) {
-                vd = JavaTemplate.builder("@JsonInclude(value = JsonInclude.Include." + includeArgument.get() + ")")
-                        .imports(COM_FASTERXML_JACKSON_ANNOTATION_JSON_INCLUDE)
-                        .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx, "jackson-annotations"))
-                        .build()
-                        .apply(updateCursor(vd), vd.getCoordinates().addAnnotation(Comparator.comparing(J.Annotation::getSimpleName)));
-                maybeAddImport(COM_FASTERXML_JACKSON_ANNOTATION_JSON_INCLUDE);
-            }
-            return vd;
-        }
+                    private J.@Nullable Annotation mapAnnotation(J.Annotation ann, AtomicReference<String> includeArgument) {
+                        if (!JSON_SERIALIZE_MATCHER.matches(ann)) {
+                            return ann;
+                        }
 
-        private J.@Nullable Annotation mapAnnotation(J.Annotation ann, AtomicReference<String> includeArgument) {
-            if (!JSON_SERIALIZE_MATCHER.matches(ann)) {
-                return ann;
-            }
+                        ann = ann.withArguments(ListUtils.map(ann.getArguments(), arg -> {
+                            if (!(arg instanceof J.Assignment)) {
+                                return arg;
+                            }
+                            J.Assignment assignment = (J.Assignment) arg;
+                            J.Identifier variable = (J.Identifier) assignment.getVariable();
+                            if (!"include".equals(variable.getSimpleName())) {
+                                return arg;
+                            }
 
-            ann = ann.withArguments(ListUtils.map(ann.getArguments(), arg -> {
-                if (!(arg instanceof J.Assignment)) {
-                    return arg;
-                }
-                J.Assignment assignment = (J.Assignment) arg;
-                J.Identifier variable = (J.Identifier) assignment.getVariable();
-                if (!"include".equals(variable.getSimpleName())) {
-                    return arg;
-                }
+                            J right = assignment.getAssignment();
+                            if (right instanceof J.FieldAccess) {
+                                includeArgument.set(((J.FieldAccess) right).getName().getSimpleName());
+                            } else if (right instanceof J.Identifier) {
+                                includeArgument.set(((J.Identifier) right).getSimpleName());
+                            }
 
-                J right = assignment.getAssignment();
-                if (right instanceof J.FieldAccess) {
-                    includeArgument.set(((J.FieldAccess) right).getName().getSimpleName());
-                } else if (right instanceof J.Identifier) {
-                    includeArgument.set(((J.Identifier) right).getSimpleName());
-                }
+                            maybeRemoveImport(COM_FASTERXML_JACKSON_DATABIND_ANNOTATION_JSON_SERIALIZE + ".Inclusion");
+                            if (includeArgument.get() != null) {
+                                maybeRemoveImport(COM_FASTERXML_JACKSON_DATABIND_ANNOTATION_JSON_SERIALIZE + ".Inclusion." + includeArgument.get());
+                            }
+                            return null;
+                        }));
 
-                maybeRemoveImport(COM_FASTERXML_JACKSON_DATABIND_ANNOTATION_JSON_SERIALIZE + ".Inclusion");
-                if (includeArgument.get() != null) {
-                    maybeRemoveImport(COM_FASTERXML_JACKSON_DATABIND_ANNOTATION_JSON_SERIALIZE + ".Inclusion." + includeArgument.get());
-                }
-                return null;
-            }));
+                        // If arguments are now empty remove the entire annotation
+                        if (ann.getArguments() == null || ann.getArguments().isEmpty()) {
+                            maybeRemoveImport(COM_FASTERXML_JACKSON_DATABIND_ANNOTATION_JSON_SERIALIZE);
+                            return null;
+                        }
 
-            // If arguments are now empty remove the entire annotation
-            if (ann.getArguments() == null || ann.getArguments().isEmpty()) {
-                maybeRemoveImport(COM_FASTERXML_JACKSON_DATABIND_ANNOTATION_JSON_SERIALIZE);
-                return null;
-            }
+                        return ann;
+                    }
 
-            return ann;
-        }
-
-        private static boolean hasJsonIncludeSibling(List<J.Annotation> annotations) {
-            for (J.Annotation ann : annotations) {
-                if (JSON_INCLUDE_MATCHER.matches(ann)) {
-                    return true;
-                }
-            }
-            return false;
-        }
+                    private boolean hasJsonIncludeSibling(List<J.Annotation> annotations) {
+                        for (J.Annotation ann : annotations) {
+                            if (JSON_INCLUDE_MATCHER.matches(ann)) {
+                                return true;
+                            }
+                        }
+                        return false;
+                    }
+                });
     }
 }
