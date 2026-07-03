@@ -202,6 +202,30 @@ examples:
     language: java
 ---
 type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.jackson.JsonSerializeIncludeToJsonInclude
+examples:
+- description: '`JsonSerializeIncludeToJsonIncludeTest#retainOriginalAnnotationWhenOtherArgumentsRemain`'
+  sources:
+  - before: |
+      import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+      import com.fasterxml.jackson.databind.JsonSerializer.None;
+      import static com.fasterxml.jackson.databind.annotation.JsonSerialize.Inclusion.NON_NULL;
+
+      @JsonSerialize(include = NON_NULL, using = None.class)
+      class Test {
+      }
+    after: |
+      import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+      import com.fasterxml.jackson.annotation.JsonInclude;
+      import com.fasterxml.jackson.databind.JsonSerializer.None;
+
+      @JsonInclude(value = JsonInclude.Include.NON_NULL)
+      @JsonSerialize(using = None.class)
+      class Test {
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.MigrateFactorySettersToBuilder
 examples:
 - description: '`MigrateFactorySettersToBuilderTest#bareConstructorMigratedToBuilder`'
@@ -214,9 +238,10 @@ examples:
       }
     after: |
       import com.fasterxml.jackson.core.JsonFactory;
+      import com.fasterxml.jackson.core.JsonFactoryBuilder;
 
       class A {
-          JsonFactory factory = JsonFactory.builder()
+          JsonFactory factory = new JsonFactoryBuilder()
                   .build();
       }
     language: java
@@ -438,6 +463,33 @@ examples:
                       .defaultMergeable(Boolean.TRUE)
                       .defaultLeniency(Boolean.TRUE)
                       .build();
+          }
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.jackson.ReadValueUrlToOpenStream
+examples:
+- description: '`ReadValueUrlToOpenStreamTest#readValueUrlClass`'
+  sources:
+  - before: |
+      import com.fasterxml.jackson.databind.ObjectMapper;
+      import java.io.IOException;
+      import java.net.URL;
+
+      class Test {
+          Object load(ObjectMapper mapper, URL url) throws IOException {
+              return mapper.readValue(url, Object.class);
+          }
+      }
+    after: |
+      import com.fasterxml.jackson.databind.ObjectMapper;
+      import java.io.IOException;
+      import java.net.URL;
+
+      class Test {
+          Object load(ObjectMapper mapper, URL url) throws IOException {
+              return mapper.readValue(url.openStream(), Object.class);
           }
       }
     language: java
@@ -916,9 +968,8 @@ examples:
       }
     after: |
       import com.fasterxml.jackson.annotation.JsonProperty;
-      import tools.jackson.core.JsonFactoryBuilder;
       import tools.jackson.databind.ObjectMapper;
-      import tools.jackson.core.TokenStreamFactory;
+      import tools.jackson.core.json.JsonFactory;
 
       class Test {
           public String foo(@JsonProperty("foo") String foo) {
@@ -927,7 +978,7 @@ examples:
 
           static void helloJackson() {
               Object[] input = new Object[] { "one", "two" };
-              TokenStreamFactory factory = new JsonFactoryBuilder().build();
+              JsonFactory factory = JsonFactory.builder().build();
           }
       }
     language: java
@@ -1091,6 +1142,26 @@ examples:
 
       class A {
           ObjectMapper mapper = new JsonMapper();
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.jackson.UseJsonFactoryStaticBuilder
+examples:
+- description: '`UseJsonFactoryStaticBuilderTest#bareBuilderCtorReplacedWithStaticBuilder`'
+  sources:
+  - before: |
+      import tools.jackson.core.json.JsonFactory;
+      import tools.jackson.core.json.JsonFactoryBuilder;
+
+      class A {
+          JsonFactory factory = new JsonFactoryBuilder().build();
+      }
+    after: |
+      import tools.jackson.core.json.JsonFactory;
+
+      class A {
+          JsonFactory factory = JsonFactory.builder().build();
       }
     language: java
 ---
