@@ -240,12 +240,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             toRemove.add(setter.getId());
                         }
 
-                        // When a folded setter references an intermediate variable declared after
-                        // the mapper, the builder chain (which replaces the constructor in place)
-                        // would reference that variable before its declaration. Relocate the
-                        // intermediate statements to just before the mapper's containing statement.
-                        // J.NewClass itself implements Statement, so walk up past it to find the
-                        // enclosing declaration or assignment that is the block-level statement.
+                        // J.NewClass implements Statement, so walk up past it to the block-level stmt.
                         if (setterUsesIntermediate[0] && !movableStmts.isEmpty()) {
                             Statement mapperStmt = namedVar != null ?
                                     getCursor().firstEnclosing(J.VariableDeclarations.class) :
@@ -520,12 +515,10 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                      * non-setter context (e.g., passed to another method). Both known and unknown
                      * setters are collected; unknown setters will get TODO comments in the builder chain.
                      * <p>
-                     * Statements between the mapper declaration and the last collected setter that
-                     * do not reference the mapper are added to {@code movableStmtsOut}. If any
-                     * collected setter references a variable declared in one of those statements,
-                     * {@code setterUsesIntermediateOut[0]} is set to {@code true}; the caller must
-                     * relocate the movable statements to appear before the mapper's declaration so
-                     * the builder chain (which replaces the constructor in place) can resolve them.
+                     * Safe statements between the mapper and the last setter are added to
+                     * {@code movableStmtsOut}; {@code setterUsesIntermediateOut[0]} is set when a
+                     * collected setter references a variable declared in one of them — the caller
+                     * must relocate them before the mapper to keep the folded builder well-formed.
                      */
                     private List<J.MethodInvocation> collectStandaloneSetters(
                             J.Block block, J.Identifier varIdent, Set<J.Identifier> intermediateVars,
@@ -562,7 +555,6 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             // extractMethodInvocation, which would visit into the block and find
                             // only the first MI)
                             if (stmt instanceof J.Block) {
-                                // Track intermediate variable declarations from the outer scope
                                 J.VariableDeclarations outerVd = extractVariableDeclarations(stmt);
                                 if (outerVd != null) {
                                     for (J.VariableDeclarations.NamedVariable v : outerVd.getVariables()) {
@@ -608,10 +600,6 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                 continue;
                             }
 
-                            // Non-setter statement: if it references the mapper we must stop, since
-                            // its meaning depends on the mapper's constructed state (which we're
-                            // about to fold into a builder chain). Otherwise it's a safe intermediate
-                            // statement that can be relocated before the mapper if needed.
                             if (referencesVariable(stmt, varIdent)) {
                                 collecting = false;
                                 continue;
@@ -1266,10 +1254,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
     }
 
     /**
-     * Move the statements identified by {@code movableIds} (which appear between the
-     * mapper's containing statement and the last folded setter) to immediately before
-     * the mapper's containing statement, so that the builder chain — which has already
-     * absorbed those variables' references — resolves them lexically.
+     * Move statements identified by {@code movableIds} to just before the mapper's
+     * containing statement, so a folded builder chain resolves them lexically.
      */
     private static JavaIsoVisitor<ExecutionContext> relocateBeforeMapper(
             UUID mapperStmtId, Set<UUID> movableIds) {
