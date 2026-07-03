@@ -1187,6 +1187,51 @@ examples:
     language: java
 ---
 type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.jackson.UseReadTreeAsValueInDeserializer
+examples:
+- description: '`UseReadTreeAsValueInDeserializerTest#treeToValueInDeserializeRewrittenToReadTreeAsValue`'
+  sources:
+  - before: |
+      import com.fasterxml.jackson.core.JsonParser;
+      import com.fasterxml.jackson.databind.DeserializationContext;
+      import com.fasterxml.jackson.databind.JsonNode;
+      import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
+
+      class Corepos {}
+
+      class PlatformMapDeserializer extends StdDeserializer<Corepos> {
+          protected PlatformMapDeserializer() {
+              super(Corepos.class);
+          }
+
+          @Override
+          public Corepos deserialize(JsonParser parser, DeserializationContext context) throws Exception {
+              JsonNode value = parser.readValueAsTree();
+              return parser.getCodec().treeToValue(value, Corepos.class);
+          }
+      }
+    after: |
+      import com.fasterxml.jackson.core.JsonParser;
+      import com.fasterxml.jackson.databind.DeserializationContext;
+      import com.fasterxml.jackson.databind.JsonNode;
+      import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
+
+      class Corepos {}
+
+      class PlatformMapDeserializer extends StdDeserializer<Corepos> {
+          protected PlatformMapDeserializer() {
+              super(Corepos.class);
+          }
+
+          @Override
+          public Corepos deserialize(JsonParser parser, DeserializationContext context) throws Exception {
+              JsonNode value = parser.readValueAsTree();
+              return context.readTreeAsValue(value, Corepos.class);
+          }
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.codehaus.CodehausDependencyToFasterXML
 examples:
 - description: '`CodehausDependencyToFasterXMLTest#changeDependencyWithoutExplicitVersion`'

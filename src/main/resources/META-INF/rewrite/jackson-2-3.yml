@@ -32,6 +32,7 @@ recipeList:
   - org.openrewrite.java.jackson.IOExceptionToJacksonException  # Before any type changes, to ensure we update catches
   - org.openrewrite.java.jackson.ReplaceIOExceptionThrowInJacksonOverrides  # Also removes `throws IOException` from the serde overrides
   - org.openrewrite.java.jackson.StdDeserializerNullConstructor
+  - org.openrewrite.java.jackson.UseReadTreeAsValueInDeserializer
   - org.openrewrite.java.jackson.LombokJacksonizedConfig
   - org.openrewrite.java.jackson.UseFormatAlignedObjectMappers
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_ModernizeJacksonCoreFeatures
