@@ -197,6 +197,198 @@ class RemoveThrowsIOExceptionFromJacksonOverridesTest implements RewriteTest {
     }
 
     @Test
+    void removeThrowsIOExceptionFromSerializeWithType() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonGenerator;
+              import com.fasterxml.jackson.databind.SerializerProvider;
+              import com.fasterxml.jackson.databind.jsontype.TypeSerializer;
+              import com.fasterxml.jackson.databind.ser.std.StdSerializer;
+              import java.io.IOException;
+
+              class DateSerializer extends StdSerializer<java.util.Date> {
+                  public DateSerializer() {
+                      super(java.util.Date.class);
+                  }
+
+                  @Override
+                  public void serialize(java.util.Date value, JsonGenerator gen, SerializerProvider provider) throws IOException {
+                      gen.writeString(value.toString());
+                  }
+
+                  @Override
+                  public void serializeWithType(java.util.Date value, JsonGenerator gen, SerializerProvider provider, TypeSerializer typeSer) throws IOException {
+                      serialize(value, gen, provider);
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonGenerator;
+              import tools.jackson.databind.jsontype.TypeSerializer;
+              import tools.jackson.databind.ser.std.StdSerializer;
+              import tools.jackson.databind.SerializationContext;
+
+              class DateSerializer extends StdSerializer<java.util.Date> {
+                  public DateSerializer() {
+                      super(java.util.Date.class);
+                  }
+
+                  @Override
+                  public void serialize(java.util.Date value, JsonGenerator gen, SerializationContext provider) {
+                      gen.writeString(value.toString());
+                  }
+
+                  @Override
+                  public void serializeWithType(java.util.Date value, JsonGenerator gen, SerializationContext provider, TypeSerializer typeSer) {
+                      serialize(value, gen, provider);
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void removeThrowsIOExceptionFromDeserializeWithType() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonParser;
+              import com.fasterxml.jackson.databind.DeserializationContext;
+              import com.fasterxml.jackson.databind.JsonDeserializer;
+              import com.fasterxml.jackson.databind.jsontype.TypeDeserializer;
+              import java.io.IOException;
+
+              class MyDeserializer extends JsonDeserializer<String> {
+                  @Override
+                  public String deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
+                      return p.getValueAsString();
+                  }
+
+                  @Override
+                  public Object deserializeWithType(JsonParser p, DeserializationContext ctxt, TypeDeserializer typeDeserializer) throws IOException {
+                      return typeDeserializer.deserializeTypedFromAny(p, ctxt);
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonParser;
+              import tools.jackson.databind.DeserializationContext;
+              import tools.jackson.databind.jsontype.TypeDeserializer;
+              import tools.jackson.databind.ValueDeserializer;
+
+              class MyDeserializer extends ValueDeserializer<String> {
+                  @Override
+                  public String deserialize(JsonParser p, DeserializationContext ctxt) {
+                      return p.getValueAsString();
+                  }
+
+                  @Override
+                  public Object deserializeWithType(JsonParser p, DeserializationContext ctxt, TypeDeserializer typeDeserializer) {
+                      return typeDeserializer.deserializeTypedFromAny(p, ctxt);
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void replaceThrowNewIOExceptionInSerializer() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonGenerator;
+              import com.fasterxml.jackson.databind.SerializerProvider;
+              import com.fasterxml.jackson.databind.ser.std.StdSerializer;
+              import java.io.IOException;
+
+              class MySerializer extends StdSerializer<String> {
+                  public MySerializer() {
+                      super(String.class);
+                  }
+
+                  @Override
+                  public void serialize(String value, JsonGenerator gen, SerializerProvider provider) throws IOException {
+                      if (value == null) {
+                          throw new IOException("value must not be null");
+                      }
+                      gen.writeString(value);
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonGenerator;
+              import tools.jackson.databind.ser.std.StdSerializer;
+              import tools.jackson.databind.DatabindException;
+              import tools.jackson.databind.SerializationContext;
+
+              class MySerializer extends StdSerializer<String> {
+                  public MySerializer() {
+                      super(String.class);
+                  }
+
+                  @Override
+                  public void serialize(String value, JsonGenerator gen, SerializationContext provider) {
+                      if (value == null) {
+                          throw DatabindException.from(gen, "value must not be null");
+                      }
+                      gen.writeString(value);
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void replaceThrowNewIOExceptionWithCauseInDeserializer() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonParser;
+              import com.fasterxml.jackson.databind.DeserializationContext;
+              import com.fasterxml.jackson.databind.JsonDeserializer;
+              import java.io.IOException;
+
+              class MyDeserializer extends JsonDeserializer<Integer> {
+                  @Override
+                  public Integer deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
+                      try {
+                          return Integer.parseInt(p.getValueAsString());
+                      } catch (NumberFormatException e) {
+                          throw new IOException("bad number", e);
+                      }
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonParser;
+              import tools.jackson.databind.DeserializationContext;
+              import tools.jackson.databind.DatabindException;
+              import tools.jackson.databind.ValueDeserializer;
+
+              class MyDeserializer extends ValueDeserializer<Integer> {
+                  @Override
+                  public Integer deserialize(JsonParser p, DeserializationContext ctxt) {
+                      try {
+                          return Integer.parseInt(p.getValueAsString());
+                      } catch (NumberFormatException e) {
+                          throw DatabindException.from(p, "bad number", e);
+                      }
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void keepOnOtherMethods() {
         rewriteRun(
           //language=java
