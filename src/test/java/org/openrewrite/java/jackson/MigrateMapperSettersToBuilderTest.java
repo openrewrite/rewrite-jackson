@@ -670,11 +670,10 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
 
                   class A {
                       JsonMapper create() {
-                          JsonMapper mapper = new JsonMapper();
                           SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-                          // TODO setDateFormat could not be folded to the builder of JsonMapper. Use mapper.rebuild().defaultDateFormat(...).build() or move to the mapper's instantiation site.
-                          mapper.setDateFormat(dateFormat);
-                          return mapper;
+                          return JsonMapper.builder()
+                                  .defaultDateFormat(dateFormat)
+                                  .build();
                       }
                   }
                   """
@@ -1175,6 +1174,127 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
                                   .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
                                   .disable(SerializationFeature.INDENT_OUTPUT)
                                   .changeDefaultPropertyInclusion(incl -> incl.withContentInclusion(JsonInclude.Include.NON_NULL).withValueInclusion(JsonInclude.Include.NON_NULL))
+                                  .build();
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void registerModuleWithLocalModuleDeclaredBetween() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.JsonDeserializer;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+                  import com.fasterxml.jackson.databind.module.SimpleModule;
+
+                  class A {
+                      JsonMapper create(JsonDeserializer<String> deserializer) {
+                          JsonMapper mapper = new JsonMapper();
+                          SimpleModule module = new SimpleModule();
+                          module.addDeserializer(String.class, deserializer);
+                          mapper.registerModule(module);
+                          return mapper;
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.JsonDeserializer;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+                  import com.fasterxml.jackson.databind.module.SimpleModule;
+
+                  class A {
+                      JsonMapper create(JsonDeserializer<String> deserializer) {
+                          SimpleModule module = new SimpleModule();
+                          module.addDeserializer(String.class, deserializer);
+                          return JsonMapper.builder()
+                                  .addModule(module)
+                                  .build();
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void registerModuleWithLocalModuleDeclaredBetweenFluentChain() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.JsonDeserializer;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+                  import com.fasterxml.jackson.databind.module.SimpleModule;
+
+                  class A {
+                      JsonMapper create(JsonDeserializer<String> deserializer) {
+                          JsonMapper mapper = new JsonMapper()
+                                  .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+                          SimpleModule module = new SimpleModule();
+                          module.addDeserializer(String.class, deserializer);
+                          mapper.registerModule(module);
+                          return mapper;
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.JsonDeserializer;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+                  import com.fasterxml.jackson.databind.module.SimpleModule;
+
+                  class A {
+                      JsonMapper create(JsonDeserializer<String> deserializer) {
+                          SimpleModule module = new SimpleModule();
+                          module.addDeserializer(String.class, deserializer);
+                          return JsonMapper.builder()
+                                  .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                                  .addModule(module)
+                                  .build();
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void registerModuleWithLocalModuleDeclaredBetweenAssignedToField() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.JsonDeserializer;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+                  import com.fasterxml.jackson.databind.module.SimpleModule;
+
+                  class A {
+                      JsonMapper objectMapper;
+
+                      void configure(JsonDeserializer<String> deserializer) {
+                          objectMapper = new JsonMapper();
+                          SimpleModule module = new SimpleModule();
+                          module.addDeserializer(String.class, deserializer);
+                          objectMapper.registerModule(module);
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.JsonDeserializer;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+                  import com.fasterxml.jackson.databind.module.SimpleModule;
+
+                  class A {
+                      JsonMapper objectMapper;
+
+                      void configure(JsonDeserializer<String> deserializer) {
+                          SimpleModule module = new SimpleModule();
+                          module.addDeserializer(String.class, deserializer);
+                          objectMapper = JsonMapper.builder()
+                                  .addModule(module)
                                   .build();
                       }
                   }
