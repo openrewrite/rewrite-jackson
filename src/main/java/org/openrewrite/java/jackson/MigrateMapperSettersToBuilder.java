@@ -184,6 +184,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         if (visited != block) {
                             doAfterVisit(new UpdateSerializationInclusionConfiguration().getVisitor());
                             doAfterVisit(new UpdateAutoDetectVisibilityConfiguration().getVisitor());
+                            doAfterVisit(coalesceRebuildAssignments());
                         }
                         return visited;
                     }
@@ -276,11 +277,14 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             }
                         }
 
-                        if (!(mi.getSelect() instanceof J.Identifier)) {
+                        Expression select = mi.getSelect();
+                        if (!(select instanceof J.Identifier) &&
+                                !(select instanceof J.FieldAccess &&
+                                        ((J.FieldAccess) select).getTarget() instanceof J.Identifier)) {
                             return mi;
                         }
 
-                        String matchedMapper = matchingMapperType(mi.getSelect().getType());
+                        String matchedMapper = matchingMapperType(select.getType());
                         if (matchedMapper == null) {
                             return mi;
                         }
@@ -288,6 +292,17 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         SetterToBuilderMapping mapping = SetterToBuilderMapping.fromSetter(mi.getName().getSimpleName());
                         if (mapping == null) {
                             return mi;
+                        }
+
+                        // Try to rewrite as `<select> = <select>.rebuild().<builderName>(...).build();`
+                        // when the receiver is safely reassignable (non-final local declared in an
+                        // enclosing block, or a non-final field). Parameters are excluded because
+                        // reassignment would silently drop the caller's mutation.
+                        if (isTopLevelStatement(getCursor()) && isReassignableReceiver(select, getCursor())) {
+                            J rebuilt = rewriteAsRebuildAssignment(mi, select, matchedMapper, mapping, ctx);
+                            if (rebuilt != null) {
+                                return rebuilt;
+                            }
                         }
 
                         // Not eligible for builder migration - add a TODO comment
@@ -696,8 +711,255 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         }
                         return chained;
                     }
+
+                    /**
+                     * Rewrites {@code receiver.setterName(args)} as
+                     * {@code receiver = receiver.rebuild().builderName(args).build();}
+                     * via {@link JavaTemplate}. The result is a {@link J.Assignment} that
+                     * replaces the original method-invocation statement.
+                     * <p>
+                     * Consecutive assignments produced by this method are coalesced into
+                     * a single chained {@code .rebuild()....build()} by the post-pass
+                     * enqueued via {@code doAfterVisit(coalesceRebuildAssignments())}.
+                     */
+                    private @Nullable J rewriteAsRebuildAssignment(J.MethodInvocation mi, Expression select,
+                                                                   String mapperFqn, SetterToBuilderMapping mapping,
+                                                                   ExecutionContext ctx) {
+                        String builderName = mapping.builderName;
+                        // Match the special-case rename in appendBuilderCall so setDefaultPropertyInclusion
+                        // resolves against the Jackson 2 classpath; a follow-up recipe rewrites it.
+                        if (mapping == SetterToBuilderMapping.SET_DEFAULT_PROPERTY_INCLUSION &&
+                                mi.getArguments().size() == 1 &&
+                                !(mi.getArguments().get(0) instanceof J.Empty) &&
+                                TypeUtils.isAssignableTo("com.fasterxml.jackson.annotation.JsonInclude$Include",
+                                        mi.getArguments().get(0).getType())) {
+                            builderName = "serializationInclusion";
+                        }
+                        StringBuilder templateCode = new StringBuilder();
+                        templateCode.append("#{any(").append(mapperFqn).append(")} = #{any(")
+                                .append(mapperFqn).append(")}.rebuild()\n.").append(builderName).append("(");
+                        List<Expression> templateArgs = new ArrayList<>();
+                        templateArgs.add(select);
+                        templateArgs.add(select);
+                        boolean first = true;
+                        for (Expression arg : mi.getArguments()) {
+                            if (arg instanceof J.Empty) {
+                                continue;
+                            }
+                            if (!first) {
+                                templateCode.append(", ");
+                            }
+                            first = false;
+                            templateCode.append("#{any()}");
+                            templateArgs.add(arg);
+                        }
+                        templateCode.append(")\n.build()");
+
+                        maybeAddImport(mapperFqn);
+                        maybeAddImport(JSON_INCLUDE);
+
+                        JavaParser.Builder<?, ?> parser = JavaParser.fromJavaVersion()
+                                .classpathFromResources(ctx, "jackson-annotations-2", "jackson-core-2", "jackson-databind-2")
+                                .dependsOn(mapperStub(mapperFqn, emptyList()));
+
+                        return JavaTemplate.builder(templateCode.toString())
+                                .imports(mapperFqn, JSON_INCLUDE)
+                                .javaParser(parser)
+                                .build()
+                                .apply(getCursor(), mi.getCoordinates().replace(), templateArgs.toArray());
+                    }
                 }
         );
+    }
+
+    /**
+     * True when {@code cursor}'s value is a {@link J.MethodInvocation} whose parent tree
+     * cursor is a {@link J.Block} — i.e. the MI is a top-level statement in a block,
+     * which is where a rebuild-as-assignment rewrite is valid.
+     */
+    private static boolean isTopLevelStatement(Cursor cursor) {
+        Object parent = cursor.getParentTreeCursor().getValue();
+        return parent instanceof J.Block;
+    }
+
+    /**
+     * True when the setter receiver is safely reassignable via
+     * {@code receiver = receiver.rebuild()....build()}. Accepts:
+     * <ul>
+     *   <li>a {@link J.Identifier} for a non-final local declared in an enclosing block
+     *       (parameters are excluded — reassigning them silently drops the caller's
+     *       expected mutation), and</li>
+     *   <li>a {@link J.FieldAccess} with an identifier target and a non-final field.</li>
+     * </ul>
+     */
+    private static boolean isReassignableReceiver(Expression select, Cursor cursor) {
+        if (select instanceof J.Identifier) {
+            return isReassignableLocal((J.Identifier) select, cursor);
+        }
+        if (select instanceof J.FieldAccess) {
+            J.FieldAccess fa = (J.FieldAccess) select;
+            if (!(fa.getTarget() instanceof J.Identifier)) {
+                return false;
+            }
+            JavaType.Variable v = fa.getName().getFieldType();
+            return v != null && !v.hasFlags(Flag.Final);
+        }
+        return false;
+    }
+
+    private static boolean isReassignableLocal(J.Identifier ident, Cursor cursor) {
+        JavaType.Variable fieldType = ident.getFieldType();
+        if (fieldType != null && fieldType.hasFlags(Flag.Final)) {
+            return false;
+        }
+        String name = ident.getSimpleName();
+        Cursor c = cursor;
+        while (c != null) {
+            Object v = c.getValue();
+            if (v instanceof J.Block) {
+                for (Statement stmt : ((J.Block) v).getStatements()) {
+                    J.VariableDeclarations vd = extractVariableDeclarations(stmt);
+                    if (vd == null) {
+                        continue;
+                    }
+                    for (J.VariableDeclarations.NamedVariable nv : vd.getVariables()) {
+                        if (name.equals(nv.getName().getSimpleName()) &&
+                                TypeUtils.isOfType(nv.getName().getType(), ident.getType())) {
+                            return !vd.hasModifier(J.Modifier.Type.Final);
+                        }
+                    }
+                }
+            }
+            if (v instanceof J.MethodDeclaration) {
+                for (Statement p : ((J.MethodDeclaration) v).getParameters()) {
+                    if (p instanceof J.VariableDeclarations) {
+                        for (J.VariableDeclarations.NamedVariable nv : ((J.VariableDeclarations) p).getVariables()) {
+                            if (name.equals(nv.getName().getSimpleName())) {
+                                return false;
+                            }
+                        }
+                    }
+                }
+                return false;
+            }
+            c = c.getParent();
+        }
+        return false;
+    }
+
+    /**
+     * Post-pass invoked via {@code doAfterVisit} that walks each block and coalesces
+     * runs of consecutive {@code <lhs> = <lhs>.rebuild().<method>(...).build();} assignments
+     * with a semantically equal LHS into a single chained assignment. Purely a tree
+     * rewrite — no {@link JavaTemplate} — so it's safe to run at post-pass time.
+     */
+    private static JavaIsoVisitor<ExecutionContext> coalesceRebuildAssignments() {
+        return new JavaIsoVisitor<ExecutionContext>() {
+            @Override
+            public J.Block visitBlock(J.Block block, ExecutionContext ctx) {
+                J.Block b = super.visitBlock(block, ctx);
+                List<Statement> stmts = b.getStatements();
+                if (stmts.size() < 2) {
+                    return b;
+                }
+                List<Statement> merged = new ArrayList<>(stmts.size());
+                boolean changed = false;
+                int i = 0;
+                while (i < stmts.size()) {
+                    RebuildParts head = tryParseRebuildAssignment(stmts.get(i));
+                    if (head == null) {
+                        merged.add(stmts.get(i));
+                        i++;
+                        continue;
+                    }
+                    List<J.MethodInvocation> allChainCalls = new ArrayList<>(head.chainCalls);
+                    int j = i + 1;
+                    while (j < stmts.size()) {
+                        RebuildParts next = tryParseRebuildAssignment(stmts.get(j));
+                        if (next == null || !SemanticallyEqual.areEqual(head.lhs, next.lhs)) {
+                            break;
+                        }
+                        allChainCalls.addAll(next.chainCalls);
+                        j++;
+                    }
+                    if (j == i + 1) {
+                        merged.add(stmts.get(i));
+                        i++;
+                        continue;
+                    }
+                    Statement coalesced = rebuildCoalescedAssignment(head, allChainCalls);
+                    merged.add(coalesced);
+                    changed = true;
+                    i = j;
+                }
+                return changed ? b.withStatements(merged) : b;
+            }
+        };
+    }
+
+    /**
+     * Parsed shape of a rebuild-assignment statement: {@code <lhs> = <lhs>.rebuild().<m1>(...).<m2>(...).build();}
+     * The {@code chainCalls} are the method invocations between {@code .rebuild()} and the
+     * terminal {@code .build()}, in call order.
+     */
+    private static class RebuildParts {
+        final J.Assignment assignment;
+        final Expression lhs;
+        final J.MethodInvocation buildCall;
+        final J.MethodInvocation rebuildCall;
+        final List<J.MethodInvocation> chainCalls;
+
+        RebuildParts(J.Assignment assignment, Expression lhs, J.MethodInvocation buildCall,
+                     J.MethodInvocation rebuildCall, List<J.MethodInvocation> chainCalls) {
+            this.assignment = assignment;
+            this.lhs = lhs;
+            this.buildCall = buildCall;
+            this.rebuildCall = rebuildCall;
+            this.chainCalls = chainCalls;
+        }
+    }
+
+    private static @Nullable RebuildParts tryParseRebuildAssignment(Statement stmt) {
+        J.Assignment assignment;
+        if (stmt instanceof J.Assignment) {
+            assignment = (J.Assignment) stmt;
+        } else {
+            // Kotlin wraps assignments too; keep the Java-only path for now.
+            return null;
+        }
+        if (!(assignment.getAssignment() instanceof J.MethodInvocation)) {
+            return null;
+        }
+        J.MethodInvocation buildCall = (J.MethodInvocation) assignment.getAssignment();
+        if (!"build".equals(buildCall.getName().getSimpleName())) {
+            return null;
+        }
+        // Walk down the chain until we find the .rebuild() call
+        List<J.MethodInvocation> chainCalls = new ArrayList<>();
+        Expression current = buildCall.getSelect();
+        while (current instanceof J.MethodInvocation) {
+            J.MethodInvocation mi = (J.MethodInvocation) current;
+            if ("rebuild".equals(mi.getName().getSimpleName())) {
+                Collections.reverse(chainCalls);
+                return new RebuildParts(assignment, assignment.getVariable(), buildCall, mi, chainCalls);
+            }
+            chainCalls.add(mi);
+            current = mi.getSelect();
+        }
+        return null;
+    }
+
+    /**
+     * Reconstruct a coalesced {@code <lhs> = <lhs>.rebuild().<...allChainCalls>.build();}
+     * from the head assignment's LHS/build/rebuild nodes and the combined chain calls.
+     */
+    private static Statement rebuildCoalescedAssignment(RebuildParts head, List<J.MethodInvocation> allChainCalls) {
+        Expression newSelect = head.rebuildCall;
+        for (J.MethodInvocation chainCall : allChainCalls) {
+            newSelect = chainCall.withSelect(newSelect);
+        }
+        J.MethodInvocation newBuild = head.buildCall.withSelect(newSelect);
+        return head.assignment.withAssignment(newBuild);
     }
 
     /**
@@ -822,6 +1084,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                 .append(" extends com.fasterxml.jackson.databind.ObjectMapper {\n");
         sb.append("    public ").append(simpleName).append("() {}\n");
         sb.append("    public static Builder builder() { return null; }\n");
+        sb.append("    public Builder rebuild() { return null; }\n");
         sb.append("    public static class Builder extends ")
                 .append("com.fasterxml.jackson.databind.cfg.MapperBuilder<")
                 .append(simpleName).append(", Builder> {\n");

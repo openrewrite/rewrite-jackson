@@ -683,6 +683,203 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
     }
 
     @Nested
+    class RewriteAsRebuild {
+
+        @Test
+        void trailingSetterAfterGapOnLocal() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      JsonMapper create() {
+                          JsonMapper mapper = new JsonMapper();
+                          mapper.disable(SerializationFeature.INDENT_OUTPUT);
+                          System.out.println(mapper);
+                          mapper.enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+                          return mapper;
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      JsonMapper create() {
+                          JsonMapper mapper = JsonMapper.builder()
+                                  .disable(SerializationFeature.INDENT_OUTPUT)
+                                  .build();
+                          System.out.println(mapper);
+                          mapper = mapper.rebuild()
+                                  .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                                  .build();
+                          return mapper;
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void trailingSettersCoalesceIntoOneRebuildChain() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      JsonMapper create() {
+                          JsonMapper mapper = new JsonMapper();
+                          mapper.disable(SerializationFeature.INDENT_OUTPUT);
+                          System.out.println(mapper);
+                          mapper.enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+                          mapper.disable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES);
+                          return mapper;
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      JsonMapper create() {
+                          JsonMapper mapper = JsonMapper.builder()
+                                  .disable(SerializationFeature.INDENT_OUTPUT)
+                                  .build();
+                          System.out.println(mapper);
+                          mapper = mapper.rebuild()
+                                  .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                                  .disable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES)
+                                  .build();
+                          return mapper;
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void thisFieldSetterCoalescesIntoRebuild() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      private JsonMapper mapper = new JsonMapper();
+
+                      void configure() {
+                          this.mapper.disable(SerializationFeature.INDENT_OUTPUT);
+                          this.mapper.enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      private JsonMapper mapper = new JsonMapper();
+
+                      void configure() {
+                          this.mapper = this.mapper.rebuild()
+                                  .disable(SerializationFeature.INDENT_OUTPUT)
+                                  .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                                  .build();
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void qualifiedFieldSetterRewritten() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      static class Holder {
+                          JsonMapper mapper = new JsonMapper();
+                      }
+
+                      void configure(Holder holder) {
+                          holder.mapper.disable(SerializationFeature.INDENT_OUTPUT);
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      static class Holder {
+                          JsonMapper mapper = new JsonMapper();
+                      }
+
+                      void configure(Holder holder) {
+                          holder.mapper = holder.mapper.rebuild()
+                                  .disable(SerializationFeature.INDENT_OUTPUT)
+                                  .build();
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void finalFieldStillGetsTodoComment() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      private final JsonMapper mapper = new JsonMapper();
+
+                      void configure() {
+                          this.mapper.disable(SerializationFeature.INDENT_OUTPUT);
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      private final JsonMapper mapper = new JsonMapper();
+
+                      void configure() {
+                          // TODO disable could not be folded to the builder of JsonMapper. Use mapper.rebuild().disable(...).build() or move to the mapper's instantiation site.
+                          this.mapper.disable(SerializationFeature.INDENT_OUTPUT);
+                      }
+                  }
+                  """
+              )
+            );
+        }
+    }
+
+    @Nested
     class FluentChain {
 
         @Test
