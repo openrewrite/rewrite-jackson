@@ -30,11 +30,18 @@ tags:
 recipeList:
   - org.openrewrite.java.jackson.CodehausToFasterXML  # First, so any codehaus stragglers are on the fasterxml side
   - org.openrewrite.java.jackson.IOExceptionToJacksonException  # Before any type changes, to ensure we update catches
+  - org.openrewrite.java.jackson.ReplaceIOExceptionThrowInJacksonOverrides
   - org.openrewrite.java.RemoveMethodThrows:
       methodPattern: com.fasterxml.jackson.databind.JsonSerializer serialize(..)
       exceptionTypePattern: java.io.IOException
   - org.openrewrite.java.RemoveMethodThrows:
+      methodPattern: com.fasterxml.jackson.databind.JsonSerializer serializeWithType(..)
+      exceptionTypePattern: java.io.IOException
+  - org.openrewrite.java.RemoveMethodThrows:
       methodPattern: com.fasterxml.jackson.databind.JsonDeserializer deserialize(..)
+      exceptionTypePattern: java.io.IOException
+  - org.openrewrite.java.RemoveMethodThrows:
+      methodPattern: com.fasterxml.jackson.databind.JsonDeserializer deserializeWithType(..)
       exceptionTypePattern: java.io.IOException
   - org.openrewrite.java.jackson.StdDeserializerNullConstructor
   - org.openrewrite.java.jackson.LombokJacksonizedConfig
