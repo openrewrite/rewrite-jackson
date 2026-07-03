@@ -220,8 +220,10 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         }
 
                         // Collect setter calls that appear after the constructor
+                        List<Statement> movableStmts = new ArrayList<>();
+                        boolean[] setterUsesIntermediate = {false};
                         List<J.MethodInvocation> builderSetters = collectStandaloneSetters(
-                                block, varIdent, new HashSet<>());
+                                block, varIdent, new HashSet<>(), movableStmts, setterUsesIntermediate);
 
                         if (builderSetters.isEmpty()) {
                             return nc;
@@ -236,6 +238,16 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         }
                         for (J.MethodInvocation setter : builderSetters) {
                             toRemove.add(setter.getId());
+                        }
+
+                        // J.NewClass implements Statement, so walk up past it to the block-level stmt.
+                        if (setterUsesIntermediate[0] && !movableStmts.isEmpty()) {
+                            Statement mapperStmt = namedVar != null ?
+                                    getCursor().firstEnclosing(J.VariableDeclarations.class) :
+                                    assignment;
+                            if (mapperStmt != null) {
+                                doAfterVisit(relocateBeforeMapper(mapperStmt, movableStmts));
+                            }
                         }
 
                         doAfterVisit(inlineWrappedVariable());
@@ -436,8 +448,10 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         if (varIdent != null) {
                             J.Block block = getCursor().firstEnclosing(J.Block.class);
                             if (block != null) {
+                                List<Statement> movableStmts = new ArrayList<>();
+                                boolean[] setterUsesIntermediate = {false};
                                 List<J.MethodInvocation> standaloneSetters = collectStandaloneSetters(
-                                        block, varIdent, new HashSet<>());
+                                        block, varIdent, new HashSet<>(), movableStmts, setterUsesIntermediate);
                                 if (!standaloneSetters.isEmpty()) {
                                     setterCalls.addAll(standaloneSetters);
 
@@ -450,6 +464,15 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                     }
                                     for (J.MethodInvocation setter : standaloneSetters) {
                                         toRemove.add(setter.getId());
+                                    }
+
+                                    if (setterUsesIntermediate[0] && !movableStmts.isEmpty()) {
+                                        J.VariableDeclarations vd = getCursor().firstEnclosing(J.VariableDeclarations.class);
+                                        J.Assignment assignment = getCursor().firstEnclosing(J.Assignment.class);
+                                        Statement mapperStmt = vd != null ? vd : assignment;
+                                        if (mapperStmt != null) {
+                                            doAfterVisit(relocateBeforeMapper(mapperStmt, movableStmts));
+                                        }
                                     }
 
                                     doAfterVisit(inlineWrappedVariable());
@@ -483,9 +506,15 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                      * declaration/assignment. Stops collecting when the variable is referenced in a
                      * non-setter context (e.g., passed to another method). Both known and unknown
                      * setters are collected; unknown setters will get TODO comments in the builder chain.
+                     * <p>
+                     * Safe statements between the mapper and the last setter are added to
+                     * {@code movableStmtsOut}; {@code setterUsesIntermediateOut[0]} is set when a
+                     * collected setter references a variable declared in one of them — the caller
+                     * must relocate them before the mapper to keep the folded builder well-formed.
                      */
                     private List<J.MethodInvocation> collectStandaloneSetters(
-                            J.Block block, J.Identifier varIdent, Set<J.Identifier> intermediateVars) {
+                            J.Block block, J.Identifier varIdent, Set<J.Identifier> intermediateVars,
+                            List<Statement> movableStmtsOut, boolean[] setterUsesIntermediateOut) {
                         List<J.MethodInvocation> setters = new ArrayList<>();
                         boolean pastDeclaration = false;
                         boolean collecting = true;
@@ -514,32 +543,29 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                 continue;
                             }
 
-                            // Track intermediate variable declarations
-                            J.VariableDeclarations vd = extractVariableDeclarations(stmt);
-                            if (vd != null) {
-                                for (J.VariableDeclarations.NamedVariable v : vd.getVariables()) {
-                                    intermediateVars.add(v.getName());
-                                }
-                            }
-
                             // Look inside init blocks for setter calls (must be checked BEFORE
                             // extractMethodInvocation, which would visit into the block and find
                             // only the first MI)
                             if (stmt instanceof J.Block) {
+                                J.VariableDeclarations outerVd = extractVariableDeclarations(stmt);
+                                if (outerVd != null) {
+                                    for (J.VariableDeclarations.NamedVariable v : outerVd.getVariables()) {
+                                        intermediateVars.add(v.getName());
+                                    }
+                                }
                                 for (Statement innerStmt : ((J.Block) stmt).getStatements()) {
                                     if (!collecting) {
                                         break;
                                     }
                                     J.MethodInvocation initMi = extractMethodInvocation(innerStmt);
                                     if (initMi != null && isCallOnVariable(initMi, varIdent)) {
-                                        if (argumentReferencesAny(initMi, intermediateVars)) {
-                                            collecting = false;
-                                            continue;
-                                        }
                                         if (SetterToBuilderMapping.fromSetter(initMi.getName().getSimpleName()) == null &&
                                                 !isSetterReturnType(initMi)) {
                                             collecting = false;
                                             continue;
+                                        }
+                                        if (argumentReferencesAny(initMi, intermediateVars)) {
+                                            setterUsesIntermediateOut[0] = true;
                                         }
                                         setters.add(initMi);
                                         continue;
@@ -554,14 +580,13 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             // Check if statement is a setter call on the variable
                             J.MethodInvocation mi = extractMethodInvocation(stmt);
                             if (mi != null && isCallOnVariable(mi, varIdent)) {
-                                if (argumentReferencesAny(mi, intermediateVars)) {
-                                    collecting = false;
-                                    continue;
-                                }
                                 if (SetterToBuilderMapping.fromSetter(mi.getName().getSimpleName()) == null &&
                                         !isSetterReturnType(mi)) {
                                     collecting = false;
                                     continue;
+                                }
+                                if (argumentReferencesAny(mi, intermediateVars)) {
+                                    setterUsesIntermediateOut[0] = true;
                                 }
                                 setters.add(mi);
                                 continue;
@@ -569,6 +594,15 @@ public class MigrateMapperSettersToBuilder extends Recipe {
 
                             if (referencesVariable(stmt, varIdent)) {
                                 collecting = false;
+                                continue;
+                            }
+
+                            movableStmtsOut.add(stmt);
+                            J.VariableDeclarations vd = extractVariableDeclarations(stmt);
+                            if (vd != null) {
+                                for (J.VariableDeclarations.NamedVariable v : vd.getVariables()) {
+                                    intermediateVars.add(v.getName());
+                                }
                             }
                         }
 
@@ -1207,6 +1241,65 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                     }));
                 }
                 return b;
+            }
+        };
+    }
+
+    /**
+     * Move statements identified by {@code movableIds} to just before the mapper's
+     * containing statement, so a folded builder chain resolves them lexically.
+     */
+    private static JavaIsoVisitor<ExecutionContext> relocateBeforeMapper(
+            Statement mapperStmt, List<Statement> movableStmts) {
+        // Match by ID: doAfterVisit runs later, after the block has been rebuilt, so the
+        // Statement instances collected earlier are no longer reference-equal to the ones here.
+        UUID mapperStmtId = mapperStmt.getId();
+        Set<UUID> movableIds = new HashSet<>();
+        for (Statement m : movableStmts) {
+            movableIds.add(m.getId());
+        }
+        return new JavaIsoVisitor<ExecutionContext>() {
+            @Override
+            public J.Block visitBlock(J.Block block, ExecutionContext ctx) {
+                J.Block b = super.visitBlock(block, ctx);
+                List<Statement> stmts = b.getStatements();
+
+                int mapperIdx = -1;
+                for (int i = 0; i < stmts.size(); i++) {
+                    if (mapperStmtId.equals(stmts.get(i).getId())) {
+                        mapperIdx = i;
+                        break;
+                    }
+                }
+                if (mapperIdx < 0) {
+                    return b;
+                }
+
+                List<Integer> movableIdxs = new ArrayList<>();
+                for (int i = mapperIdx + 1; i < stmts.size(); i++) {
+                    if (movableIds.contains(stmts.get(i).getId())) {
+                        movableIdxs.add(i);
+                    }
+                }
+                if (movableIdxs.isEmpty()) {
+                    return b;
+                }
+
+                List<Statement> newStmts = new ArrayList<>(stmts.size());
+                for (int i = 0; i < mapperIdx; i++) {
+                    newStmts.add(stmts.get(i));
+                }
+                for (int idx : movableIdxs) {
+                    newStmts.add(stmts.get(idx));
+                }
+                newStmts.add(stmts.get(mapperIdx));
+                Set<Integer> moved = new HashSet<>(movableIdxs);
+                for (int i = mapperIdx + 1; i < stmts.size(); i++) {
+                    if (!moved.contains(i)) {
+                        newStmts.add(stmts.get(i));
+                    }
+                }
+                return b.withStatements(newStmts);
             }
         };
     }
