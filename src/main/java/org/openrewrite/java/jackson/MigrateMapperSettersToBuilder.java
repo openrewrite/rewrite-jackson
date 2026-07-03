@@ -246,11 +246,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                     getCursor().firstEnclosing(J.VariableDeclarations.class) :
                                     assignment;
                             if (mapperStmt != null) {
-                                Set<UUID> movableIds = new HashSet<>();
-                                for (Statement m : movableStmts) {
-                                    movableIds.add(m.getId());
-                                }
-                                doAfterVisit(relocateBeforeMapper(mapperStmt.getId(), movableIds));
+                                doAfterVisit(relocateBeforeMapper(mapperStmt, movableStmts));
                             }
                         }
 
@@ -475,11 +471,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                         J.Assignment assignment = getCursor().firstEnclosing(J.Assignment.class);
                                         Statement mapperStmt = vd != null ? vd : assignment;
                                         if (mapperStmt != null) {
-                                            Set<UUID> movableIds = new HashSet<>();
-                                            for (Statement m : movableStmts) {
-                                                movableIds.add(m.getId());
-                                            }
-                                            doAfterVisit(relocateBeforeMapper(mapperStmt.getId(), movableIds));
+                                            doAfterVisit(relocateBeforeMapper(mapperStmt, movableStmts));
                                         }
                                     }
 
@@ -1258,7 +1250,14 @@ public class MigrateMapperSettersToBuilder extends Recipe {
      * containing statement, so a folded builder chain resolves them lexically.
      */
     private static JavaIsoVisitor<ExecutionContext> relocateBeforeMapper(
-            UUID mapperStmtId, Set<UUID> movableIds) {
+            Statement mapperStmt, List<Statement> movableStmts) {
+        // Match by ID: doAfterVisit runs later, after the block has been rebuilt, so the
+        // Statement instances collected earlier are no longer reference-equal to the ones here.
+        UUID mapperStmtId = mapperStmt.getId();
+        Set<UUID> movableIds = new HashSet<>();
+        for (Statement m : movableStmts) {
+            movableIds.add(m.getId());
+        }
         return new JavaIsoVisitor<ExecutionContext>() {
             @Override
             public J.Block visitBlock(J.Block block, ExecutionContext ctx) {
