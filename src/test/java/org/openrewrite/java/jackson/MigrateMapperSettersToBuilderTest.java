@@ -916,10 +916,50 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
                       }
 
                       private static JsonMapper initObjectMapperWithIso8601Dates() {
-                          JsonMapper mapper = initObjectMapper();
-                          mapper = mapper.rebuild()
+                          final JsonMapper mapper = initObjectMapper().rebuild()
                                   .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
                                   .disable(SerializationFeature.WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS)
+                                  .build();
+                          return mapper;
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void nonFinalLocalFromMethodCallFoldsIntoInitializer() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      private static JsonMapper initObjectMapper() {
+                          return new JsonMapper();
+                      }
+
+                      private static JsonMapper build() {
+                          JsonMapper mapper = initObjectMapper();
+                          mapper.disable(SerializationFeature.INDENT_OUTPUT);
+                          return mapper;
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      private static JsonMapper initObjectMapper() {
+                          return new JsonMapper();
+                      }
+
+                      private static JsonMapper build() {
+                          JsonMapper mapper = initObjectMapper().rebuild()
+                                  .disable(SerializationFeature.INDENT_OUTPUT)
                                   .build();
                           return mapper;
                       }

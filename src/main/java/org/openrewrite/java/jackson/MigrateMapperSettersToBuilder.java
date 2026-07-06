@@ -174,6 +174,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         // https://github.com/openrewrite/rewrite/issues/7434
         preconditions.add(new UsesType<>("com.fasterxml.jackson.databind.ObjectMapper", false));
         preconditions.add(new UsesMethod<>(KOTLIN_EXTENSIONS_FQN + " " + JACKSON_OBJECT_MAPPER_NAME + "()", false));
+        Set<UUID> reclaimableFinalDecls = new HashSet<>();
         return Preconditions.check(
                 Preconditions.or(preconditions.toArray(new TreeVisitor[0])),
                 new JavaVisitor<ExecutionContext>() {
@@ -185,6 +186,10 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             doAfterVisit(new UpdateSerializationInclusionConfiguration().getVisitor());
                             doAfterVisit(new UpdateAutoDetectVisibilityConfiguration().getVisitor());
                             doAfterVisit(coalesceRebuildAssignments());
+                            doAfterVisit(foldRebuildIntoInitializer());
+                            if (!reclaimableFinalDecls.isEmpty()) {
+                                doAfterVisit(unfinalizeDeclarations(reclaimableFinalDecls));
+                            }
                         }
                         return visited;
                     }
@@ -302,14 +307,15 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         }
 
                         // Reclaim a `final` local: if we can safely strip the `final` modifier
-                        // (the local isn't captured by any lambda or anonymous-class body), do so
-                        // and take the rebuild-assignment path rather than leaving a TODO.
+                        // (the local isn't captured by any lambda or anonymous-class body), take
+                        // the rebuild-assignment path and register the declaration for the
+                        // fold/un-finalize post-passes.
                         if (isTopLevelStatement(getCursor())) {
                             UUID declToUnfinalize = reclaimableFinalLocalDeclarationId(select, getCursor());
                             if (declToUnfinalize != null) {
                                 J rebuilt = rewriteAsRebuildAssignment(mi, select, matchedMapper, mapping, ctx);
                                 if (rebuilt != null) {
-                                    doAfterVisit(unfinalizeDeclaration(declToUnfinalize));
+                                    reclaimableFinalDecls.add(declToUnfinalize);
                                     return rebuilt;
                                 }
                             }
@@ -902,12 +908,22 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         return captured[0];
     }
 
-    private static JavaIsoVisitor<ExecutionContext> unfinalizeDeclaration(UUID declId) {
+    /**
+     * Strip {@code final} from the declarations in {@code declIds} whose initializer isn't
+     * already a rebuild chain. When the {@code foldRebuildIntoInitializer} pass consumed the
+     * subsequent reassignment, the initializer will contain the rebuild chain and the
+     * declaration keeps {@code final}; otherwise a reassignment still lives further down the
+     * block and {@code final} must be removed.
+     */
+    private static JavaIsoVisitor<ExecutionContext> unfinalizeDeclarations(Set<UUID> declIds) {
         return new JavaIsoVisitor<ExecutionContext>() {
             @Override
             public J.VariableDeclarations visitVariableDeclarations(J.VariableDeclarations multiVariable, ExecutionContext ctx) {
                 J.VariableDeclarations vd = super.visitVariableDeclarations(multiVariable, ctx);
-                if (!vd.getId().equals(declId)) {
+                if (!declIds.contains(vd.getId())) {
+                    return vd;
+                }
+                if (initializerContainsRebuild(vd)) {
                     return vd;
                 }
                 List<J.Modifier> modifiers = vd.getModifiers();
@@ -935,6 +951,106 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                 return vd.withModifiers(updated);
             }
         };
+    }
+
+    private static boolean initializerContainsRebuild(J.VariableDeclarations vd) {
+        for (J.VariableDeclarations.NamedVariable nv : vd.getVariables()) {
+            Expression init = nv.getInitializer();
+            if (init instanceof J.MethodInvocation && chainContainsRebuild((J.MethodInvocation) init)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean chainContainsRebuild(J.MethodInvocation mi) {
+        Expression current = mi;
+        while (current instanceof J.MethodInvocation) {
+            J.MethodInvocation call = (J.MethodInvocation) current;
+            if ("rebuild".equals(call.getName().getSimpleName())) {
+                return true;
+            }
+            current = call.getSelect();
+        }
+        return false;
+    }
+
+    /**
+     * Fold a {@code T mapper = <init>;} declaration and an immediately-following
+     * {@code mapper = mapper.rebuild()...build();} reassignment into a single
+     * {@code T mapper = <init>.rebuild()...build();} declaration.
+     * <p>
+     * Only applies when the reassignment is the very next statement, so any intervening read
+     * of {@code mapper} (as in the {@code trailingSetterAfterGapOnLocal} shape) prevents the
+     * fold and preserves observable semantics.
+     */
+    private static JavaIsoVisitor<ExecutionContext> foldRebuildIntoInitializer() {
+        return new JavaIsoVisitor<ExecutionContext>() {
+            @Override
+            public J.Block visitBlock(J.Block block, ExecutionContext ctx) {
+                J.Block b = super.visitBlock(block, ctx);
+                List<Statement> stmts = b.getStatements();
+                if (stmts.size() < 2) {
+                    return b;
+                }
+                List<Statement> merged = new ArrayList<>(stmts.size());
+                boolean changed = false;
+                int i = 0;
+                while (i < stmts.size()) {
+                    if (i + 1 >= stmts.size()) {
+                        merged.add(stmts.get(i));
+                        i++;
+                        continue;
+                    }
+                    Statement folded = tryFoldPair(stmts.get(i), stmts.get(i + 1));
+                    if (folded == null) {
+                        merged.add(stmts.get(i));
+                        i++;
+                        continue;
+                    }
+                    merged.add(folded);
+                    i += 2;
+                    changed = true;
+                }
+                return changed ? b.withStatements(merged) : b;
+            }
+        };
+    }
+
+    private static @Nullable Statement tryFoldPair(Statement declStmt, Statement reassignStmt) {
+        J.VariableDeclarations vd = extractVariableDeclarations(declStmt);
+        if (vd == null || vd.getVariables().size() != 1) {
+            return null;
+        }
+        J.VariableDeclarations.NamedVariable nv = vd.getVariables().get(0);
+        Expression initializer = nv.getInitializer();
+        if (initializer == null) {
+            return null;
+        }
+        RebuildParts reb = tryParseRebuildAssignment(reassignStmt);
+        if (reb == null || !(reb.lhs instanceof J.Identifier)) {
+            return null;
+        }
+        J.Identifier lhs = (J.Identifier) reb.lhs;
+        if (!nv.getName().getSimpleName().equals(lhs.getSimpleName()) ||
+                !TypeUtils.isOfType(nv.getName().getType(), lhs.getType())) {
+            return null;
+        }
+        // The `initializer`'s own prefix carries the whitespace between `=` and the expression.
+        // The reassignment's outermost MI carries a duplicate leading prefix (`= mapper.rebuild()...`),
+        // so drop it to avoid stacking whitespace at the `=`.
+        Expression newSelect = reb.rebuildCall.withSelect(initializer);
+        for (J.MethodInvocation chainCall : reb.chainCalls) {
+            newSelect = chainCall.withSelect(newSelect);
+        }
+        J.MethodInvocation newBuild = reb.buildCall.withSelect(newSelect).withPrefix(Space.EMPTY);
+        J.VariableDeclarations newVd = vd.withVariables(singletonList(nv.withInitializer(newBuild)));
+        // Preserve the declaration's original statement position (prefix, etc.).
+        if (declStmt instanceof J.VariableDeclarations) {
+            return newVd;
+        }
+        // For K.Property or other wrappers we don't attempt the fold.
+        return null;
     }
 
     private static JavaIsoVisitor<ExecutionContext> coalesceRebuildAssignments() {
