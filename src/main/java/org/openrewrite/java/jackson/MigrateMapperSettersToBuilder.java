@@ -306,10 +306,6 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             }
                         }
 
-                        // Reclaim a `final` local: if we can safely strip the `final` modifier
-                        // (the local isn't captured by any lambda or anonymous-class body), take
-                        // the rebuild-assignment path and register the declaration for the
-                        // fold/un-finalize post-passes.
                         if (isTopLevelStatement(getCursor())) {
                             UUID declToUnfinalize = reclaimableFinalLocalDeclarationId(select, getCursor());
                             if (declToUnfinalize != null) {
@@ -804,11 +800,6 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         return vd != null && !vd.hasModifier(J.Modifier.Type.Final);
     }
 
-    /**
-     * Locate the {@link J.VariableDeclarations} declaring {@code ident} as a block-scoped local.
-     * Returns null when the identifier is a method parameter, a field, or otherwise not resolvable
-     * to a local declaration in an enclosing block.
-     */
     private static J.@Nullable VariableDeclarations findLocalDeclaration(J.Identifier ident, Cursor cursor) {
         String name = ident.getSimpleName();
         Cursor c = cursor;
@@ -845,15 +836,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         return null;
     }
 
-    /**
-     * If {@code select} is a {@code final} local that can safely be un-finalized — i.e. it isn't
-     * referenced inside any lambda or anonymous-class body within the enclosing method — return
-     * the id of its {@link J.VariableDeclarations}. Returns null otherwise.
-     * <p>
-     * Un-finalizing a captured local is unsafe because a subsequent reassignment (which the
-     * rebuild rewrite performs) would break the effective-final requirement Java imposes on
-     * captures.
-     */
+    // Captured locals are skipped: reassigning them would break Java's effective-final requirement.
     private static @Nullable UUID reclaimableFinalLocalDeclarationId(Expression select, Cursor cursor) {
         if (!(select instanceof J.Identifier)) {
             return null;
@@ -900,13 +883,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         }.reduce(scope, new HashSet<Boolean>()).isEmpty();
     }
 
-    /**
-     * Strip {@code final} from the declarations in {@code declIds} whose initializer isn't
-     * already a rebuild chain. When the {@code foldRebuildIntoInitializer} pass consumed the
-     * subsequent reassignment, the initializer will contain the rebuild chain and the
-     * declaration keeps {@code final}; otherwise a reassignment still lives further down the
-     * block and {@code final} must be removed.
-     */
+    // If fold already consumed the reassignment (initializer contains a rebuild chain), `final` stays.
     private static JavaIsoVisitor<ExecutionContext> unfinalizeDeclarations(Set<UUID> declIds) {
         return new JavaIsoVisitor<ExecutionContext>() {
             @Override
@@ -959,15 +936,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         return false;
     }
 
-    /**
-     * Fold a {@code T mapper = <init>;} declaration and an immediately-following
-     * {@code mapper = mapper.rebuild()...build();} reassignment into a single
-     * {@code T mapper = <init>.rebuild()...build();} declaration.
-     * <p>
-     * Only applies when the reassignment is the very next statement, so any intervening read
-     * of {@code mapper} (as in the {@code trailingSetterAfterGapOnLocal} shape) prevents the
-     * fold and preserves observable semantics.
-     */
+    // Only fold when the reassignment is the immediately-following statement, so intervening reads
+    // can't observe a different value after folding.
     private static JavaIsoVisitor<ExecutionContext> foldRebuildIntoInitializer() {
         return new JavaIsoVisitor<ExecutionContext>() {
             @Override
@@ -1007,20 +977,15 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                 !TypeUtils.isOfType(nv.getName().getType(), lhs.getType())) {
             return null;
         }
-        // The `initializer`'s own prefix carries the whitespace between `=` and the expression.
-        // The reassignment's outermost MI carries a duplicate leading prefix (`= mapper.rebuild()...`),
-        // so drop it to avoid stacking whitespace at the `=`.
+        // Drop the reassignment's outer prefix; the initializer's own prefix owns the `=` gap.
         Expression newSelect = reb.rebuildCall.withSelect(initializer);
         for (J.MethodInvocation chainCall : reb.chainCalls) {
             newSelect = chainCall.withSelect(newSelect);
         }
         J.MethodInvocation newBuild = reb.buildCall.withSelect(newSelect).withPrefix(Space.EMPTY);
-        J.VariableDeclarations newVd = vd.withVariables(singletonList(nv.withInitializer(newBuild)));
-        // Preserve the declaration's original statement position (prefix, etc.).
         if (declStmt instanceof J.VariableDeclarations) {
-            return newVd;
+            return vd.withVariables(singletonList(nv.withInitializer(newBuild)));
         }
-        // For K.Property or other wrappers we don't attempt the fold.
         return null;
     }
 
