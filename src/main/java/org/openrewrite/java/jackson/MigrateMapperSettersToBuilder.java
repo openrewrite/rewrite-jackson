@@ -301,6 +301,20 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             }
                         }
 
+                        // Reclaim a `final` local: if we can safely strip the `final` modifier
+                        // (the local isn't captured by any lambda or anonymous-class body), do so
+                        // and take the rebuild-assignment path rather than leaving a TODO.
+                        if (isTopLevelStatement(getCursor())) {
+                            UUID declToUnfinalize = reclaimableFinalLocalDeclarationId(select, getCursor());
+                            if (declToUnfinalize != null) {
+                                J rebuilt = rewriteAsRebuildAssignment(mi, select, matchedMapper, mapping, ctx);
+                                if (rebuilt != null) {
+                                    doAfterVisit(unfinalizeDeclaration(declToUnfinalize));
+                                    return rebuilt;
+                                }
+                            }
+                        }
+
                         // Not eligible for builder migration - add a TODO comment
                         String simpleMapperName = matchedMapper.substring(matchedMapper.lastIndexOf('.') + 1);
                         String commentText = String.format(
@@ -780,6 +794,16 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         if (fieldType != null && fieldType.hasFlags(Flag.Final)) {
             return false;
         }
+        J.VariableDeclarations vd = findLocalDeclaration(ident, cursor);
+        return vd != null && !vd.hasModifier(J.Modifier.Type.Final);
+    }
+
+    /**
+     * Locate the {@link J.VariableDeclarations} declaring {@code ident} as a block-scoped local.
+     * Returns null when the identifier is a method parameter, a field, or otherwise not resolvable
+     * to a local declaration in an enclosing block.
+     */
+    private static J.@Nullable VariableDeclarations findLocalDeclaration(J.Identifier ident, Cursor cursor) {
         String name = ident.getSimpleName();
         Cursor c = cursor;
         while (c != null) {
@@ -793,7 +817,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                     for (J.VariableDeclarations.NamedVariable nv : vd.getVariables()) {
                         if (name.equals(nv.getName().getSimpleName()) &&
                                 TypeUtils.isOfType(nv.getName().getType(), ident.getType())) {
-                            return !vd.hasModifier(J.Modifier.Type.Final);
+                            return vd;
                         }
                     }
                 }
@@ -803,16 +827,114 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                     if (p instanceof J.VariableDeclarations) {
                         for (J.VariableDeclarations.NamedVariable nv : ((J.VariableDeclarations) p).getVariables()) {
                             if (name.equals(nv.getName().getSimpleName())) {
-                                return false;
+                                return null;
                             }
                         }
                     }
                 }
-                return false;
+                return null;
             }
             c = c.getParent();
         }
-        return false;
+        return null;
+    }
+
+    /**
+     * If {@code select} is a {@code final} local that can safely be un-finalized — i.e. it isn't
+     * referenced inside any lambda or anonymous-class body within the enclosing method — return
+     * the id of its {@link J.VariableDeclarations}. Returns null otherwise.
+     * <p>
+     * Un-finalizing a captured local is unsafe because a subsequent reassignment (which the
+     * rebuild rewrite performs) would break the effective-final requirement Java imposes on
+     * captures.
+     */
+    private static @Nullable UUID reclaimableFinalLocalDeclarationId(Expression select, Cursor cursor) {
+        if (!(select instanceof J.Identifier)) {
+            return null;
+        }
+        J.Identifier ident = (J.Identifier) select;
+        J.VariableDeclarations vd = findLocalDeclaration(ident, cursor);
+        if (vd == null || !vd.hasModifier(J.Modifier.Type.Final)) {
+            return null;
+        }
+        J.MethodDeclaration enclosingMethod = cursor.firstEnclosing(J.MethodDeclaration.class);
+        J.Block scope = enclosingMethod != null ? enclosingMethod.getBody() :
+                cursor.firstEnclosing(J.Block.class);
+        if (scope == null) {
+            return null;
+        }
+        if (isReferencedInsideCapture(scope, ident)) {
+            return null;
+        }
+        return vd.getId();
+    }
+
+    private static boolean isReferencedInsideCapture(J.Block scope, J.Identifier target) {
+        boolean[] captured = {false};
+        new JavaIsoVisitor<boolean[]>() {
+            @Override
+            public J.Identifier visitIdentifier(J.Identifier ident, boolean[] flag) {
+                if (flag[0]) {
+                    return ident;
+                }
+                if (!target.getSimpleName().equals(ident.getSimpleName())) {
+                    return ident;
+                }
+                if (target.getType() != null && !TypeUtils.isOfType(ident.getType(), target.getType())) {
+                    return ident;
+                }
+                Cursor c = getCursor().getParent();
+                while (c != null && c.getValue() != scope) {
+                    Object v = c.getValue();
+                    if (v instanceof J.Lambda) {
+                        flag[0] = true;
+                        return ident;
+                    }
+                    if (v instanceof J.NewClass && ((J.NewClass) v).getBody() != null) {
+                        flag[0] = true;
+                        return ident;
+                    }
+                    c = c.getParent();
+                }
+                return ident;
+            }
+        }.visit(scope, captured);
+        return captured[0];
+    }
+
+    private static JavaIsoVisitor<ExecutionContext> unfinalizeDeclaration(UUID declId) {
+        return new JavaIsoVisitor<ExecutionContext>() {
+            @Override
+            public J.VariableDeclarations visitVariableDeclarations(J.VariableDeclarations multiVariable, ExecutionContext ctx) {
+                J.VariableDeclarations vd = super.visitVariableDeclarations(multiVariable, ctx);
+                if (!vd.getId().equals(declId)) {
+                    return vd;
+                }
+                List<J.Modifier> modifiers = vd.getModifiers();
+                int finalIdx = -1;
+                for (int i = 0; i < modifiers.size(); i++) {
+                    if (modifiers.get(i).getType() == J.Modifier.Type.Final) {
+                        finalIdx = i;
+                        break;
+                    }
+                }
+                if (finalIdx < 0) {
+                    return vd;
+                }
+                List<J.Modifier> updated = new ArrayList<>(modifiers);
+                J.Modifier removed = updated.remove(finalIdx);
+                if (finalIdx == 0) {
+                    Space carry = removed.getPrefix();
+                    if (!updated.isEmpty()) {
+                        updated.set(0, updated.get(0).withPrefix(carry));
+                    } else if (vd.getTypeExpression() != null) {
+                        return vd.withModifiers(updated)
+                                .withTypeExpression(vd.getTypeExpression().withPrefix(carry));
+                    }
+                }
+                return vd.withModifiers(updated);
+            }
+        };
     }
 
     private static JavaIsoVisitor<ExecutionContext> coalesceRebuildAssignments() {

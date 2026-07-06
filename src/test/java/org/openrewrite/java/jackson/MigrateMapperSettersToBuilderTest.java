@@ -846,6 +846,170 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         }
 
         @Test
+        void finalLocalIsUnfinalizedAndRewritten() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      JsonMapper create() {
+                          final JsonMapper mapper = new JsonMapper();
+                          mapper.disable(SerializationFeature.INDENT_OUTPUT);
+                          System.out.println(mapper);
+                          mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+                          return mapper;
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      JsonMapper create() {
+                          JsonMapper mapper = JsonMapper.builder()
+                                  .disable(SerializationFeature.INDENT_OUTPUT)
+                                  .build();
+                          System.out.println(mapper);
+                          mapper = mapper.rebuild()
+                                  .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+                                  .build();
+                          return mapper;
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void finalLocalFromMethodCallCoalescesRebuildChain() {
+            // Regression coverage for https://github.com/openrewrite/rewrite-jackson/issues/155
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      private static JsonMapper initObjectMapper() {
+                          return new JsonMapper();
+                      }
+
+                      private static JsonMapper initObjectMapperWithIso8601Dates() {
+                          final JsonMapper mapper = initObjectMapper();
+                          mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+                          mapper.disable(SerializationFeature.WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS);
+                          return mapper;
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      private static JsonMapper initObjectMapper() {
+                          return new JsonMapper();
+                      }
+
+                      private static JsonMapper initObjectMapperWithIso8601Dates() {
+                          JsonMapper mapper = initObjectMapper();
+                          mapper = mapper.rebuild()
+                                  .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+                                  .disable(SerializationFeature.WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS)
+                                  .build();
+                          return mapper;
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void finalLocalCapturedByLambdaKeepsTodoComment() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  import java.util.function.Supplier;
+
+                  class A {
+                      Supplier<JsonMapper> create() {
+                          final JsonMapper mapper = new JsonMapper();
+                          mapper.disable(SerializationFeature.INDENT_OUTPUT);
+                          return () -> mapper;
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  import java.util.function.Supplier;
+
+                  class A {
+                      Supplier<JsonMapper> create() {
+                          final JsonMapper mapper = JsonMapper.builder()
+                                  .disable(SerializationFeature.INDENT_OUTPUT)
+                                  .build();
+                          return () -> mapper;
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void finalLocalCapturedByAnonymousClassKeepsTodoComment() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      Runnable create() {
+                          final JsonMapper mapper = new JsonMapper();
+                          System.out.println(mapper);
+                          mapper.disable(SerializationFeature.INDENT_OUTPUT);
+                          return new Runnable() {
+                              @Override public void run() {
+                                  System.out.println(mapper);
+                              }
+                          };
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      Runnable create() {
+                          final JsonMapper mapper = new JsonMapper();
+                          System.out.println(mapper);
+                          // TODO disable could not be folded to the builder of JsonMapper. Use mapper.rebuild().disable(...).build() or move to the mapper's instantiation site.
+                          mapper.disable(SerializationFeature.INDENT_OUTPUT);
+                          return new Runnable() {
+                              @Override public void run() {
+                                  System.out.println(mapper);
+                              }
+                          };
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
         void finalFieldStillGetsTodoComment() {
             rewriteRun(
               java(
