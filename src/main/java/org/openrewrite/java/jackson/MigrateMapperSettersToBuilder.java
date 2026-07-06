@@ -893,7 +893,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         while (current instanceof J.MethodInvocation) {
             J.MethodInvocation mi = (J.MethodInvocation) current;
             if ("rebuild".equals(mi.getName().getSimpleName())) {
-                Collections.reverse(chainCalls);
+                reverse(chainCalls);
                 return new RebuildParts(assignment, assignment.getVariable(), buildCall, mi, chainCalls);
             }
             chainCalls.add(mi);

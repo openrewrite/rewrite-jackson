@@ -114,12 +114,12 @@ public class ReplaceIOExceptionThrowInJacksonOverrides extends Recipe {
 
                         maybeRemoveImport(IO_EXCEPTION);
                         maybeAddImport(JSON_MAPPING_EXCEPTION);
-                        String template = args.size() == 1
-                                ? "throw JsonMappingException.from(#{any(" + targetType + ")}, #{any(java.lang.String)})"
-                                : "throw JsonMappingException.from(#{any(" + targetType + ")}, #{any(java.lang.String)}, #{any(java.lang.Throwable)})";
-                        Object[] templateArgs = args.size() == 1
-                                ? new Object[]{paramRef, args.get(0)}
-                                : new Object[]{paramRef, args.get(0), args.get(1)};
+                        String template = args.size() == 1 ?
+                                "throw JsonMappingException.from(#{any(" + targetType + ")}, #{any(java.lang.String)})" :
+                                "throw JsonMappingException.from(#{any(" + targetType + ")}, #{any(java.lang.String)}, #{any(java.lang.Throwable)})";
+                        Object[] templateArgs = args.size() == 1 ?
+                                new Object[]{paramRef, args.get(0)} :
+                                new Object[]{paramRef, args.get(0), args.get(1)};
                         return JavaTemplate.builder(template)
                                 .imports(JSON_MAPPING_EXCEPTION)
                                 .javaParser(JavaParser.fromJavaVersion()
