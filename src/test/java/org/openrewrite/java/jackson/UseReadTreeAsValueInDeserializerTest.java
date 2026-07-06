@@ -17,6 +17,7 @@ package org.openrewrite.java.jackson;
 
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
+import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
@@ -30,7 +31,8 @@ class UseReadTreeAsValueInDeserializerTest implements RewriteTest {
         spec
           .recipe(new UseReadTreeAsValueInDeserializer())
           .parser(JavaParser.fromJavaVersion()
-            .classpath("jackson-annotations", "jackson-core", "jackson-databind"));
+            .classpathFromResources(new InMemoryExecutionContext(),
+              "jackson-annotations-2", "jackson-core-2", "jackson-databind-2"));
     }
 
     @DocumentExample
