@@ -174,6 +174,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         // https://github.com/openrewrite/rewrite/issues/7434
         preconditions.add(new UsesType<>("com.fasterxml.jackson.databind.ObjectMapper", false));
         preconditions.add(new UsesMethod<>(KOTLIN_EXTENSIONS_FQN + " " + JACKSON_OBJECT_MAPPER_NAME + "()", false));
+        Set<UUID> reclaimableFinalDecls = new HashSet<>();
         return Preconditions.check(
                 Preconditions.or(preconditions.toArray(new TreeVisitor[0])),
                 new JavaVisitor<ExecutionContext>() {
@@ -185,6 +186,10 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             doAfterVisit(new UpdateSerializationInclusionConfiguration().getVisitor());
                             doAfterVisit(new UpdateAutoDetectVisibilityConfiguration().getVisitor());
                             doAfterVisit(coalesceRebuildAssignments());
+                            doAfterVisit(foldRebuildIntoInitializer());
+                            if (!reclaimableFinalDecls.isEmpty()) {
+                                doAfterVisit(unfinalizeDeclarations(reclaimableFinalDecls));
+                            }
                         }
                         return visited;
                     }
@@ -298,6 +303,17 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             J rebuilt = rewriteAsRebuildAssignment(mi, select, matchedMapper, mapping, ctx);
                             if (rebuilt != null) {
                                 return rebuilt;
+                            }
+                        }
+
+                        if (isTopLevelStatement(getCursor())) {
+                            UUID declToUnfinalize = reclaimableFinalLocalDeclarationId(select, getCursor());
+                            if (declToUnfinalize != null) {
+                                J rebuilt = rewriteAsRebuildAssignment(mi, select, matchedMapper, mapping, ctx);
+                                if (rebuilt != null) {
+                                    reclaimableFinalDecls.add(declToUnfinalize);
+                                    return rebuilt;
+                                }
                             }
                         }
 
@@ -780,6 +796,11 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         if (fieldType != null && fieldType.hasFlags(Flag.Final)) {
             return false;
         }
+        J.VariableDeclarations vd = findLocalDeclaration(ident, cursor);
+        return vd != null && !vd.hasModifier(J.Modifier.Type.Final);
+    }
+
+    private static J.@Nullable VariableDeclarations findLocalDeclaration(J.Identifier ident, Cursor cursor) {
         String name = ident.getSimpleName();
         Cursor c = cursor;
         while (c != null) {
@@ -793,7 +814,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                     for (J.VariableDeclarations.NamedVariable nv : vd.getVariables()) {
                         if (name.equals(nv.getName().getSimpleName()) &&
                                 TypeUtils.isOfType(nv.getName().getType(), ident.getType())) {
-                            return !vd.hasModifier(J.Modifier.Type.Final);
+                            return vd;
                         }
                     }
                 }
@@ -803,16 +824,169 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                     if (p instanceof J.VariableDeclarations) {
                         for (J.VariableDeclarations.NamedVariable nv : ((J.VariableDeclarations) p).getVariables()) {
                             if (name.equals(nv.getName().getSimpleName())) {
-                                return false;
+                                return null;
                             }
                         }
                     }
                 }
-                return false;
+                return null;
             }
             c = c.getParent();
         }
+        return null;
+    }
+
+    // Captured locals are skipped: reassigning them would break Java's effective-final requirement.
+    private static @Nullable UUID reclaimableFinalLocalDeclarationId(Expression select, Cursor cursor) {
+        if (!(select instanceof J.Identifier)) {
+            return null;
+        }
+        J.Identifier ident = (J.Identifier) select;
+        J.VariableDeclarations vd = findLocalDeclaration(ident, cursor);
+        if (vd == null || !vd.hasModifier(J.Modifier.Type.Final)) {
+            return null;
+        }
+        J.MethodDeclaration enclosingMethod = cursor.firstEnclosing(J.MethodDeclaration.class);
+        J.Block scope = enclosingMethod != null ? enclosingMethod.getBody() :
+                cursor.firstEnclosing(J.Block.class);
+        if (scope == null) {
+            return null;
+        }
+        if (isReferencedInsideCapture(scope, ident)) {
+            return null;
+        }
+        return vd.getId();
+    }
+
+    private static boolean isReferencedInsideCapture(J.Block scope, J.Identifier target) {
+        return !new JavaIsoVisitor<Set<Boolean>>() {
+            @Override
+            public J.Identifier visitIdentifier(J.Identifier ident, Set<Boolean> set) {
+                if (!target.getSimpleName().equals(ident.getSimpleName())) {
+                    return ident;
+                }
+                if (target.getType() != null && !TypeUtils.isOfType(ident.getType(), target.getType())) {
+                    return ident;
+                }
+                Cursor c = getCursor().getParent();
+                while (c != null && c.getValue() != scope) {
+                    Object v = c.getValue();
+                    if (v instanceof J.Lambda ||
+                            (v instanceof J.NewClass && ((J.NewClass) v).getBody() != null)) {
+                        set.add(true);
+                        return ident;
+                    }
+                    c = c.getParent();
+                }
+                return ident;
+            }
+        }.reduce(scope, new HashSet<Boolean>()).isEmpty();
+    }
+
+    // If fold already consumed the reassignment (initializer contains a rebuild chain), `final` stays.
+    private static JavaIsoVisitor<ExecutionContext> unfinalizeDeclarations(Set<UUID> declIds) {
+        return new JavaIsoVisitor<ExecutionContext>() {
+            @Override
+            public J.VariableDeclarations visitVariableDeclarations(J.VariableDeclarations multiVariable, ExecutionContext ctx) {
+                J.VariableDeclarations vd = super.visitVariableDeclarations(multiVariable, ctx);
+                if (!declIds.contains(vd.getId())) {
+                    return vd;
+                }
+                if (initializerContainsRebuild(vd)) {
+                    return vd;
+                }
+                List<J.Modifier> modifiers = vd.getModifiers();
+                if (modifiers.isEmpty() || modifiers.get(0).getType() != J.Modifier.Type.Final) {
+                    // `final` is absent or not leading, so removing it can't affect the declaration's
+                    // leading whitespace; just drop it wherever it appears.
+                    return vd.withModifiers(ListUtils.map(modifiers,
+                            m -> m.getType() == J.Modifier.Type.Final ? null : m));
+                }
+                // `final` leads the declaration, so carry its prefix to whatever becomes first.
+                Space carry = modifiers.get(0).getPrefix();
+                if (modifiers.size() == 1) {
+                    return vd.getTypeExpression() == null ? vd.withModifiers(emptyList()) :
+                            vd.withModifiers(emptyList()).withTypeExpression(vd.getTypeExpression().withPrefix(carry));
+                }
+                return vd.withModifiers(ListUtils.mapFirst(modifiers.subList(1, modifiers.size()),
+                        m -> m.withPrefix(carry)));
+            }
+        };
+    }
+
+    private static boolean initializerContainsRebuild(J.VariableDeclarations vd) {
+        for (J.VariableDeclarations.NamedVariable nv : vd.getVariables()) {
+            Expression init = nv.getInitializer();
+            if (init instanceof J.MethodInvocation && chainContainsRebuild((J.MethodInvocation) init)) {
+                return true;
+            }
+        }
         return false;
+    }
+
+    private static boolean chainContainsRebuild(J.MethodInvocation mi) {
+        Expression current = mi;
+        while (current instanceof J.MethodInvocation) {
+            J.MethodInvocation call = (J.MethodInvocation) current;
+            if ("rebuild".equals(call.getName().getSimpleName())) {
+                return true;
+            }
+            current = call.getSelect();
+        }
+        return false;
+    }
+
+    // Only fold when the reassignment is the immediately-following statement, so intervening reads
+    // can't observe a different value after folding.
+    private static JavaIsoVisitor<ExecutionContext> foldRebuildIntoInitializer() {
+        return new JavaIsoVisitor<ExecutionContext>() {
+            @Override
+            public J.Block visitBlock(J.Block block, ExecutionContext ctx) {
+                J.Block b = super.visitBlock(block, ctx);
+                List<Statement> stmts = b.getStatements();
+                // A fold consumes a (declaration, reassignment) pair; the reassignment can never
+                // be a declaration, so pairs never overlap. Each statement is therefore the head
+                // of a fold, the tail dropped by the fold at the previous index, or left as-is.
+                return b.withStatements(ListUtils.map(stmts, (i, s) -> {
+                    if (i > 0 && tryFoldPair(stmts.get(i - 1), s) != null) {
+                        return null;
+                    }
+                    Statement folded = i + 1 < stmts.size() ? tryFoldPair(s, stmts.get(i + 1)) : null;
+                    return folded != null ? folded : s;
+                }));
+            }
+        };
+    }
+
+    private static @Nullable Statement tryFoldPair(Statement declStmt, Statement reassignStmt) {
+        J.VariableDeclarations vd = extractVariableDeclarations(declStmt);
+        if (vd == null || vd.getVariables().size() != 1) {
+            return null;
+        }
+        J.VariableDeclarations.NamedVariable nv = vd.getVariables().get(0);
+        Expression initializer = nv.getInitializer();
+        if (initializer == null) {
+            return null;
+        }
+        RebuildParts reb = tryParseRebuildAssignment(reassignStmt);
+        if (reb == null || !(reb.lhs instanceof J.Identifier)) {
+            return null;
+        }
+        J.Identifier lhs = (J.Identifier) reb.lhs;
+        if (!nv.getName().getSimpleName().equals(lhs.getSimpleName()) ||
+                !TypeUtils.isOfType(nv.getName().getType(), lhs.getType())) {
+            return null;
+        }
+        // Drop the reassignment's outer prefix; the initializer's own prefix owns the `=` gap.
+        Expression newSelect = reb.rebuildCall.withSelect(initializer);
+        for (J.MethodInvocation chainCall : reb.chainCalls) {
+            newSelect = chainCall.withSelect(newSelect);
+        }
+        J.MethodInvocation newBuild = reb.buildCall.withSelect(newSelect).withPrefix(Space.EMPTY);
+        if (declStmt instanceof J.VariableDeclarations) {
+            return vd.withVariables(singletonList(nv.withInitializer(newBuild)));
+        }
+        return null;
     }
 
     private static JavaIsoVisitor<ExecutionContext> coalesceRebuildAssignments() {
