@@ -876,13 +876,9 @@ public class MigrateMapperSettersToBuilder extends Recipe {
     }
 
     private static boolean isReferencedInsideCapture(J.Block scope, J.Identifier target) {
-        boolean[] captured = {false};
-        new JavaIsoVisitor<boolean[]>() {
+        return !new JavaIsoVisitor<Set<Boolean>>() {
             @Override
-            public J.Identifier visitIdentifier(J.Identifier ident, boolean[] flag) {
-                if (flag[0]) {
-                    return ident;
-                }
+            public J.Identifier visitIdentifier(J.Identifier ident, Set<Boolean> set) {
                 if (!target.getSimpleName().equals(ident.getSimpleName())) {
                     return ident;
                 }
@@ -892,20 +888,16 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                 Cursor c = getCursor().getParent();
                 while (c != null && c.getValue() != scope) {
                     Object v = c.getValue();
-                    if (v instanceof J.Lambda) {
-                        flag[0] = true;
-                        return ident;
-                    }
-                    if (v instanceof J.NewClass && ((J.NewClass) v).getBody() != null) {
-                        flag[0] = true;
+                    if (v instanceof J.Lambda ||
+                            (v instanceof J.NewClass && ((J.NewClass) v).getBody() != null)) {
+                        set.add(true);
                         return ident;
                     }
                     c = c.getParent();
                 }
                 return ident;
             }
-        }.visit(scope, captured);
-        return captured[0];
+        }.reduce(scope, new HashSet<Boolean>()).isEmpty();
     }
 
     /**
@@ -927,28 +919,20 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                     return vd;
                 }
                 List<J.Modifier> modifiers = vd.getModifiers();
-                int finalIdx = -1;
-                for (int i = 0; i < modifiers.size(); i++) {
-                    if (modifiers.get(i).getType() == J.Modifier.Type.Final) {
-                        finalIdx = i;
-                        break;
-                    }
+                if (modifiers.isEmpty() || modifiers.get(0).getType() != J.Modifier.Type.Final) {
+                    // `final` is absent or not leading, so removing it can't affect the declaration's
+                    // leading whitespace; just drop it wherever it appears.
+                    return vd.withModifiers(ListUtils.map(modifiers,
+                            m -> m.getType() == J.Modifier.Type.Final ? null : m));
                 }
-                if (finalIdx < 0) {
-                    return vd;
+                // `final` leads the declaration, so carry its prefix to whatever becomes first.
+                Space carry = modifiers.get(0).getPrefix();
+                if (modifiers.size() == 1) {
+                    return vd.getTypeExpression() == null ? vd.withModifiers(emptyList()) :
+                            vd.withModifiers(emptyList()).withTypeExpression(vd.getTypeExpression().withPrefix(carry));
                 }
-                List<J.Modifier> updated = new ArrayList<>(modifiers);
-                J.Modifier removed = updated.remove(finalIdx);
-                if (finalIdx == 0) {
-                    Space carry = removed.getPrefix();
-                    if (!updated.isEmpty()) {
-                        updated.set(0, updated.get(0).withPrefix(carry));
-                    } else if (vd.getTypeExpression() != null) {
-                        return vd.withModifiers(updated)
-                                .withTypeExpression(vd.getTypeExpression().withPrefix(carry));
-                    }
-                }
-                return vd.withModifiers(updated);
+                return vd.withModifiers(ListUtils.mapFirst(modifiers.subList(1, modifiers.size()),
+                        m -> m.withPrefix(carry)));
             }
         };
     }
@@ -990,29 +974,16 @@ public class MigrateMapperSettersToBuilder extends Recipe {
             public J.Block visitBlock(J.Block block, ExecutionContext ctx) {
                 J.Block b = super.visitBlock(block, ctx);
                 List<Statement> stmts = b.getStatements();
-                if (stmts.size() < 2) {
-                    return b;
-                }
-                List<Statement> merged = new ArrayList<>(stmts.size());
-                boolean changed = false;
-                int i = 0;
-                while (i < stmts.size()) {
-                    if (i + 1 >= stmts.size()) {
-                        merged.add(stmts.get(i));
-                        i++;
-                        continue;
+                // A fold consumes a (declaration, reassignment) pair; the reassignment can never
+                // be a declaration, so pairs never overlap. Each statement is therefore the head
+                // of a fold, the tail dropped by the fold at the previous index, or left as-is.
+                return b.withStatements(ListUtils.map(stmts, (i, s) -> {
+                    if (i > 0 && tryFoldPair(stmts.get(i - 1), s) != null) {
+                        return null;
                     }
-                    Statement folded = tryFoldPair(stmts.get(i), stmts.get(i + 1));
-                    if (folded == null) {
-                        merged.add(stmts.get(i));
-                        i++;
-                        continue;
-                    }
-                    merged.add(folded);
-                    i += 2;
-                    changed = true;
-                }
-                return changed ? b.withStatements(merged) : b;
+                    Statement folded = i + 1 < stmts.size() ? tryFoldPair(s, stmts.get(i + 1)) : null;
+                    return folded != null ? folded : s;
+                }));
             }
         };
     }
