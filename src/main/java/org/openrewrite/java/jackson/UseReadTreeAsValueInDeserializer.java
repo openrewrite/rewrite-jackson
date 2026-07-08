@@ -35,7 +35,6 @@ import org.openrewrite.java.tree.TextComment;
 import org.openrewrite.java.tree.TypeUtils;
 import org.openrewrite.marker.Markers;
 
-import java.util.List;
 import java.util.Set;
 
 import static java.util.Collections.singleton;
