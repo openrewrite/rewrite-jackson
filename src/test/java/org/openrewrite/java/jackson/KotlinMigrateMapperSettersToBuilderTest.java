@@ -505,4 +505,84 @@ class KotlinMigrateMapperSettersToBuilderTest implements RewriteTest {
             );
         }
     }
+
+    @Nested
+    class NoChange {
+
+        @Issue("https://github.com/moderneinc/customer-requests/issues/2750")
+        @Test
+        void settersOnObjectConstructedWithMapperArgument() {
+            rewriteRun(
+              //language=kotlin
+              kotlin(
+                """
+                  import com.fasterxml.jackson.databind.json.JsonMapper
+
+                  class Service(mapper: JsonMapper) {
+                      fun setRetries(retries: Int) {}
+                  }
+
+                  class A {
+                      fun test() {
+                          val service = Service(JsonMapper())
+                          service.setRetries(3)
+                      }
+                  }
+                  """
+              )
+            );
+        }
+    }
+
+    @Nested
+    class IfExpressionInitializer {
+
+        @Issue("https://github.com/moderneinc/customer-requests/issues/2750")
+        @Test
+        void setterAfterIfExpressionInitializerGetsTodoComment() {
+            rewriteRun(
+              //language=kotlin
+              kotlin(
+                """
+                  import com.fasterxml.jackson.databind.SerializationFeature
+                  import com.fasterxml.jackson.databind.json.JsonMapper
+
+                  class A {
+                      fun createVal(flag: Boolean, fallback: JsonMapper): JsonMapper {
+                          val mapper = if (flag) JsonMapper() else fallback
+                          mapper.enable(SerializationFeature.INDENT_OUTPUT)
+                          return mapper
+                      }
+
+                      fun createVar(flag: Boolean, fallback: JsonMapper): JsonMapper {
+                          var mapper = if (flag) JsonMapper() else fallback
+                          mapper.enable(SerializationFeature.INDENT_OUTPUT)
+                          return mapper
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.SerializationFeature
+                  import com.fasterxml.jackson.databind.json.JsonMapper
+
+                  class A {
+                      fun createVal(flag: Boolean, fallback: JsonMapper): JsonMapper {
+                          val mapper = if (flag) JsonMapper() else fallback
+                          // TODO enable could not be folded to the builder of JsonMapper. Use mapper.rebuild().enable(...).build() or move to the mapper's instantiation site.
+                          mapper.enable(SerializationFeature.INDENT_OUTPUT)
+                          return mapper
+                      }
+
+                      fun createVar(flag: Boolean, fallback: JsonMapper): JsonMapper {
+                          var mapper = if (flag) JsonMapper() else fallback
+                          // TODO enable could not be folded to the builder of JsonMapper. Use mapper.rebuild().enable(...).build() or move to the mapper's instantiation site.
+                          mapper.enable(SerializationFeature.INDENT_OUTPUT)
+                          return mapper
+                      }
+                  }
+                  """
+              )
+            );
+        }
+    }
 }

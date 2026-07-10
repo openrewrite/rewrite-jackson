@@ -337,6 +337,108 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
             );
         }
 
+        @Issue("https://github.com/moderneinc/customer-requests/issues/2750")
+        @Test
+        void transparentInitializerShapesStillFold() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      ObjectMapper viaCast() {
+                          ObjectMapper mapper = (ObjectMapper) new JsonMapper();
+                          mapper.disable(SerializationFeature.INDENT_OUTPUT);
+                          return mapper;
+                      }
+
+                      JsonMapper viaChainedAssignment() {
+                          JsonMapper a;
+                          JsonMapper b = a = new JsonMapper();
+                          b.enable(SerializationFeature.INDENT_OUTPUT);
+                          return a;
+                      }
+
+                      void viaArrayAccess(JsonMapper[] mappers) {
+                          JsonMapper mapper = mappers[0];
+                          mapper.disable(SerializationFeature.INDENT_OUTPUT);
+                          mappers[0] = mapper;
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      ObjectMapper viaCast() {
+                          return (ObjectMapper) JsonMapper.builder()
+                                  .disable(SerializationFeature.INDENT_OUTPUT)
+                                  .build();
+                      }
+
+                      JsonMapper viaChainedAssignment() {
+                          JsonMapper a;
+                          JsonMapper b = a = JsonMapper.builder()
+                                  .enable(SerializationFeature.INDENT_OUTPUT)
+                                  .build();
+                          return a;
+                      }
+
+                      void viaArrayAccess(JsonMapper[] mappers) {
+                          JsonMapper mapper = mappers[0].rebuild()
+                                  .disable(SerializationFeature.INDENT_OUTPUT)
+                                  .build();
+                          mappers[0] = mapper;
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void fieldAssignedInLambdaRelocatesIntermediateStatement() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  import java.text.DateFormat;
+                  import java.text.SimpleDateFormat;
+
+                  class A {
+                      JsonMapper mapper;
+                      Runnable init = () -> {
+                          mapper = new JsonMapper();
+                          DateFormat df = new SimpleDateFormat("yyyy");
+                          mapper.setDateFormat(df);
+                      };
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  import java.text.DateFormat;
+                  import java.text.SimpleDateFormat;
+
+                  class A {
+                      JsonMapper mapper;
+                      Runnable init = () -> {
+                          DateFormat df = new SimpleDateFormat("yyyy");
+                          mapper = JsonMapper.builder()
+                                  .defaultDateFormat(df)
+                                  .build();
+                      };
+                  }
+                  """
+              )
+            );
+        }
+
         @Test
         void setDateFormatRenamedToDefaultDateFormat() {
             rewriteRun(
@@ -719,6 +821,76 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
                                   .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
                                   .build();
                           return mapper;
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Issue("https://github.com/moderneinc/customer-requests/issues/2750")
+        @Test
+        void settersNotHoistedOutOfControlFlowOrConsumingStatements() {
+            rewriteRun(
+              java(
+                """
+                  import java.util.Locale;
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      JsonMapper conditional(boolean production) {
+                          JsonMapper mapper = new JsonMapper();
+                          if (production) {
+                              mapper.enable(SerializationFeature.INDENT_OUTPUT);
+                          }
+                          return mapper;
+                      }
+
+                      JsonMapper ternary(boolean flag, JsonMapper fallback) {
+                          JsonMapper mapper = flag ? new JsonMapper() : fallback;
+                          mapper.enable(SerializationFeature.INDENT_OUTPUT);
+                          return mapper;
+                      }
+
+                      ObjectMapper consumed(Locale locale) {
+                          JsonMapper mapper = new JsonMapper();
+                          ObjectMapper configured = mapper.setLocale(locale);
+                          return configured;
+                      }
+                  }
+                  """,
+                """
+                  import java.util.Locale;
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      JsonMapper conditional(boolean production) {
+                          JsonMapper mapper = new JsonMapper();
+                          if (production) {
+                              mapper = mapper.rebuild()
+                                      .enable(SerializationFeature.INDENT_OUTPUT)
+                                      .build();
+                          }
+                          return mapper;
+                      }
+
+                      JsonMapper ternary(boolean flag, JsonMapper fallback) {
+                          JsonMapper mapper = flag ? new JsonMapper() : fallback;
+                          mapper = mapper.rebuild()
+                                  .enable(SerializationFeature.INDENT_OUTPUT)
+                                  .build();
+                          return mapper;
+                      }
+
+                      ObjectMapper consumed(Locale locale) {
+                          JsonMapper mapper = new JsonMapper();
+                          ObjectMapper configured = // TODO setLocale could not be folded to the builder of JsonMapper. Use mapper.rebuild().defaultLocale(...).build() or move to the mapper's instantiation site.
+                          mapper.setLocale(locale);
+                          return configured;
                       }
                   }
                   """
@@ -1423,6 +1595,51 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
             );
         }
 
+        @Issue("https://github.com/moderneinc/customer-requests/issues/2750")
+        @Test
+        void fluentChainAsConstructorArgumentKeepsOuterSetters() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.Module;
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class Service {
+                      Service(ObjectMapper mapper) {}
+                      void setRetries(int retries) {}
+                  }
+
+                  class A {
+                      void test(Module module) {
+                          Service service = new Service(new JsonMapper().registerModule(module));
+                          service.setRetries(3);
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.Module;
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class Service {
+                      Service(ObjectMapper mapper) {}
+                      void setRetries(int retries) {}
+                  }
+
+                  class A {
+                      void test(Module module) {
+                          Service service = new Service(JsonMapper.builder()
+                                  .addModule(module)
+                                  .build());
+                          service.setRetries(3);
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
         @Test
         void fluentChainAssignedToVariableFollowedByMultipleSetters() {
             rewriteRun(
@@ -1751,6 +1968,41 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
             );
         }
 
+        @Test
+        void voidWriteValueNotFoldedIntoBuilder() {
+            rewriteRun(
+              java(
+                """
+                  import java.io.StringWriter;
+                  import java.text.SimpleDateFormat;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      void write(StringWriter writer, Object value) throws Exception {
+                          JsonMapper mapper = new JsonMapper();
+                          mapper.setDateFormat(new SimpleDateFormat("yyyy"));
+                          mapper.writeValue(writer, value);
+                      }
+                  }
+                  """,
+                """
+                  import java.io.StringWriter;
+                  import java.text.SimpleDateFormat;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      void write(StringWriter writer, Object value) throws Exception {
+                          JsonMapper mapper = JsonMapper.builder()
+                                  .defaultDateFormat(new SimpleDateFormat("yyyy"))
+                                  .build();
+                          mapper.writeValue(writer, value);
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
         @Issue("https://github.com/openrewrite/rewrite-jackson/issues/130")
         @Test
         void writeValueAsStringNotFoldedIntoBuilder() {
@@ -1832,6 +2084,40 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
                           ObjectMapper mapper = new ObjectMapper();
                           mapper.disable(SerializationFeature.INDENT_OUTPUT);
                           return mapper;
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Issue("https://github.com/moderneinc/customer-requests/issues/2750")
+        @Test
+        void settersOnObjectConstructedWithMapperArgument() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class JobCredentialListService {
+                      JobCredentialListService(JsonMapper mapper) {}
+                      void setApplicationEventPublisher(Object o) {}
+                      void setEntityManager(Object o) {}
+                      void setDateFormat(Object df) {}
+                  }
+
+                  class MyTest {
+                      JobCredentialListService service;
+
+                      void declaredLocal(Object applicationEventPublisherSpy, Object entityManagerMock) {
+                          JobCredentialListService service = new JobCredentialListService(new JsonMapper());
+                          service.setApplicationEventPublisher(applicationEventPublisherSpy);
+                          service.setEntityManager(entityManagerMock);
+                      }
+
+                      void assignedField(Object df) {
+                          service = new JobCredentialListService(new JsonMapper());
+                          service.setDateFormat(df);
                       }
                   }
                   """
