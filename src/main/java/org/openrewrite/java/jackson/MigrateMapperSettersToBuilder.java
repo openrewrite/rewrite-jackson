@@ -208,11 +208,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             return nc;
                         }
 
-                        // Determine the owning variable, but only when this constructor call is the
-                        // variable's direct initializer / assigned value. A mapper nested inside
-                        // another expression (e.g. an argument to another constructor) does not make
-                        // the enclosing variable a mapper, so setters on it must not be folded.
-                        Cursor owner = enclosingOwnerCursor(getCursor());
+                        List<J.Identifier> aliases = new ArrayList<>();
+                        Cursor owner = enclosingOwnerCursor(getCursor(), aliases);
                         if (owner == null) {
                             return nc;
                         }
@@ -227,7 +224,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         List<Statement> movableStmts = new ArrayList<>();
                         boolean[] setterUsesIntermediate = {false};
                         List<J.MethodInvocation> builderSetters = collectStandaloneSetters(
-                                block, varIdent, new HashSet<>(), movableStmts, setterUsesIntermediate);
+                                block, varIdent, aliases, new HashSet<>(), movableStmts, setterUsesIntermediate);
 
                         if (builderSetters.isEmpty()) {
                             return nc;
@@ -246,7 +243,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
 
                         // J.NewClass implements Statement, so walk up past it to the block-level stmt.
                         if (setterUsesIntermediate[0] && !movableStmts.isEmpty()) {
-                            Statement mapperStmt = ownerStatement(owner);
+                            Statement mapperStmt = owner.getValue() instanceof J.VariableDeclarations.NamedVariable ?
+                                    owner.firstEnclosing(J.VariableDeclarations.class) : owner.getValue();
                             if (mapperStmt != null) {
                                 doAfterVisit(relocateBeforeMapper(mapperStmt, movableStmts));
                             }
@@ -326,9 +324,6 @@ public class MigrateMapperSettersToBuilder extends Recipe {
 
                         String suffix = mi.getPrefix().getWhitespace();
                         if (!suffix.contains("\n")) {
-                            // The invocation is embedded in a larger statement (e.g. an initializer);
-                            // without a line break of its own, the line comment would swallow the
-                            // rest of the line. Break at the enclosing statement's indent instead.
                             suffix = enclosingBlockStatementWhitespace(getCursor());
                         }
                         TextComment comment = new TextComment(false, commentText, suffix, Markers.EMPTY);
@@ -375,11 +370,18 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         }
                         JavaType returnType = methodType.getReturnType();
                         if (returnType == JavaType.Primitive.Void) {
-                            // A void operational method (e.g. writeValue) must not be treated
-                            // as an unknown setter and folded into the builder.
                             return mi.getName().getSimpleName().startsWith("set");
                         }
                         return TypeUtils.isAssignableTo("com.fasterxml.jackson.databind.ObjectMapper", returnType);
+                    }
+
+                    private boolean referencesAnyVariable(Statement stmt, List<J.Identifier> varIdents) {
+                        for (J.Identifier varIdent : varIdents) {
+                            if (referencesVariable(stmt, varIdent)) {
+                                return true;
+                            }
+                        }
+                        return false;
                     }
 
                     private boolean referencesVariable(Statement stmt, J.Identifier varIdent) {
@@ -475,7 +477,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
 
                         // When the fluent chain is directly assigned to a variable, also collect
                         // standalone setter calls that follow the assignment statement
-                        Cursor owner = enclosingOwnerCursor(getCursor());
+                        List<J.Identifier> aliases = new ArrayList<>();
+                        Cursor owner = enclosingOwnerCursor(getCursor(), aliases);
                         if (owner != null) {
                             J.Identifier varIdent = ownerVariable(owner);
                             J.Block block = getCursor().firstEnclosing(J.Block.class);
@@ -483,7 +486,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                 List<Statement> movableStmts = new ArrayList<>();
                                 boolean[] setterUsesIntermediate = {false};
                                 List<J.MethodInvocation> standaloneSetters = collectStandaloneSetters(
-                                        block, varIdent, new HashSet<>(), movableStmts, setterUsesIntermediate);
+                                        block, varIdent, aliases, new HashSet<>(), movableStmts, setterUsesIntermediate);
                                 if (!standaloneSetters.isEmpty()) {
                                     setterCalls.addAll(standaloneSetters);
 
@@ -499,7 +502,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                     }
 
                                     if (setterUsesIntermediate[0] && !movableStmts.isEmpty()) {
-                                        Statement mapperStmt = ownerStatement(owner);
+                                        Statement mapperStmt = owner.getValue() instanceof J.VariableDeclarations.NamedVariable ?
+                                                owner.firstEnclosing(J.VariableDeclarations.class) : owner.getValue();
                                         if (mapperStmt != null) {
                                             doAfterVisit(relocateBeforeMapper(mapperStmt, movableStmts));
                                         }
@@ -527,7 +531,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                      * must relocate them before the mapper to keep the folded builder well-formed.
                      */
                     private List<J.MethodInvocation> collectStandaloneSetters(
-                            J.Block block, J.Identifier varIdent, Set<J.Identifier> intermediateVars,
+                            J.Block block, J.Identifier varIdent, List<J.Identifier> aliases,
+                            Set<J.Identifier> intermediateVars,
                             List<Statement> movableStmtsOut, boolean[] setterUsesIntermediateOut) {
                         List<J.MethodInvocation> setters = new ArrayList<>();
                         boolean pastDeclaration = false;
@@ -554,6 +559,11 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                         continue;
                                     }
                                 }
+                                continue;
+                            }
+
+                            if (referencesAnyVariable(stmt, aliases)) {
+                                collecting = false;
                                 continue;
                             }
 
@@ -592,9 +602,6 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                 continue;
                             }
 
-                            // Check if the statement itself is a setter call on the variable. Only
-                            // statement-level invocations qualify: digging into control flow or a
-                            // declaration initializer would hoist a conditional or consumed setter.
                             J.MethodInvocation mi = isSimpleExpressionStatement(stmt) ?
                                     extractMethodInvocation(stmt) : null;
                             if (mi != null && isCallOnVariable(mi, varIdent)) {
@@ -767,37 +774,40 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         return cursor.getParentTreeCursor().getValue() instanceof J.Block;
     }
 
-    /**
-     * Walks up from the expression at {@code cursor} to the variable that directly owns it:
-     * the named variable whose declaration initializer, or the assignment whose right-hand
-     * side, is (transparently wrapped) this expression. Chained assignments with identifier
-     * targets keep walking so an enclosing declaration wins over an inner assignment —
-     * folding at the outermost owner preserves the aliasing of the single shared instance.
-     * Returns {@code null} when the expression is nested inside any other expression — e.g.
-     * an argument to another constructor, a ternary branch, or an array initializer —
-     * because the enclosing variable then does not hold the mapper, and setters called on
-     * it must not be folded.
-     */
-    private static @Nullable Cursor enclosingOwnerCursor(Cursor cursor) {
+    private static @Nullable Cursor enclosingOwnerCursor(Cursor cursor, List<J.Identifier> aliasesOut) {
         Cursor c = cursor.getParentTreeCursor();
         Cursor innermostAssignment = null;
+        List<J.Identifier> assignmentTargets = new ArrayList<>();
         while (true) {
             Object value = c.getValue();
             if (value instanceof J.VariableDeclarations.NamedVariable) {
+                aliasesOut.addAll(assignmentTargets);
                 return c;
             }
             if (value instanceof J.Assignment) {
                 if (!(((J.Assignment) value).getVariable() instanceof J.Identifier)) {
-                    return innermostAssignment;
+                    return innermostAssignmentOwner(innermostAssignment, assignmentTargets, aliasesOut);
                 }
                 if (innermostAssignment == null) {
                     innermostAssignment = c;
                 }
+                assignmentTargets.add((J.Identifier) ((J.Assignment) value).getVariable());
             } else if (!isTransparentWrapper(value)) {
-                return innermostAssignment;
+                return innermostAssignmentOwner(innermostAssignment, assignmentTargets, aliasesOut);
             }
             c = c.getParentTreeCursor();
         }
+    }
+
+    // The innermost assignment's own target is the owner; any outer chained targets alias it.
+    private static @Nullable Cursor innermostAssignmentOwner(@Nullable Cursor innermostAssignment,
+                                                             List<J.Identifier> assignmentTargets,
+                                                             List<J.Identifier> aliasesOut) {
+        if (innermostAssignment == null) {
+            return null;
+        }
+        aliasesOut.addAll(assignmentTargets.subList(1, assignmentTargets.size()));
+        return innermostAssignment;
     }
 
     private static J.Identifier ownerVariable(Cursor owner) {
@@ -809,26 +819,6 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         return (J.Identifier) ((J.Assignment) value).getVariable();
     }
 
-    /**
-     * The block-level statement holding the owner, used as the anchor when relocating
-     * intermediate statements. Derived from the owner cursor itself — an unconstrained
-     * {@code firstEnclosing} could escape a lambda or anonymous-class body and anchor at
-     * an outer declaration, silently skipping the relocation.
-     */
-    private static @Nullable Statement ownerStatement(Cursor owner) {
-        if (owner.getValue() instanceof J.VariableDeclarations.NamedVariable) {
-            return owner.firstEnclosing(J.VariableDeclarations.class);
-        }
-        return (Statement) owner.getValue();
-    }
-
-    /**
-     * True for tree nodes that merely wrap their child expression without changing what
-     * instance flows to the enclosing initializer or assignment: parentheses, type casts
-     * (including Kotlin {@code as}) and the Kotlin statement/expression adapters. The
-     * Kotlin adapters are matched by class name so {@code rewrite-kotlin} stays a
-     * runtime-only dependency.
-     */
     private static boolean isTransparentWrapper(Object tree) {
         if (tree instanceof J.Parentheses || tree instanceof J.TypeCast) {
             return true;

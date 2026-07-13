@@ -401,6 +401,88 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         }
 
         @Test
+        void doNotFoldOverReferencesToChainedAssignmentAlias() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      void use(ObjectMapper m) {}
+
+                      boolean readThroughAlias() {
+                          JsonMapper a;
+                          JsonMapper b = a = new JsonMapper();
+                          boolean before = a.isEnabled(SerializationFeature.INDENT_OUTPUT);
+                          b.enable(SerializationFeature.INDENT_OUTPUT);
+                          return before;
+                      }
+
+                      void aliasEscapesToMethod() {
+                          JsonMapper a;
+                          JsonMapper b = a = new JsonMapper();
+                          use(a);
+                          b.enable(SerializationFeature.INDENT_OUTPUT);
+                      }
+
+                      JsonMapper settersThroughBothAliases() {
+                          JsonMapper a;
+                          JsonMapper b = a = new JsonMapper();
+                          a.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+                          b.enable(SerializationFeature.INDENT_OUTPUT);
+                          return b;
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      void use(ObjectMapper m) {}
+
+                      boolean readThroughAlias() {
+                          JsonMapper a;
+                          JsonMapper b = a = new JsonMapper();
+                          boolean before = a.isEnabled(SerializationFeature.INDENT_OUTPUT);
+                          b = b.rebuild()
+                                  .enable(SerializationFeature.INDENT_OUTPUT)
+                                  .build();
+                          return before;
+                      }
+
+                      void aliasEscapesToMethod() {
+                          JsonMapper a;
+                          JsonMapper b = a = new JsonMapper();
+                          use(a);
+                          b = b.rebuild()
+                                  .enable(SerializationFeature.INDENT_OUTPUT)
+                                  .build();
+                      }
+
+                      JsonMapper settersThroughBothAliases() {
+                          JsonMapper a;
+                          JsonMapper b = a = new JsonMapper();
+                          a = a.rebuild()
+                                  .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                                  .build();
+                          b = b.rebuild()
+                                  .enable(SerializationFeature.INDENT_OUTPUT)
+                                  .build();
+                          return b;
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
         void fieldAssignedInLambdaRelocatesIntermediateStatement() {
             rewriteRun(
               java(
