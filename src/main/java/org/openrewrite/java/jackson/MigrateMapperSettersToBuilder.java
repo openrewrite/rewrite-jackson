@@ -208,17 +208,12 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             return nc;
                         }
 
-                        // Determine variable identifier from local declaration or field assignment
-                        J.Identifier varIdent;
-                        J.VariableDeclarations.NamedVariable namedVar = getCursor().firstEnclosing(J.VariableDeclarations.NamedVariable.class);
-                        J.Assignment assignment = getCursor().firstEnclosing(J.Assignment.class);
-                        if (namedVar != null) {
-                            varIdent = namedVar.getName();
-                        } else if (assignment != null && assignment.getVariable() instanceof J.Identifier) {
-                            varIdent = (J.Identifier) assignment.getVariable();
-                        } else {
+                        List<J.Identifier> aliases = new ArrayList<>();
+                        Cursor owner = enclosingOwnerCursor(getCursor(), aliases);
+                        if (owner == null) {
                             return nc;
                         }
+                        J.Identifier varIdent = ownerVariable(owner);
 
                         J.Block block = getCursor().firstEnclosing(J.Block.class);
                         if (block == null) {
@@ -229,7 +224,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         List<Statement> movableStmts = new ArrayList<>();
                         boolean[] setterUsesIntermediate = {false};
                         List<J.MethodInvocation> builderSetters = collectStandaloneSetters(
-                                block, varIdent, new HashSet<>(), movableStmts, setterUsesIntermediate);
+                                block, varIdent, aliases, new HashSet<>(), movableStmts, setterUsesIntermediate);
 
                         if (builderSetters.isEmpty()) {
                             return nc;
@@ -248,9 +243,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
 
                         // J.NewClass implements Statement, so walk up past it to the block-level stmt.
                         if (setterUsesIntermediate[0] && !movableStmts.isEmpty()) {
-                            Statement mapperStmt = namedVar != null ?
-                                    getCursor().firstEnclosing(J.VariableDeclarations.class) :
-                                    assignment;
+                            Statement mapperStmt = owner.getValue() instanceof J.VariableDeclarations.NamedVariable ?
+                                    owner.firstEnclosing(J.VariableDeclarations.class) : owner.getValue();
                             if (mapperStmt != null) {
                                 doAfterVisit(relocateBeforeMapper(mapperStmt, movableStmts));
                             }
@@ -328,8 +322,11 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             return mi;
                         }
 
-                        String prefixWhitespace = mi.getPrefix().getWhitespace();
-                        TextComment comment = new TextComment(false, commentText, prefixWhitespace, Markers.EMPTY);
+                        String suffix = mi.getPrefix().getWhitespace();
+                        if (!suffix.contains("\n")) {
+                            suffix = enclosingBlockStatementWhitespace(getCursor());
+                        }
+                        TextComment comment = new TextComment(false, commentText, suffix, Markers.EMPTY);
                         return mi.withPrefix(mi.getPrefix().withComments(
                                 ListUtils.concat(mi.getPrefix().getComments(), comment)));
                     }
@@ -373,9 +370,18 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         }
                         JavaType returnType = methodType.getReturnType();
                         if (returnType == JavaType.Primitive.Void) {
-                            return true;
+                            return mi.getName().getSimpleName().startsWith("set");
                         }
                         return TypeUtils.isAssignableTo("com.fasterxml.jackson.databind.ObjectMapper", returnType);
+                    }
+
+                    private boolean referencesAnyVariable(Statement stmt, List<J.Identifier> varIdents) {
+                        for (J.Identifier varIdent : varIdents) {
+                            if (referencesVariable(stmt, varIdent)) {
+                                return true;
+                            }
+                        }
+                        return false;
                     }
 
                     private boolean referencesVariable(Statement stmt, J.Identifier varIdent) {
@@ -469,16 +475,18 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             return null;
                         }
 
-                        // When the fluent chain is assigned to a variable, also collect
+                        // When the fluent chain is directly assigned to a variable, also collect
                         // standalone setter calls that follow the assignment statement
-                        J.Identifier varIdent = findVariableIdentifier();
-                        if (varIdent != null) {
+                        List<J.Identifier> aliases = new ArrayList<>();
+                        Cursor owner = enclosingOwnerCursor(getCursor(), aliases);
+                        if (owner != null) {
+                            J.Identifier varIdent = ownerVariable(owner);
                             J.Block block = getCursor().firstEnclosing(J.Block.class);
                             if (block != null) {
                                 List<Statement> movableStmts = new ArrayList<>();
                                 boolean[] setterUsesIntermediate = {false};
                                 List<J.MethodInvocation> standaloneSetters = collectStandaloneSetters(
-                                        block, varIdent, new HashSet<>(), movableStmts, setterUsesIntermediate);
+                                        block, varIdent, aliases, new HashSet<>(), movableStmts, setterUsesIntermediate);
                                 if (!standaloneSetters.isEmpty()) {
                                     setterCalls.addAll(standaloneSetters);
 
@@ -494,9 +502,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                     }
 
                                     if (setterUsesIntermediate[0] && !movableStmts.isEmpty()) {
-                                        J.VariableDeclarations vd = getCursor().firstEnclosing(J.VariableDeclarations.class);
-                                        J.Assignment assignment = getCursor().firstEnclosing(J.Assignment.class);
-                                        Statement mapperStmt = vd != null ? vd : assignment;
+                                        Statement mapperStmt = owner.getValue() instanceof J.VariableDeclarations.NamedVariable ?
+                                                owner.firstEnclosing(J.VariableDeclarations.class) : owner.getValue();
                                         if (mapperStmt != null) {
                                             doAfterVisit(relocateBeforeMapper(mapperStmt, movableStmts));
                                         }
@@ -513,22 +520,6 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                     }
 
                     /**
-                     * Determine variable identifier from local declaration or field assignment
-                     * enclosing the current cursor position.
-                     */
-                    private J.@Nullable Identifier findVariableIdentifier() {
-                        J.VariableDeclarations.NamedVariable namedVar = getCursor().firstEnclosing(J.VariableDeclarations.NamedVariable.class);
-                        if (namedVar != null) {
-                            return namedVar.getName();
-                        }
-                        J.Assignment assignment = getCursor().firstEnclosing(J.Assignment.class);
-                        if (assignment != null && assignment.getVariable() instanceof J.Identifier) {
-                            return (J.Identifier) assignment.getVariable();
-                        }
-                        return null;
-                    }
-
-                    /**
                      * Collect standalone setter calls on a variable that appear after the variable's
                      * declaration/assignment. Stops collecting when the variable is referenced in a
                      * non-setter context (e.g., passed to another method). Both known and unknown
@@ -540,7 +531,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                      * must relocate them before the mapper to keep the folded builder well-formed.
                      */
                     private List<J.MethodInvocation> collectStandaloneSetters(
-                            J.Block block, J.Identifier varIdent, Set<J.Identifier> intermediateVars,
+                            J.Block block, J.Identifier varIdent, List<J.Identifier> aliases,
+                            Set<J.Identifier> intermediateVars,
                             List<Statement> movableStmtsOut, boolean[] setterUsesIntermediateOut) {
                         List<J.MethodInvocation> setters = new ArrayList<>();
                         boolean pastDeclaration = false;
@@ -570,6 +562,11 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                 continue;
                             }
 
+                            if (referencesAnyVariable(stmt, aliases)) {
+                                collecting = false;
+                                continue;
+                            }
+
                             // Look inside init blocks for setter calls (must be checked BEFORE
                             // extractMethodInvocation, which would visit into the block and find
                             // only the first MI)
@@ -584,7 +581,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                     if (!collecting) {
                                         break;
                                     }
-                                    J.MethodInvocation initMi = extractMethodInvocation(innerStmt);
+                                    J.MethodInvocation initMi = isSimpleExpressionStatement(innerStmt) ?
+                                            extractMethodInvocation(innerStmt) : null;
                                     if (initMi != null && isCallOnVariable(initMi, varIdent)) {
                                         if (SetterToBuilderMapping.fromSetter(initMi.getName().getSimpleName()) == null &&
                                                 !isSetterReturnType(initMi)) {
@@ -604,8 +602,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                 continue;
                             }
 
-                            // Check if statement is a setter call on the variable
-                            J.MethodInvocation mi = extractMethodInvocation(stmt);
+                            J.MethodInvocation mi = isSimpleExpressionStatement(stmt) ?
+                                    extractMethodInvocation(stmt) : null;
                             if (mi != null && isCallOnVariable(mi, varIdent)) {
                                 if (SetterToBuilderMapping.fromSetter(mi.getName().getSimpleName()) == null &&
                                         !isSetterReturnType(mi)) {
@@ -776,6 +774,60 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         return cursor.getParentTreeCursor().getValue() instanceof J.Block;
     }
 
+    private static @Nullable Cursor enclosingOwnerCursor(Cursor cursor, List<J.Identifier> aliasesOut) {
+        Cursor c = cursor.getParentTreeCursor();
+        Cursor innermostAssignment = null;
+        List<J.Identifier> assignmentTargets = new ArrayList<>();
+        while (true) {
+            Object value = c.getValue();
+            if (value instanceof J.VariableDeclarations.NamedVariable) {
+                aliasesOut.addAll(assignmentTargets);
+                return c;
+            }
+            if (value instanceof J.Assignment) {
+                if (!(((J.Assignment) value).getVariable() instanceof J.Identifier)) {
+                    return innermostAssignmentOwner(innermostAssignment, assignmentTargets, aliasesOut);
+                }
+                if (innermostAssignment == null) {
+                    innermostAssignment = c;
+                }
+                assignmentTargets.add((J.Identifier) ((J.Assignment) value).getVariable());
+            } else if (!isTransparentWrapper(value)) {
+                return innermostAssignmentOwner(innermostAssignment, assignmentTargets, aliasesOut);
+            }
+            c = c.getParentTreeCursor();
+        }
+    }
+
+    // The innermost assignment's own target is the owner; any outer chained targets alias it.
+    private static @Nullable Cursor innermostAssignmentOwner(@Nullable Cursor innermostAssignment,
+                                                             List<J.Identifier> assignmentTargets,
+                                                             List<J.Identifier> aliasesOut) {
+        if (innermostAssignment == null) {
+            return null;
+        }
+        aliasesOut.addAll(assignmentTargets.subList(1, assignmentTargets.size()));
+        return innermostAssignment;
+    }
+
+    private static J.Identifier ownerVariable(Cursor owner) {
+        Object value = owner.getValue();
+        if (value instanceof J.VariableDeclarations.NamedVariable) {
+            return ((J.VariableDeclarations.NamedVariable) value).getName();
+        }
+        // enclosingOwnerCursor only returns assignments with an identifier target
+        return (J.Identifier) ((J.Assignment) value).getVariable();
+    }
+
+    private static boolean isTransparentWrapper(Object tree) {
+        if (tree instanceof J.Parentheses || tree instanceof J.TypeCast) {
+            return true;
+        }
+        Class<?> c = tree.getClass();
+        return c.getName().startsWith("org.openrewrite.kotlin.") &&
+                ("ExpressionStatement".equals(c.getSimpleName()) || "StatementExpression".equals(c.getSimpleName()));
+    }
+
     private static boolean isReassignableReceiver(Expression select, Cursor cursor) {
         if (select instanceof J.Identifier) {
             return isReassignableLocal((J.Identifier) select, cursor);
@@ -836,9 +888,29 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         return null;
     }
 
+    /**
+     * The leading whitespace of the block-level statement enclosing {@code cursor},
+     * i.e. the line break and indent the statement itself starts with.
+     */
+    private static String enclosingBlockStatementWhitespace(Cursor cursor) {
+        Cursor c = cursor;
+        Cursor parent = c.getParentTreeCursor();
+        while (!(parent.getValue() instanceof J.Block) && parent.getValue() instanceof J) {
+            c = parent;
+            parent = parent.getParentTreeCursor();
+        }
+        return ((J) c.getValue()).getPrefix().getWhitespace();
+    }
+
     // Captured locals are skipped: reassigning them would break Java's effective-final requirement.
     private static @Nullable UUID reclaimableFinalLocalDeclarationId(Expression select, Cursor cursor) {
         if (!(select instanceof J.Identifier)) {
+            return null;
+        }
+        // Kotlin models `val` as a final modifier, but the keyword cannot be dropped to make
+        // the local reassignable — un-finalizing would print an invalid declaration.
+        JavaSourceFile sourceFile = cursor.firstEnclosing(JavaSourceFile.class);
+        if (sourceFile != null && sourceFile.getClass().getName().startsWith("org.openrewrite.kotlin.")) {
             return null;
         }
         J.Identifier ident = (J.Identifier) select;
@@ -966,6 +1038,13 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         J.VariableDeclarations.NamedVariable nv = vd.getVariables().get(0);
         Expression initializer = nv.getInitializer();
         if (initializer == null) {
+            return null;
+        }
+        // Only fold initializers that can act as a method-call select without parentheses;
+        // e.g. a ternary used as select would change precedence and no longer compile.
+        if (!(initializer instanceof J.MethodInvocation || initializer instanceof J.NewClass ||
+                initializer instanceof J.Identifier || initializer instanceof J.FieldAccess ||
+                initializer instanceof J.ArrayAccess || initializer instanceof J.Parentheses)) {
             return null;
         }
         RebuildParts reb = tryParseRebuildAssignment(reassignStmt);
