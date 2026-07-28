@@ -44,16 +44,18 @@ public class UseFormatAlignedObjectMappers extends Recipe {
     @Getter
     final String description = "Replace wrapping `ObjectMapper` calls with their format aligned implementation.";
 
-    private static final Map<String, String> FACTORY_TO_MAPPER = new HashMap<String, String>() {{
-        put("com.fasterxml.jackson.core.JsonFactory", JSON_MAPPER);
-        put("com.fasterxml.jackson.dataformat.avro.AvroFactory", "com.fasterxml.jackson.dataformat.avro.AvroMapper");
-        put("com.fasterxml.jackson.dataformat.cbor.CBORFactory", "com.fasterxml.jackson.dataformat.cbor.CBORMapper");
-        put("com.fasterxml.jackson.dataformat.csv.CsvFactory", "com.fasterxml.jackson.dataformat.csv.CsvMapper");
-        put("com.fasterxml.jackson.dataformat.ion.IonFactory", "com.fasterxml.jackson.dataformat.ion.IonMapper");
-        put("com.fasterxml.jackson.dataformat.smile.SmileFactory", "com.fasterxml.jackson.dataformat.smile.SmileMapper");
-        put("com.fasterxml.jackson.dataformat.xml.XmlFactory", "com.fasterxml.jackson.dataformat.xml.XmlMapper");
-        put("com.fasterxml.jackson.dataformat.yaml.YAMLFactory", "com.fasterxml.jackson.dataformat.yaml.YAMLMapper");
-    }};
+    private static final Map<String, String> FACTORY_TO_MAPPER;
+    static {
+        FACTORY_TO_MAPPER = new HashMap<String, String>();
+        FACTORY_TO_MAPPER.put("com.fasterxml.jackson.core.JsonFactory", JSON_MAPPER);
+        FACTORY_TO_MAPPER.put("com.fasterxml.jackson.dataformat.avro.AvroFactory", "com.fasterxml.jackson.dataformat.avro.AvroMapper");
+        FACTORY_TO_MAPPER.put("com.fasterxml.jackson.dataformat.cbor.CBORFactory", "com.fasterxml.jackson.dataformat.cbor.CBORMapper");
+        FACTORY_TO_MAPPER.put("com.fasterxml.jackson.dataformat.csv.CsvFactory", "com.fasterxml.jackson.dataformat.csv.CsvMapper");
+        FACTORY_TO_MAPPER.put("com.fasterxml.jackson.dataformat.ion.IonFactory", "com.fasterxml.jackson.dataformat.ion.IonMapper");
+        FACTORY_TO_MAPPER.put("com.fasterxml.jackson.dataformat.smile.SmileFactory", "com.fasterxml.jackson.dataformat.smile.SmileMapper");
+        FACTORY_TO_MAPPER.put("com.fasterxml.jackson.dataformat.xml.XmlFactory", "com.fasterxml.jackson.dataformat.xml.XmlMapper");
+        FACTORY_TO_MAPPER.put("com.fasterxml.jackson.dataformat.yaml.YAMLFactory", "com.fasterxml.jackson.dataformat.yaml.YAMLMapper");
+    }
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {

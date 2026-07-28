@@ -654,7 +654,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                 unknownSetters.add(setter);
                                 String methodName = setter.getName().getSimpleName();
                                 appendComments(setter.getPrefix().getComments(), templateCode);
-                                templateCode.append(String.format("\n // TODO %s was removed from %s in Jackson 3.", methodName, simpleMapperName));
+                                templateCode.append(String.format("%n // TODO %s was removed from %s in Jackson 3.", methodName, simpleMapperName));
                                 templateCode.append("\n.").append(methodName).append("(");
                                 boolean first = true;
                                 for (Expression arg : setter.getArguments()) {
