@@ -1,7 +1,6 @@
 ![Logo](https://github.com/openrewrite/rewrite/raw/main/doc/logo-oss.png)
 ### Migrate Jackson projects. Automatically.
 
-[![Maven Central](https://img.shields.io/maven-central/v/org.openrewrite.recipe/rewrite-jackson.svg)](https://mvnrepository.com/artifact/org.openrewrite.recipe/rewrite-jackson)
 [![Apache 2.0](https://img.shields.io/github/license/openrewrite/rewrite-jackson.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![ci](https://github.com/openrewrite/rewrite-jackson/actions/workflows/ci.yml/badge.svg)](https://github.com/openrewrite/rewrite-jackson/actions/workflows/ci.yml)
 [![Revved up by Develocity](https://img.shields.io/badge/Revved%20up%20by-Develocity-06A0CE?logo=Gradle&labelColor=02303A)](https://community.develocity.cloud/scans)
