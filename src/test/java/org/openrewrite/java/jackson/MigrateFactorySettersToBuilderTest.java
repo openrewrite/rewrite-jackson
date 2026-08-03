@@ -39,10 +39,15 @@ class MigrateFactorySettersToBuilderTest implements RewriteTest {
         spec.recipe(new MigrateFactorySettersToBuilder())
           .parser(JavaParser.fromJavaVersion()
             .classpathFromResources(new InMemoryExecutionContext(),
-              "jackson-annotations-2", "jackson-core-2", "jackson-databind-2",
-              "jackson-dataformat-avro-2", "jackson-dataformat-cbor-2",
-              "jackson-dataformat-csv-2", "jackson-dataformat-smile-2",
-              "jackson-dataformat-xml-2", "jackson-dataformat-yaml-2"));
+              "jackson-annotations-2",
+              "jackson-core-2",
+              "jackson-databind-2",
+              "jackson-dataformat-avro-2",
+              "jackson-dataformat-cbor-2",
+              "jackson-dataformat-csv-2",
+              "jackson-dataformat-smile-2",
+              "jackson-dataformat-xml-2",
+              "jackson-dataformat-yaml-2"));
     }
 
     @DocumentExample

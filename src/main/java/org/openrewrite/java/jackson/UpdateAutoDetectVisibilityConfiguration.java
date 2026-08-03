@@ -89,7 +89,9 @@ public class UpdateAutoDetectVisibilityConfiguration extends Recipe {
                                 .builder("#{any(tools.jackson.databind.json.JsonMapper$Builder)}.changeDefaultVisibility(vc -> vc." +
                                         visibilityMethod + "(com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.NONE))")
                                 .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx,
-                                        "jackson-annotations-2", "jackson-core-3", "jackson-databind-3"))
+                                        "jackson-annotations-2",
+                                        "jackson-core-3",
+                                        "jackson-databind-3"))
                                 .build()
                                 .apply(
                                         getCursor(),

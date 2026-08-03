@@ -39,7 +39,11 @@ class LombokJacksonizedConfigTest implements RewriteTest {
     public void defaults(RecipeSpec spec) {
         spec
           .parser(JavaParser.fromJavaVersion()
-            .classpath("jackson-annotations", "jackson-core", "jackson-databind", "lombok"))
+            .classpath(
+              "jackson-annotations",
+              "jackson-core",
+              "jackson-databind",
+              "lombok"))
           .recipeFromResources("org.openrewrite.java.jackson.UpgradeJackson_2_3");
     }
 

@@ -71,7 +71,9 @@ public class UpdateSerializationInclusionConfiguration extends Recipe {
                                             ".withContentInclusion(#{any(com.fasterxml.jackson.annotation.JsonInclude.Include)})" +
                                             ".withValueInclusion(#{any(com.fasterxml.jackson.annotation.JsonInclude.Include)}))")
                                     .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx,
-                                            "jackson-annotations-2", "jackson-core-3", "jackson-databind-3"))
+                                            "jackson-annotations-2",
+                                            "jackson-core-3",
+                                            "jackson-databind-3"))
                                     .build()
                                     .apply(
                                             getCursor(),
@@ -86,7 +88,9 @@ public class UpdateSerializationInclusionConfiguration extends Recipe {
                             J.MethodInvocation result = JavaTemplate
                                     .builder("#{any(tools.jackson.databind.json.JsonMapper$Builder)}.changeDefaultPropertyInclusion(incl -> #{any(com.fasterxml.jackson.annotation.JsonInclude.Value)})")
                                     .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx,
-                                            "jackson-annotations-2", "jackson-core-3", "jackson-databind-3"))
+                                            "jackson-annotations-2",
+                                            "jackson-core-3",
+                                            "jackson-databind-3"))
                                     .build()
                                     .apply(
                                             getCursor(),

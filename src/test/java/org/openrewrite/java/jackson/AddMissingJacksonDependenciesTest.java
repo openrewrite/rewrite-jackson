@@ -35,7 +35,9 @@ class AddMissingJacksonDependenciesTest implements RewriteTest {
         spec.recipeFromResources("org.openrewrite.java.jackson.AddMissingJacksonDependencies")
           .parser(JavaParser.fromJavaVersion()
             .classpathFromResources(new InMemoryExecutionContext(),
-              "jackson-core-2", "jackson-databind-2", "jackson-dataformat-xml-2"));
+              "jackson-core-2",
+              "jackson-databind-2",
+              "jackson-dataformat-xml-2"));
     }
 
     @DocumentExample

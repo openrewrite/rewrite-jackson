@@ -32,7 +32,9 @@ class UseReadTreeAsValueInDeserializerTest implements RewriteTest {
           .recipe(new UseReadTreeAsValueInDeserializer())
           .parser(JavaParser.fromJavaVersion()
             .classpathFromResources(new InMemoryExecutionContext(),
-              "jackson-annotations-2", "jackson-core-2", "jackson-databind-2"));
+              "jackson-annotations-2",
+              "jackson-core-2",
+              "jackson-databind-2"));
     }
 
     @DocumentExample

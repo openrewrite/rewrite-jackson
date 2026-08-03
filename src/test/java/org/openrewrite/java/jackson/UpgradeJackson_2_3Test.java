@@ -34,7 +34,9 @@ class UpgradeJackson_2_3Test implements RewriteTest {
     public void defaults(RecipeSpec spec) {
         spec
           .parser(JavaParser.fromJavaVersion().classpath(
-            "jackson-annotations", "jackson-core", "jackson-databind",
+            "jackson-annotations",
+            "jackson-core",
+            "jackson-databind",
             "jackson-datatype-jsr310"))
           .recipeFromResources("org.openrewrite.java.jackson.UpgradeJackson_2_3");
     }

@@ -31,7 +31,9 @@ class CommentOutSimpleModuleMethodCallsTest implements RewriteTest {
         spec.recipe(new CommentOutSimpleModuleMethodCalls())
           .parser(JavaParser.fromJavaVersion()
             .classpathFromResources(new InMemoryExecutionContext(),
-              "jackson-core-2", "jackson-databind-2", "jackson-datatype-joda-2"));
+              "jackson-core-2",
+              "jackson-databind-2",
+              "jackson-datatype-joda-2"));
     }
 
     @DocumentExample

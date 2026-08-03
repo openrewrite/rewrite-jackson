@@ -32,7 +32,9 @@ class UseFormatAlignedObjectMappersTest implements RewriteTest {
           .parser(JavaParser.fromJavaVersion()
             .logCompilationWarningsAndErrors(true)
             .classpathFromResources(new InMemoryExecutionContext(),
-              "jackson-core-2", "jackson-databind-2", "jackson-dataformat-xml-2"));
+              "jackson-core-2",
+              "jackson-databind-2",
+              "jackson-dataformat-xml-2"));
     }
 
     @DocumentExample

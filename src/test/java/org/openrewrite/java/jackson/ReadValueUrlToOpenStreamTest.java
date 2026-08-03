@@ -31,7 +31,9 @@ class ReadValueUrlToOpenStreamTest implements RewriteTest {
         spec
           .recipe(new ReadValueUrlToOpenStream())
           .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
-            "jackson-annotations-2", "jackson-databind-2", "jackson-core-2"));
+            "jackson-annotations-2",
+            "jackson-databind-2",
+            "jackson-core-2"));
     }
 
     @DocumentExample

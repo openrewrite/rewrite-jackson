@@ -68,7 +68,9 @@ public class ReadValueUrlToOpenStream extends Recipe {
                                         ".readValue(#{any(java.net.URL)}.openStream(), #{any()})")
                                 .contextSensitive()
                                 .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx,
-                                        "jackson-databind-2", "jackson-core-2", "jackson-annotations-2"))
+                                        "jackson-databind-2",
+                                        "jackson-core-2",
+                                        "jackson-annotations-2"))
                                 .build()
                                 .apply(getCursor(), mi.getCoordinates().replace(),
                                         mi.getSelect(), mi.getArguments().get(0), mi.getArguments().get(1));

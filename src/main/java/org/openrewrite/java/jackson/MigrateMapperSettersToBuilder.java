@@ -687,7 +687,10 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         maybeAddImport(JSON_INCLUDE);
 
                         JavaParser.Builder<?, ?> parser = JavaParser.fromJavaVersion()
-                                .classpathFromResources(ctx, "jackson-annotations-2", "jackson-core-2", "jackson-databind-2")
+                                .classpathFromResources(ctx,
+                                        "jackson-annotations-2",
+                                        "jackson-core-2",
+                                        "jackson-databind-2")
                                 .dependsOn(mapperStub(mapperFqn, unknownSetters));
                         if (useKotlinFactory) {
                             parser = parser.dependsOn(kotlinExtensionsStub());
@@ -757,7 +760,10 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         maybeAddImport(JSON_INCLUDE);
 
                         JavaParser.Builder<?, ?> parser = JavaParser.fromJavaVersion()
-                                .classpathFromResources(ctx, "jackson-annotations-2", "jackson-core-2", "jackson-databind-2")
+                                .classpathFromResources(ctx,
+                                        "jackson-annotations-2",
+                                        "jackson-core-2",
+                                        "jackson-databind-2")
                                 .dependsOn(mapperStub(mapperFqn, emptyList()));
 
                         return JavaTemplate.builder(templateCode.toString())

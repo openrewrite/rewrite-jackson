@@ -76,7 +76,10 @@ public class UseReadTreeAsValueInDeserializer extends Recipe {
                         "#{any(com.fasterxml.jackson.databind.DeserializationContext)}" +
                         ".readTreeAsValue(#{any(com.fasterxml.jackson.databind.JsonNode)}, #{any(java.lang.Class)})")
                         .javaParser(JavaParser.fromJavaVersion()
-                                .classpathFromResources(ctx, "jackson-annotations-2", "jackson-core-2", "jackson-databind-2"))
+                                .classpathFromResources(ctx,
+                                        "jackson-annotations-2",
+                                        "jackson-core-2",
+                                        "jackson-databind-2"))
                         .build()
                         .apply(getCursor(), mi.getCoordinates().replace(),
                                 ctxtIdent, mi.getArguments().get(0), mi.getArguments().get(1));
