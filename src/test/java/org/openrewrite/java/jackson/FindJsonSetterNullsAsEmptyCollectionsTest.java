@@ -267,6 +267,50 @@ class FindJsonSetterNullsAsEmptyCollectionsTest implements RewriteTest {
     }
 
     @Test
+    void doNotFindFieldListedInClassLevelJsonIgnoreProperties() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+              import com.fasterxml.jackson.annotation.JsonSetter;
+              import com.fasterxml.jackson.annotation.Nulls;
+              import java.util.LinkedHashMap;
+              import java.util.Map;
+
+              @JsonIgnoreProperties({"additionalProperties", "other"})
+              class Model {
+                  @JsonSetter(nulls = Nulls.AS_EMPTY)
+                  private Map<String, Object> additionalProperties = new LinkedHashMap<>();
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void doNotFindFieldListedInClassLevelJsonIgnorePropertiesWithKeywordValue() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+              import com.fasterxml.jackson.annotation.JsonSetter;
+              import com.fasterxml.jackson.annotation.Nulls;
+              import java.util.LinkedHashMap;
+              import java.util.Map;
+
+              @JsonIgnoreProperties(value = "additionalProperties", ignoreUnknown = true)
+              class Model {
+                  @JsonSetter(nulls = Nulls.AS_EMPTY)
+                  private Map<String, Object> additionalProperties = new LinkedHashMap<>();
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void doNotFindNonCollectionField() {
         rewriteRun(
           //language=java

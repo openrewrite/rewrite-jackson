@@ -30,17 +30,21 @@ import org.openrewrite.java.tree.JavaType;
 import org.openrewrite.java.tree.TypeUtils;
 import org.openrewrite.marker.SearchResult;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static java.util.Collections.emptySet;
 import static java.util.Collections.singleton;
 
 public class FindJsonSetterNullsAsEmptyCollections extends Recipe {
 
     private static final String JACKSON_JSON_IGNORE = "com.fasterxml.jackson.annotation.JsonIgnore";
+    private static final String JACKSON_JSON_IGNORE_PROPERTIES = "com.fasterxml.jackson.annotation.JsonIgnoreProperties";
     private static final String JACKSON_JSON_SETTER = "com.fasterxml.jackson.annotation.JsonSetter";
     private static final String JACKSON_NULLS = "com.fasterxml.jackson.annotation.Nulls";
     private static final AnnotationMatcher JSON_IGNORE_MATCHER = new AnnotationMatcher("@" + JACKSON_JSON_IGNORE, true);
+    private static final AnnotationMatcher JSON_IGNORE_PROPERTIES_MATCHER = new AnnotationMatcher("@" + JACKSON_JSON_IGNORE_PROPERTIES, true);
     private static final AnnotationMatcher JSON_SETTER_MATCHER = new AnnotationMatcher("@" + JACKSON_JSON_SETTER, true);
 
     @Getter
@@ -83,14 +87,18 @@ public class FindJsonSetterNullsAsEmptyCollections extends Recipe {
                             return vd;
                         }
 
-                        boolean anyEmptyInitializer = false;
+                        Set<String> classIgnored = enclosingClassIgnoredProperties();
+                        boolean anyFlaggable = false;
                         for (J.VariableDeclarations.NamedVariable variable : vd.getVariables()) {
+                            if (classIgnored.contains(variable.getSimpleName())) {
+                                continue;
+                            }
                             if (isEmptyCollectionConstructor(variable.getInitializer())) {
-                                anyEmptyInitializer = true;
+                                anyFlaggable = true;
                                 break;
                             }
                         }
-                        if (!anyEmptyInitializer) {
+                        if (!anyFlaggable) {
                             return vd;
                         }
 
@@ -131,6 +139,45 @@ public class FindJsonSetterNullsAsEmptyCollections extends Recipe {
                             return "AS_EMPTY".equals(((J.FieldAccess) value).getSimpleName());
                         }
                         return value instanceof J.Identifier && "AS_EMPTY".equals(((J.Identifier) value).getSimpleName());
+                    }
+
+                    private Set<String> enclosingClassIgnoredProperties() {
+                        J.ClassDeclaration cls = getCursor().firstEnclosing(J.ClassDeclaration.class);
+                        if (cls == null) {
+                            return emptySet();
+                        }
+                        Set<String> ignored = new HashSet<>();
+                        for (J.Annotation ann : cls.getLeadingAnnotations()) {
+                            if (!JSON_IGNORE_PROPERTIES_MATCHER.matches(ann) || ann.getArguments() == null) {
+                                continue;
+                            }
+                            for (Expression arg : ann.getArguments()) {
+                                Expression value = arg;
+                                if (arg instanceof J.Assignment) {
+                                    J.Assignment a = (J.Assignment) arg;
+                                    if (!(a.getVariable() instanceof J.Identifier) ||
+                                            !"value".equals(((J.Identifier) a.getVariable()).getSimpleName())) {
+                                        continue;
+                                    }
+                                    value = a.getAssignment();
+                                }
+                                collectStrings(value, ignored);
+                            }
+                        }
+                        return ignored;
+                    }
+
+                    private void collectStrings(Expression value, Set<String> into) {
+                        if (value instanceof J.Literal) {
+                            Object v = ((J.Literal) value).getValue();
+                            if (v instanceof String) {
+                                into.add((String) v);
+                            }
+                        } else if (value instanceof J.NewArray && ((J.NewArray) value).getInitializer() != null) {
+                            for (Expression e : ((J.NewArray) value).getInitializer()) {
+                                collectStrings(e, into);
+                            }
+                        }
                     }
 
                     private boolean isEmptyCollectionConstructor(@Nullable Expression init) {
