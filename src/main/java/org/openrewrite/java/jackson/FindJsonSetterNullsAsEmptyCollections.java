@@ -16,6 +16,7 @@
 package org.openrewrite.java.jackson;
 
 import lombok.Getter;
+import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
@@ -26,6 +27,7 @@ import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JavaType;
+import org.openrewrite.java.tree.TypeUtils;
 import org.openrewrite.marker.SearchResult;
 
 import java.util.List;
@@ -37,6 +39,7 @@ public class FindJsonSetterNullsAsEmptyCollections extends Recipe {
 
     private static final String JACKSON_JSON_IGNORE = "com.fasterxml.jackson.annotation.JsonIgnore";
     private static final String JACKSON_JSON_SETTER = "com.fasterxml.jackson.annotation.JsonSetter";
+    private static final String JACKSON_NULLS = "com.fasterxml.jackson.annotation.Nulls";
     private static final AnnotationMatcher JSON_IGNORE_MATCHER = new AnnotationMatcher("@" + JACKSON_JSON_IGNORE, true);
     private static final AnnotationMatcher JSON_SETTER_MATCHER = new AnnotationMatcher("@" + JACKSON_JSON_SETTER, true);
 
@@ -76,12 +79,18 @@ public class FindJsonSetterNullsAsEmptyCollections extends Recipe {
                                 nullsAsEmpty = true;
                             }
                         }
-                        if (!nullsAsEmpty || vd.getVariables().isEmpty()) {
+                        if (!nullsAsEmpty) {
                             return vd;
                         }
 
-                        Expression initializer = vd.getVariables().get(0).getInitializer();
-                        if (initializer == null || !isEmptyCollectionConstructor(initializer)) {
+                        boolean anyEmptyInitializer = false;
+                        for (J.VariableDeclarations.NamedVariable variable : vd.getVariables()) {
+                            if (isEmptyCollectionConstructor(variable.getInitializer())) {
+                                anyEmptyInitializer = true;
+                                break;
+                            }
+                        }
+                        if (!anyEmptyInitializer) {
                             return vd;
                         }
 
@@ -107,18 +116,24 @@ public class FindJsonSetterNullsAsEmptyCollections extends Recipe {
                                 J.Assignment assignment = (J.Assignment) arg;
                                 if (assignment.getVariable() instanceof J.Identifier &&
                                         "nulls".equals(((J.Identifier) assignment.getVariable()).getSimpleName())) {
-                                    Expression value = assignment.getAssignment();
-                                    if (value instanceof J.FieldAccess) {
-                                        return "AS_EMPTY".equals(((J.FieldAccess) value).getSimpleName());
-                                    }
-                                    return value instanceof J.Identifier && "AS_EMPTY".equals(((J.Identifier) value).getSimpleName());
+                                    return isNullsAsEmptyValue(assignment.getAssignment());
                                 }
                             }
                         }
                         return false;
                     }
 
-                    private boolean isEmptyCollectionConstructor(Expression init) {
+                    private boolean isNullsAsEmptyValue(Expression value) {
+                        if (!TypeUtils.isOfClassType(value.getType(), JACKSON_NULLS)) {
+                            return false;
+                        }
+                        if (value instanceof J.FieldAccess) {
+                            return "AS_EMPTY".equals(((J.FieldAccess) value).getSimpleName());
+                        }
+                        return value instanceof J.Identifier && "AS_EMPTY".equals(((J.Identifier) value).getSimpleName());
+                    }
+
+                    private boolean isEmptyCollectionConstructor(@Nullable Expression init) {
                         if (init instanceof J.NewClass) {
                             List<Expression> args = ((J.NewClass) init).getArguments();
                             return args == null || args.isEmpty() ||
