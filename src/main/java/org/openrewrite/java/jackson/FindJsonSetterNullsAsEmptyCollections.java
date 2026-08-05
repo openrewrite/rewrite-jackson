@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 the original author or authors.
+ * Copyright 2026 the original author or authors.
  * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JavaType;
+import org.openrewrite.java.tree.Statement;
 import org.openrewrite.java.tree.TypeUtils;
 import org.openrewrite.marker.SearchResult;
 
@@ -87,7 +88,8 @@ public class FindJsonSetterNullsAsEmptyCollections extends Recipe {
                             return vd;
                         }
 
-                        Set<String> classIgnored = enclosingClassIgnoredProperties();
+                        Set<String> classIgnored = new HashSet<>(enclosingClassIgnoredProperties());
+                        classIgnored.addAll(enclosingClassIgnoredByGetters());
                         boolean anyFlaggable = false;
                         for (J.VariableDeclarations.NamedVariable variable : vd.getVariables()) {
                             if (classIgnored.contains(variable.getSimpleName())) {
@@ -165,6 +167,61 @@ public class FindJsonSetterNullsAsEmptyCollections extends Recipe {
                             }
                         }
                         return ignored;
+                    }
+
+                    private Set<String> enclosingClassIgnoredByGetters() {
+                        J.ClassDeclaration cls = getCursor().firstEnclosing(J.ClassDeclaration.class);
+                        if (cls == null) {
+                            return emptySet();
+                        }
+                        Set<String> ignored = new HashSet<>();
+                        for (Statement stmt : cls.getBody().getStatements()) {
+                            if (!(stmt instanceof J.MethodDeclaration)) {
+                                continue;
+                            }
+                            J.MethodDeclaration m = (J.MethodDeclaration) stmt;
+                            if (m.getParameters().size() != 1 || !(m.getParameters().get(0) instanceof J.Empty)) {
+                                continue;
+                            }
+                            boolean hasJsonIgnore = false;
+                            for (J.Annotation ann : m.getLeadingAnnotations()) {
+                                if (JSON_IGNORE_MATCHER.matches(ann) && !isJsonIgnoreFalse(ann)) {
+                                    hasJsonIgnore = true;
+                                    break;
+                                }
+                            }
+                            if (!hasJsonIgnore) {
+                                continue;
+                            }
+                            String fieldName = getterToFieldName(m.getSimpleName());
+                            if (fieldName != null) {
+                                ignored.add(fieldName);
+                            }
+                        }
+                        return ignored;
+                    }
+
+                    private @Nullable String getterToFieldName(String methodName) {
+                        if (methodName.startsWith("get") && methodName.length() > 3 &&
+                                Character.isUpperCase(methodName.charAt(3))) {
+                            return Character.toLowerCase(methodName.charAt(3)) + methodName.substring(4);
+                        }
+                        return null;
+                    }
+
+                    private boolean isJsonIgnoreFalse(J.Annotation ann) {
+                        List<Expression> args = ann.getArguments();
+                        if (args == null || args.isEmpty() || args.get(0) instanceof J.Empty) {
+                            return false;
+                        }
+                        Expression arg = args.get(0);
+                        if (J.Literal.isLiteralValue(arg, false)) {
+                            return true;
+                        }
+                        if (arg instanceof J.Assignment) {
+                            return J.Literal.isLiteralValue(((J.Assignment) arg).getAssignment(), false);
+                        }
+                        return false;
                     }
 
                     private void collectStrings(Expression value, Set<String> into) {

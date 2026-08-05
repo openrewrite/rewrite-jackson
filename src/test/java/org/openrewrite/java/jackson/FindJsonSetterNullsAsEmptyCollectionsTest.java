@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 the original author or authors.
+ * Copyright 2026 the original author or authors.
  * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -304,6 +304,75 @@ class FindJsonSetterNullsAsEmptyCollectionsTest implements RewriteTest {
               class Model {
                   @JsonSetter(nulls = Nulls.AS_EMPTY)
                   private Map<String, Object> additionalProperties = new LinkedHashMap<>();
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void doNotFindFieldWhenGetterCarriesJsonIgnore() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonIgnore;
+              import com.fasterxml.jackson.annotation.JsonSetter;
+              import com.fasterxml.jackson.annotation.Nulls;
+              import java.util.LinkedHashMap;
+              import java.util.Map;
+
+              class Model {
+                  @JsonSetter(nulls = Nulls.AS_EMPTY)
+                  private Map<String, Object> extras = new LinkedHashMap<>();
+
+                  @JsonIgnore
+                  public Map<String, Object> getExtras() {
+                      return extras;
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void findWhenGetterCarriesJsonIgnoreFalse() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonIgnore;
+              import com.fasterxml.jackson.annotation.JsonSetter;
+              import com.fasterxml.jackson.annotation.Nulls;
+              import java.util.LinkedHashMap;
+              import java.util.Map;
+
+              class Model {
+                  @JsonSetter(nulls = Nulls.AS_EMPTY)
+                  private Map<String, Object> extras = new LinkedHashMap<>();
+
+                  @JsonIgnore(false)
+                  public Map<String, Object> getExtras() {
+                      return extras;
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonIgnore;
+              import com.fasterxml.jackson.annotation.JsonSetter;
+              import com.fasterxml.jackson.annotation.Nulls;
+              import java.util.LinkedHashMap;
+              import java.util.Map;
+
+              class Model {
+                  /*~~(Verify this field should be serialized; `@JsonIgnore` may have been removed here)~~>*/@JsonSetter(nulls = Nulls.AS_EMPTY)
+                  private Map<String, Object> extras = new LinkedHashMap<>();
+
+                  @JsonIgnore(false)
+                  public Map<String, Object> getExtras() {
+                      return extras;
+                  }
               }
               """
           )
