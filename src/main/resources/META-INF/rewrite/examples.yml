@@ -167,6 +167,33 @@ examples:
     language: java
 ---
 type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.jackson.FindJsonSetterNullsAsEmptyCollections
+examples:
+- description: '`FindJsonSetterNullsAsEmptyCollectionsTest#findMapField`'
+  sources:
+  - before: |
+      import com.fasterxml.jackson.annotation.JsonSetter;
+      import com.fasterxml.jackson.annotation.Nulls;
+      import java.util.LinkedHashMap;
+      import java.util.Map;
+
+      class Model {
+          @JsonSetter(nulls = Nulls.AS_EMPTY)
+          private Map<String, Object> additionalProperties = new LinkedHashMap<>();
+      }
+    after: |
+      import com.fasterxml.jackson.annotation.JsonSetter;
+      import com.fasterxml.jackson.annotation.Nulls;
+      import java.util.LinkedHashMap;
+      import java.util.Map;
+
+      class Model {
+          /*~~(Verify this field should be serialized; `@JsonIgnore` may have been removed here)~~>*/@JsonSetter(nulls = Nulls.AS_EMPTY)
+          private Map<String, Object> additionalProperties = new LinkedHashMap<>();
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.IOExceptionToJacksonException
 examples:
 - description: '`IOExceptionToJacksonExceptionTest#objectMapperReadValue`'
@@ -544,33 +571,6 @@ examples:
           private String color;
           @JsonProperty("parent_id")
           private Long parentId;
-      }
-    language: java
----
-type: specs.openrewrite.org/v1beta/example
-recipeName: org.openrewrite.java.jackson.ReplaceJsonIgnoreWithJsonSetter
-examples:
-- description: '`ReplaceJsonIgnoreWithJsonSetterTest#replaceJsonIgnoreOnMapFieldWithEmptyLinkedHashMap`'
-  sources:
-  - before: |
-      import com.fasterxml.jackson.annotation.JsonIgnore;
-      import java.util.LinkedHashMap;
-      import java.util.Map;
-
-      class Model {
-          @JsonIgnore
-          private Map<String, Object> additionalProperties = new LinkedHashMap<>();
-      }
-    after: |
-      import com.fasterxml.jackson.annotation.JsonSetter;
-      import com.fasterxml.jackson.annotation.Nulls;
-
-      import java.util.LinkedHashMap;
-      import java.util.Map;
-
-      class Model {
-          @JsonSetter(nulls = Nulls.AS_EMPTY)
-          private Map<String, Object> additionalProperties = new LinkedHashMap<>();
       }
     language: java
 ---

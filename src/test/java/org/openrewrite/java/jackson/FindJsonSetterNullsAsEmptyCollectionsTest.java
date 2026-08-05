@@ -23,38 +23,95 @@ import org.openrewrite.test.RewriteTest;
 
 import static org.openrewrite.java.Assertions.java;
 
-class ReplaceJsonIgnoreWithJsonSetterTest implements RewriteTest {
+class FindJsonSetterNullsAsEmptyCollectionsTest implements RewriteTest {
 
     @Override
     public void defaults(RecipeSpec spec) {
-        spec.recipe(new ReplaceJsonIgnoreWithJsonSetter())
+        spec.recipe(new FindJsonSetterNullsAsEmptyCollections())
           .parser(JavaParser.fromJavaVersion().classpath("jackson-annotations"));
     }
 
     @DocumentExample
     @Test
-    void replaceJsonIgnoreOnMapFieldWithEmptyLinkedHashMap() {
+    void findMapField() {
         rewriteRun(
           //language=java
           java(
             """
-              import com.fasterxml.jackson.annotation.JsonIgnore;
+              import com.fasterxml.jackson.annotation.JsonSetter;
+              import com.fasterxml.jackson.annotation.Nulls;
               import java.util.LinkedHashMap;
               import java.util.Map;
 
               class Model {
-                  @JsonIgnore
+                  @JsonSetter(nulls = Nulls.AS_EMPTY)
                   private Map<String, Object> additionalProperties = new LinkedHashMap<>();
               }
               """,
             """
               import com.fasterxml.jackson.annotation.JsonSetter;
               import com.fasterxml.jackson.annotation.Nulls;
-
               import java.util.LinkedHashMap;
               import java.util.Map;
 
               class Model {
+                  /*~~(Verify this field should be serialized; `@JsonIgnore` may have been removed here)~~>*/@JsonSetter(nulls = Nulls.AS_EMPTY)
+                  private Map<String, Object> additionalProperties = new LinkedHashMap<>();
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void findCollectionField() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonSetter;
+              import com.fasterxml.jackson.annotation.Nulls;
+              import java.util.HashSet;
+              import java.util.Set;
+
+              class Rule {}
+
+              class Model {
+                  @JsonSetter(nulls = Nulls.AS_EMPTY)
+                  private Set<Rule> rules = new HashSet<>();
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonSetter;
+              import com.fasterxml.jackson.annotation.Nulls;
+              import java.util.HashSet;
+              import java.util.Set;
+
+              class Rule {}
+
+              class Model {
+                  /*~~(Verify this field should be serialized; `@JsonIgnore` may have been removed here)~~>*/@JsonSetter(nulls = Nulls.AS_EMPTY)
+                  private Set<Rule> rules = new HashSet<>();
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void doNotFindFieldStillCarryingJsonIgnore() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonIgnore;
+              import com.fasterxml.jackson.annotation.JsonSetter;
+              import com.fasterxml.jackson.annotation.Nulls;
+              import java.util.LinkedHashMap;
+              import java.util.Map;
+
+              class Model {
+                  @JsonIgnore
                   @JsonSetter(nulls = Nulls.AS_EMPTY)
                   private Map<String, Object> additionalProperties = new LinkedHashMap<>();
               }
@@ -64,122 +121,42 @@ class ReplaceJsonIgnoreWithJsonSetterTest implements RewriteTest {
     }
 
     @Test
-    void replaceJsonIgnoreOnListFieldWithEmptyArrayList() {
+    void doNotFindOtherNullsHandling() {
         rewriteRun(
           //language=java
           java(
-            """
-              import com.fasterxml.jackson.annotation.JsonIgnore;
-              import java.util.ArrayList;
-              import java.util.List;
-
-              class Model {
-                  @JsonIgnore
-                  private List<String> items = new ArrayList<>();
-              }
-              """,
             """
               import com.fasterxml.jackson.annotation.JsonSetter;
               import com.fasterxml.jackson.annotation.Nulls;
-
-              import java.util.ArrayList;
-              import java.util.List;
-
-              class Model {
-                  @JsonSetter(nulls = Nulls.AS_EMPTY)
-                  private List<String> items = new ArrayList<>();
-              }
-              """
-          )
-        );
-    }
-
-    @Test
-    void mixedFieldsOnlyTransformsMapWithInitializer() {
-        rewriteRun(
-          //language=java
-          java(
-            """
-              import com.fasterxml.jackson.annotation.JsonIgnore;
               import java.util.LinkedHashMap;
               import java.util.Map;
 
               class Model {
-                  @JsonIgnore
+                  @JsonSetter(nulls = Nulls.SKIP)
                   private Map<String, Object> additionalProperties = new LinkedHashMap<>();
-
-                  @JsonIgnore
-                  private String secret;
               }
-              """,
+              """
+          )
+        );
+    }
+
+    @Test
+    void doNotFindFieldWithoutEmptyCollectionInitializer() {
+        rewriteRun(
+          //language=java
+          java(
             """
-              import com.fasterxml.jackson.annotation.JsonIgnore;
               import com.fasterxml.jackson.annotation.JsonSetter;
               import com.fasterxml.jackson.annotation.Nulls;
-
-              import java.util.LinkedHashMap;
-              import java.util.Map;
-
-              class Model {
-                  @JsonSetter(nulls = Nulls.AS_EMPTY)
-                  private Map<String, Object> additionalProperties = new LinkedHashMap<>();
-
-                  @JsonIgnore
-                  private String secret;
-              }
-              """
-          )
-        );
-    }
-
-    @Test
-    void doNotChangeNonCollectionField() {
-        rewriteRun(
-          //language=java
-          java(
-            """
-              import com.fasterxml.jackson.annotation.JsonIgnore;
-
-              class Model {
-                  @JsonIgnore
-                  private String password;
-              }
-              """
-          )
-        );
-    }
-
-    @Test
-    void doNotChangeMapFieldWithoutInitializer() {
-        rewriteRun(
-          //language=java
-          java(
-            """
-              import com.fasterxml.jackson.annotation.JsonIgnore;
-              import java.util.Map;
-
-              class Model {
-                  @JsonIgnore
-                  private Map<String, Object> data;
-              }
-              """
-          )
-        );
-    }
-
-    @Test
-    void doNotChangeMapFieldWithNonEmptyConstructor() {
-        rewriteRun(
-          //language=java
-          java(
-            """
-              import com.fasterxml.jackson.annotation.JsonIgnore;
               import java.util.HashMap;
               import java.util.Map;
 
               class Model {
-                  @JsonIgnore
-                  private Map<String, Object> data = new HashMap<>(16);
+                  @JsonSetter(nulls = Nulls.AS_EMPTY)
+                  private Map<String, Object> withCapacity = new HashMap<>(16);
+
+                  @JsonSetter(nulls = Nulls.AS_EMPTY)
+                  private Map<String, Object> withoutInitializer;
               }
               """
           )
@@ -187,40 +164,17 @@ class ReplaceJsonIgnoreWithJsonSetterTest implements RewriteTest {
     }
 
     @Test
-    void doNotChangeJsonIgnoreFalse() {
+    void doNotFindNonCollectionField() {
         rewriteRun(
           //language=java
           java(
             """
-              import com.fasterxml.jackson.annotation.JsonIgnore;
-              import java.util.LinkedHashMap;
-              import java.util.Map;
-
-              class Model {
-                  @JsonIgnore(false)
-                  private Map<String, Object> additionalProperties = new LinkedHashMap<>();
-              }
-              """
-          )
-        );
-    }
-
-    @Test
-    void doNotChangeFieldAlreadyHavingJsonSetter() {
-        rewriteRun(
-          //language=java
-          java(
-            """
-              import com.fasterxml.jackson.annotation.JsonIgnore;
               import com.fasterxml.jackson.annotation.JsonSetter;
               import com.fasterxml.jackson.annotation.Nulls;
-              import java.util.LinkedHashMap;
-              import java.util.Map;
 
               class Model {
-                  @JsonIgnore
                   @JsonSetter(nulls = Nulls.AS_EMPTY)
-                  private Map<String, Object> additionalProperties = new LinkedHashMap<>();
+                  private String name = new String();
               }
               """
           )
