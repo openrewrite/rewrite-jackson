@@ -33,7 +33,7 @@ class FindJsonSetterNullsAsEmptyCollectionsTest implements RewriteTest {
 
     @DocumentExample
     @Test
-    void findMapField() {
+    void findMapFieldExposedThroughGetter() {
         rewriteRun(
           //language=java
           java(
@@ -46,6 +46,10 @@ class FindJsonSetterNullsAsEmptyCollectionsTest implements RewriteTest {
               class Model {
                   @JsonSetter(nulls = Nulls.AS_EMPTY)
                   private Map<String, Object> additionalProperties = new LinkedHashMap<>();
+
+                  public Map<String, Object> getAdditionalProperties() {
+                      return additionalProperties;
+                  }
               }
               """,
             """
@@ -57,6 +61,10 @@ class FindJsonSetterNullsAsEmptyCollectionsTest implements RewriteTest {
               class Model {
                   /*~~(Verify this field should be serialized; `@JsonIgnore` may have been removed here)~~>*/@JsonSetter(nulls = Nulls.AS_EMPTY)
                   private Map<String, Object> additionalProperties = new LinkedHashMap<>();
+
+                  public Map<String, Object> getAdditionalProperties() {
+                      return additionalProperties;
+                  }
               }
               """
           )

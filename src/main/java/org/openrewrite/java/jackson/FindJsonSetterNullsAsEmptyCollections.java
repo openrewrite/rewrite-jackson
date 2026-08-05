@@ -45,10 +45,11 @@ public class FindJsonSetterNullsAsEmptyCollections extends Recipe {
 
     @Getter
     final String description = "Find `Map` and `Collection` fields that carry `@JsonSetter(nulls = Nulls.AS_EMPTY)`, are initialized " +
-            "with an empty collection, and are not annotated with `@JsonIgnore`. Earlier versions of the Jackson 2 to 3 migration " +
-            "replaced `@JsonIgnore` with `@JsonSetter(nulls = Nulls.AS_EMPTY)` on exactly these fields, which starts serializing " +
-            "properties that were deliberately hidden. Run this recipe to audit repositories migrated with those versions; every " +
-            "match that should stay out of the JSON output needs `@JsonIgnore` restored.";
+            "with an empty collection, and are not annotated with `@JsonIgnore`. In rewrite-jackson 1.17.0 through 1.28.0 the " +
+            "Jackson 2 to 3 migration replaced `@JsonIgnore` with `@JsonSetter(nulls = Nulls.AS_EMPTY)` on exactly these fields, " +
+            "which starts serializing properties that were deliberately hidden wherever the field is otherwise visible, such as " +
+            "through a getter. Run this recipe to audit repositories migrated with those versions; every match that should stay " +
+            "out of the JSON output needs `@JsonIgnore` restored.";
 
     @Getter
     final Set<String> tags = singleton("jackson-3");
