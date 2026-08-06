@@ -15,14 +15,19 @@
  */
 package org.openrewrite.java.jackson;
 
-import lombok.Getter;
+import lombok.EqualsAndHashCode;
+import lombok.Value;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
+import org.openrewrite.Option;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
 import org.openrewrite.TreeVisitor;
 import org.openrewrite.java.AnnotationMatcher;
 import org.openrewrite.java.JavaIsoVisitor;
+import org.openrewrite.java.JavaParser;
+import org.openrewrite.java.JavaTemplate;
+import org.openrewrite.java.RemoveAnnotationVisitor;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
@@ -31,6 +36,7 @@ import org.openrewrite.java.tree.Statement;
 import org.openrewrite.java.tree.TypeUtils;
 import org.openrewrite.marker.SearchResult;
 
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -38,6 +44,8 @@ import java.util.Set;
 import static java.util.Collections.emptySet;
 import static java.util.Collections.singleton;
 
+@Value
+@EqualsAndHashCode(callSuper = false)
 public class FindJsonSetterNullsAsEmptyCollections extends Recipe {
 
     private static final String JACKSON_JSON_IGNORE = "com.fasterxml.jackson.annotation.JsonIgnore";
@@ -48,20 +56,26 @@ public class FindJsonSetterNullsAsEmptyCollections extends Recipe {
     private static final AnnotationMatcher JSON_IGNORE_PROPERTIES_MATCHER = new AnnotationMatcher("@" + JACKSON_JSON_IGNORE_PROPERTIES, true);
     private static final AnnotationMatcher JSON_SETTER_MATCHER = new AnnotationMatcher("@" + JACKSON_JSON_SETTER, true);
 
-    @Getter
-    final String displayName = "Find `@JsonSetter(nulls = Nulls.AS_EMPTY)` on empty collection fields";
+    @Option(displayName = "Add `@JsonIgnore`",
+            description = "Add `@JsonIgnore` back to every match instead of only marking it, removing the " +
+                    "`@JsonSetter(nulls = Nulls.AS_EMPTY)` that replaced it where `nulls` is its only argument. " +
+                    "Only enable this once you have confirmed that none of the matches should be serialized. " +
+                    "Defaults to `false`.",
+            required = false)
+    @Nullable
+    Boolean addJsonIgnore;
 
-    @Getter
-    final String description = "Find `Map` and `Collection` fields that carry `@JsonSetter(nulls = Nulls.AS_EMPTY)`, are initialized " +
+    String displayName = "Find `@JsonSetter(nulls = Nulls.AS_EMPTY)` on empty collection fields";
+
+    String description = "Find `Map` and `Collection` fields that carry `@JsonSetter(nulls = Nulls.AS_EMPTY)`, are initialized " +
             "with an empty collection, and are no longer hidden by `@JsonIgnore` on the field or its getter, or by a class level " +
             "`@JsonIgnoreProperties`. In rewrite-jackson 1.17.0 through 1.28.0 the " +
             "Jackson 2 to 3 migration replaced `@JsonIgnore` with `@JsonSetter(nulls = Nulls.AS_EMPTY)` on exactly these fields, " +
             "which starts serializing properties that were deliberately hidden wherever the field is otherwise visible, such as " +
             "through a getter. Run this recipe to audit repositories migrated with those versions; every match that should stay " +
-            "out of the JSON output needs `@JsonIgnore` restored.";
+            "out of the JSON output needs `@JsonIgnore` restored, which the `addJsonIgnore` option does for you.";
 
-    @Getter
-    final Set<String> tags = singleton("jackson-3");
+    Set<String> tags = singleton("jackson-3");
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -76,16 +90,16 @@ public class FindJsonSetterNullsAsEmptyCollections extends Recipe {
                             return vd;
                         }
 
-                        boolean nullsAsEmpty = false;
+                        J.Annotation nullsAsEmpty = null;
                         for (J.Annotation annotation : vd.getLeadingAnnotations()) {
                             if (JSON_IGNORE_MATCHER.matches(annotation)) {
                                 return vd;
                             }
                             if (JSON_SETTER_MATCHER.matches(annotation) && isNullsAsEmpty(annotation)) {
-                                nullsAsEmpty = true;
+                                nullsAsEmpty = annotation;
                             }
                         }
-                        if (!nullsAsEmpty) {
+                        if (nullsAsEmpty == null) {
                             return vd;
                         }
 
@@ -105,7 +119,30 @@ public class FindJsonSetterNullsAsEmptyCollections extends Recipe {
                             return vd;
                         }
 
-                        return SearchResult.found(vd, "Verify this field should be serialized; `@JsonIgnore` may have been removed here");
+                        if (!Boolean.TRUE.equals(addJsonIgnore)) {
+                            return SearchResult.found(vd, "Verify this field should be serialized; `@JsonIgnore` may have been removed here");
+                        }
+                        return restoreJsonIgnore(vd, nullsAsEmpty, ctx);
+                    }
+
+                    private J.VariableDeclarations restoreJsonIgnore(J.VariableDeclarations vd, J.Annotation jsonSetter, ExecutionContext ctx) {
+                        J.VariableDeclarations restored = vd;
+                        if (jsonSetter.getArguments() != null && jsonSetter.getArguments().size() == 1) {
+                            restored = (J.VariableDeclarations) new RemoveAnnotationVisitor(JSON_SETTER_MATCHER)
+                                    .visitNonNull(restored, ctx, getCursor().getParentOrThrow());
+                            maybeRemoveImport(JACKSON_JSON_SETTER);
+                            maybeRemoveImport(JACKSON_NULLS);
+                            maybeRemoveImport(JACKSON_NULLS + ".AS_EMPTY");
+                            updateCursor(restored);
+                        }
+
+                        maybeAddImport(JACKSON_JSON_IGNORE);
+                        return JavaTemplate
+                                .builder("@JsonIgnore")
+                                .imports(JACKSON_JSON_IGNORE)
+                                .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx, "jackson-annotations"))
+                                .build()
+                                .apply(getCursor(), restored.getCoordinates().addAnnotation(Comparator.comparing(J.Annotation::getSimpleName)));
                     }
 
                     private boolean isMapOrCollectionType(JavaType type) {
