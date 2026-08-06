@@ -27,7 +27,7 @@ class FindJsonSetterNullsAsEmptyCollectionsTest implements RewriteTest {
 
     @Override
     public void defaults(RecipeSpec spec) {
-        spec.recipe(new FindJsonSetterNullsAsEmptyCollections())
+        spec.recipe(new FindJsonSetterNullsAsEmptyCollections(null))
           .parser(JavaParser.fromJavaVersion().classpath("jackson-annotations"));
     }
 
@@ -370,6 +370,140 @@ class FindJsonSetterNullsAsEmptyCollectionsTest implements RewriteTest {
                   private Map<String, Object> extras = new LinkedHashMap<>();
 
                   @JsonIgnore(false)
+                  public Map<String, Object> getExtras() {
+                      return extras;
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void addJsonIgnoreReplacesJsonSetter() {
+        rewriteRun(
+          spec -> spec.recipe(new FindJsonSetterNullsAsEmptyCollections(true)),
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonSetter;
+              import com.fasterxml.jackson.annotation.Nulls;
+              import java.util.LinkedHashMap;
+              import java.util.Map;
+
+              class Model {
+                  @JsonSetter(nulls = Nulls.AS_EMPTY)
+                  private Map<String, Object> additionalProperties = new LinkedHashMap<>();
+
+                  public Map<String, Object> getAdditionalProperties() {
+                      return additionalProperties;
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonIgnore;
+
+              import java.util.LinkedHashMap;
+              import java.util.Map;
+
+              class Model {
+                  @JsonIgnore
+                  private Map<String, Object> additionalProperties = new LinkedHashMap<>();
+
+                  public Map<String, Object> getAdditionalProperties() {
+                      return additionalProperties;
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void addJsonIgnoreKeepsJsonSetterWithOtherArguments() {
+        rewriteRun(
+          spec -> spec.recipe(new FindJsonSetterNullsAsEmptyCollections(true)),
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonSetter;
+              import com.fasterxml.jackson.annotation.Nulls;
+              import java.util.LinkedHashMap;
+              import java.util.Map;
+
+              class Model {
+                  @JsonSetter(value = "extras", nulls = Nulls.AS_EMPTY)
+                  private Map<String, Object> additionalProperties = new LinkedHashMap<>();
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonIgnore;
+              import com.fasterxml.jackson.annotation.JsonSetter;
+              import com.fasterxml.jackson.annotation.Nulls;
+              import java.util.LinkedHashMap;
+              import java.util.Map;
+
+              class Model {
+                  @JsonIgnore
+                  @JsonSetter(value = "extras", nulls = Nulls.AS_EMPTY)
+                  private Map<String, Object> additionalProperties = new LinkedHashMap<>();
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void addJsonIgnoreWithStaticImportOfNullsAsEmpty() {
+        rewriteRun(
+          spec -> spec.recipe(new FindJsonSetterNullsAsEmptyCollections(true)),
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonSetter;
+              import java.util.HashSet;
+              import java.util.Set;
+
+              import static com.fasterxml.jackson.annotation.Nulls.AS_EMPTY;
+
+              class Model {
+                  @JsonSetter(nulls = AS_EMPTY)
+                  private Set<String> rules = new HashSet<>();
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonIgnore;
+
+              import java.util.HashSet;
+              import java.util.Set;
+
+              class Model {
+                  @JsonIgnore
+                  private Set<String> rules = new HashSet<>();
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void addJsonIgnoreSkipsFieldsThatAreAlreadyHidden() {
+        rewriteRun(
+          spec -> spec.recipe(new FindJsonSetterNullsAsEmptyCollections(true)),
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonIgnore;
+              import com.fasterxml.jackson.annotation.JsonSetter;
+              import com.fasterxml.jackson.annotation.Nulls;
+              import java.util.LinkedHashMap;
+              import java.util.Map;
+
+              class Model {
+                  @JsonSetter(nulls = Nulls.AS_EMPTY)
+                  private Map<String, Object> extras = new LinkedHashMap<>();
+
+                  @JsonIgnore
                   public Map<String, Object> getExtras() {
                       return extras;
                   }
