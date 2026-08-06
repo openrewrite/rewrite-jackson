@@ -31,7 +31,6 @@ recipeList:
   - org.openrewrite.java.jackson.CodehausToFasterXML  # First, so any codehaus stragglers are on the fasterxml side
   - org.openrewrite.java.jackson.IOExceptionToJacksonException  # Before any type changes, to ensure we update catches
   - org.openrewrite.java.jackson.ReplaceIOExceptionThrowInJacksonOverrides  # Also removes `throws IOException` from the serde overrides
-  - org.openrewrite.java.jackson.RemoveDeadJacksonThrows
   - org.openrewrite.java.jackson.StdDeserializerNullConstructor
   - org.openrewrite.java.jackson.UseReadTreeAsValueInDeserializer
   - org.openrewrite.java.jackson.LombokJacksonizedConfig
@@ -84,6 +83,7 @@ recipeList:
   - org.openrewrite.java.jackson.JsonSerializeIncludeToJsonInclude  # Before PackageChanges below
   - org.openrewrite.java.jackson.ReadValueUrlToOpenStream  # Before PackageChanges renames ObjectMapper away from com.fasterxml.jackson
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_PackageChanges
+  - org.openrewrite.java.jackson.RemoveDeadJacksonThrows  # After PackageChanges so we only see the J3 unchecked hierarchy
   - org.openrewrite.java.jackson.SimplifyJacksonExceptionCatch
 
 ---
@@ -913,27 +913,17 @@ description: >-
   In Jackson 3 the exception hierarchy is rerooted under `JacksonException`, which extends
   `RuntimeException`. Any surviving `throws` for a Jackson exception type is dead: callers are
   not required to handle it, and the declaration misleads readers into thinking checked-exception
-  handling is needed. Removes `throws` for `JacksonException` (and its subtypes, e.g.
-  `DatabindException`) and, as a safety net for partially-migrated code, the Jackson 2
-  `JsonProcessingException` supertype (and its subtypes, e.g. `JsonMappingException`) from both
-  methods and constructors. Does not touch `throws IOException` (still a checked exception) or
-  non-Jackson exception types.
+  handling is needed. Removes `throws` for `JacksonException` and its subtypes (e.g.
+  `DatabindException`) from both methods and constructors. Assumes the Jackson 2 to 3 package
+  changes have already run, so all Jackson exception types live under `tools.jackson`.
+  Does not touch `throws IOException` (still a checked exception) or non-Jackson exception types.
 tags:
   - jackson-3
 recipeList:
-  # Jackson 3 (post-migration) — supertype match covers `JacksonException` and its subtypes,
-  # including `DatabindException`.
+  # Supertype match covers `JacksonException` and its subtypes, including `DatabindException`.
   - org.openrewrite.java.RemoveMethodThrows:
       methodPattern: "*..* *(..)"
       exceptionTypePattern: tools.jackson.core.JacksonException
   - org.openrewrite.java.RemoveMethodThrows:
       methodPattern: "*..* <constructor>(..)"
       exceptionTypePattern: tools.jackson.core.JacksonException
-  # Jackson 2 (pre-migration) — safety net for code the type-change pass hasn't touched yet.
-  # Supertype match covers `JsonProcessingException` and its subtypes, including `JsonMappingException`.
-  - org.openrewrite.java.RemoveMethodThrows:
-      methodPattern: "*..* *(..)"
-      exceptionTypePattern: com.fasterxml.jackson.core.JsonProcessingException
-  - org.openrewrite.java.RemoveMethodThrows:
-      methodPattern: "*..* <constructor>(..)"
-      exceptionTypePattern: com.fasterxml.jackson.core.JsonProcessingException

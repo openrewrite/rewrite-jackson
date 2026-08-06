@@ -32,7 +32,6 @@ class RemoveDeadJacksonThrowsTest implements RewriteTest {
           .recipeFromResources("org.openrewrite.java.jackson.RemoveDeadJacksonThrows")
           .parser(JavaParser.fromJavaVersion()
             .classpathFromResources(new InMemoryExecutionContext(),
-              "jackson-annotations-2", "jackson-core-2", "jackson-databind-2",
               "jackson-core-3", "jackson-databind-3"));
     }
 
@@ -86,54 +85,6 @@ class RemoveDeadJacksonThrowsTest implements RewriteTest {
     }
 
     @Test
-    void removesJackson2ProcessingException() {
-        rewriteRun(
-          //language=java
-          java(
-            """
-              import com.fasterxml.jackson.core.JsonProcessingException;
-
-              class JsonUtil {
-                  String toJson(Object obj) throws JsonProcessingException {
-                      return obj.toString();
-                  }
-              }
-              """,
-            """
-              class JsonUtil {
-                  String toJson(Object obj) {
-                      return obj.toString();
-                  }
-              }
-              """
-          )
-        );
-    }
-
-    @Test
-    void removesJackson2MappingException() {
-        rewriteRun(
-          //language=java
-          java(
-            """
-              import com.fasterxml.jackson.databind.JsonMappingException;
-
-              class JsonUtil {
-                  void parse(String json) throws JsonMappingException {
-                  }
-              }
-              """,
-            """
-              class JsonUtil {
-                  void parse(String json) {
-                  }
-              }
-              """
-          )
-        );
-    }
-
-    @Test
     void removesDatabindExceptionFromConstructor() {
         rewriteRun(
           //language=java
@@ -157,15 +108,15 @@ class RemoveDeadJacksonThrowsTest implements RewriteTest {
     }
 
     @Test
-    void removesJackson2ProcessingExceptionFromInterfaceMethod() {
+    void removesJacksonExceptionFromInterfaceMethod() {
         rewriteRun(
           //language=java
           java(
             """
-              import com.fasterxml.jackson.core.JsonProcessingException;
+              import tools.jackson.core.JacksonException;
 
               interface JsonProcessor {
-                  String process(byte[] data) throws JsonProcessingException;
+                  String process(byte[] data) throws JacksonException;
               }
               """,
             """
