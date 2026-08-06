@@ -169,7 +169,7 @@ examples:
 type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.FindJsonSetterNullsAsEmptyCollections
 examples:
-- description: '`FindJsonSetterNullsAsEmptyCollectionsTest#findMapField`'
+- description: '`FindJsonSetterNullsAsEmptyCollectionsTest#findMapFieldExposedThroughGetter`'
   sources:
   - before: |
       import com.fasterxml.jackson.annotation.JsonSetter;
@@ -180,6 +180,10 @@ examples:
       class Model {
           @JsonSetter(nulls = Nulls.AS_EMPTY)
           private Map<String, Object> additionalProperties = new LinkedHashMap<>();
+
+          public Map<String, Object> getAdditionalProperties() {
+              return additionalProperties;
+          }
       }
     after: |
       import com.fasterxml.jackson.annotation.JsonSetter;
@@ -190,6 +194,10 @@ examples:
       class Model {
           /*~~(Verify this field should be serialized; `@JsonIgnore` may have been removed here)~~>*/@JsonSetter(nulls = Nulls.AS_EMPTY)
           private Map<String, Object> additionalProperties = new LinkedHashMap<>();
+
+          public Map<String, Object> getAdditionalProperties() {
+              return additionalProperties;
+          }
       }
     language: java
 ---
