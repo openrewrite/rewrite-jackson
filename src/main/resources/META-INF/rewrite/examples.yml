@@ -170,6 +170,8 @@ type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.FindJsonSetterNullsAsEmptyCollections
 examples:
 - description: '`FindJsonSetterNullsAsEmptyCollectionsTest#findMapFieldExposedThroughGetter`'
+  parameters:
+  - 'null'
   sources:
   - before: |
       import com.fasterxml.jackson.annotation.JsonSetter;
@@ -550,6 +552,27 @@ examples:
       class Test {
           void configure() {
               ObjectMapper mapper = new ObjectMapper();
+          }
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.jackson.RemoveDeadJacksonThrows
+examples:
+- description: '`RemoveDeadJacksonThrowsTest#removesJackson3JacksonException`'
+  sources:
+  - before: |
+      import tools.jackson.core.JacksonException;
+
+      class JsonUtil {
+          String toJson(Object obj) throws JacksonException {
+              return obj.toString();
+          }
+      }
+    after: |
+      class JsonUtil {
+          String toJson(Object obj) {
+              return obj.toString();
           }
       }
     language: java
