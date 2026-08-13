@@ -472,7 +472,7 @@ recipeList:
       newMethodName: writeNumberProperty
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: com.fasterxml.jackson.core.JsonGenerator writeObjectField(..)
-      newMethodName: writeObjectProperty
+      newMethodName: writePOJOProperty
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: com.fasterxml.jackson.core.JsonGenerator writeObjectFieldStart(..)
       newMethodName: writeObjectPropertyStart

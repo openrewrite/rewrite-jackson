@@ -232,7 +232,7 @@ class Jackson3MethodRenamesTest implements RewriteTest {
                       gen.writeName("test");
                       gen.writeNullProperty("kiwi");
                       gen.writeNumberProperty("orange", 1.0);
-                      gen.writeObjectProperty("peach", "peach");
+                      gen.writePOJOProperty("peach", "peach");
                       gen.writeObjectPropertyStart("pear");
                       gen.writeOmittedProperty("plum");
                       gen.writePOJOProperty("strawberry", "strawberry");
