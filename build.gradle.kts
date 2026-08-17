@@ -55,4 +55,5 @@ recipeDependencies {
     parserClasspath("tools.jackson.core:jackson-databind:3.+")
 
     testParserClasspath("com.fasterxml.jackson.datatype:jackson-datatype-joda:2.19.2")
+    testParserClasspath("com.fasterxml.jackson.module:jackson-module-afterburner:2.19.2")
 }

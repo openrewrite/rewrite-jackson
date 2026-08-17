@@ -17,6 +17,7 @@ package org.openrewrite.java.jackson;
 
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
+import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.Issue;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
@@ -218,6 +219,69 @@ class UpgradeJackson_2_3Test implements RewriteTest {
                   static void helloJackson() {
                       Object[] input = new Object[] { "one", "two" };
                       JsonFactory factory = JsonFactory.builder().build();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Issue("https://github.com/moderneinc/customer-requests/issues/3009")
+    @Test
+    void afterburnerImportAndDependencyNameTheSameArtifact() {
+        rewriteRun(
+          spec -> spec.parser(JavaParser.fromJavaVersion().classpathFromResources(
+            new InMemoryExecutionContext(),
+            "jackson-annotations-2",
+            "jackson-core-2",
+            "jackson-databind-2",
+            "jackson-module-afterburner-2")),
+          pomXml(
+            //language=xml
+            """
+              <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>org.example</groupId>
+                  <artifactId>example</artifactId>
+                  <version>1.0.0</version>
+                  <dependencies>
+                      <dependency>
+                          <groupId>com.fasterxml.jackson.module</groupId>
+                          <artifactId>jackson-module-afterburner</artifactId>
+                          <version>2.19.0</version>
+                      </dependency>
+                  </dependencies>
+              </project>
+              """,
+            spec -> spec.after(pom -> assertThat(pom)
+              .doesNotContain("blackbird")
+              .contains("<groupId>tools.jackson.module</groupId>")
+              .contains("<artifactId>jackson-module-afterburner</artifactId>")
+              .containsPattern("3\\.\\d+\\.\\d+")
+              .actual())),
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.json.JsonMapper;
+              import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
+
+              class Test {
+                  JsonMapper create() {
+                      return JsonMapper.builder()
+                              .addModule(new AfterburnerModule())
+                              .build();
+                  }
+              }
+              """,
+            """
+              import tools.jackson.databind.json.JsonMapper;
+              import tools.jackson.module.afterburner.AfterburnerModule;
+
+              class Test {
+                  JsonMapper create() {
+                      return JsonMapper.builder()
+                              .addModule(new AfterburnerModule())
+                              .build();
                   }
               }
               """
