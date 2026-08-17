@@ -237,6 +237,66 @@ class Jackson3DependenciesTest implements RewriteTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"jackson-module-afterburner", "jackson-module-blackbird"})
+    void jacksonModuleAfterburnerAndBlackbirdKeepTheirArtifactId(String artifact) {
+        rewriteRun(
+          pomXml(
+            //language=xml
+            """
+              <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>org.example</groupId>
+                  <artifactId>example</artifactId>
+                  <version>1.0.0</version>
+                  <dependencies>
+                      <dependency>
+                          <groupId>com.fasterxml.jackson.module</groupId>
+                          <artifactId>%s</artifactId>
+                          <version>2.19.0</version>
+                      </dependency>
+                  </dependencies>
+              </project>
+              """.formatted(artifact),
+            spec -> spec.after(pom ->
+              assertThat(pom)
+                .doesNotContain(">com.fasterxml.jackson.module<")
+                .contains(">tools.jackson.module<")
+                .contains(">%s<".formatted(artifact))
+                .containsPattern("3\\.\\d+\\.\\d+")
+                .actual())
+          )
+        );
+    }
+
+    @Test
+    void jacksonModuleAfterburnerInGradle() {
+        rewriteRun(spec -> spec.beforeRecipe(withToolingApi()),
+          buildGradle(
+            //language=gradle
+            """
+              plugins {
+                  id("java-library")
+              }
+
+              repositories {
+                  mavenCentral()
+              }
+
+              dependencies {
+                  implementation("com.fasterxml.jackson.module:jackson-module-afterburner:2.19.0")
+              }
+              """,
+            spec -> spec.after(gradle ->
+              assertThat(gradle)
+                .doesNotContain("com.fasterxml.jackson.module")
+                .containsOnlyOnce("tools.jackson.module:jackson-module-afterburner")
+                .containsPattern("3\\.\\d+\\.\\d+")
+                .actual())
+          )
+        );
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"_2.12", "_2.13", "_3"})
     void jacksonModuleScala(String artifactSuffix) {
         rewriteRun(
