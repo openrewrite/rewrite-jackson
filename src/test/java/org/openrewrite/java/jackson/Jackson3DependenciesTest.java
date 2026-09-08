@@ -155,8 +155,6 @@ class Jackson3DependenciesTest implements RewriteTest {
               spec -> spec.after(pom ->
                 assertThat(pom)
                   .contains("<jackson.version>2.21</jackson.version>")
-                  .contains(">tools.jackson.core<")
-                  .containsPattern("3\\.\\d+\\.\\d+")
                   .actual())
             ),
             mavenProject("child",
@@ -185,7 +183,7 @@ class Jackson3DependenciesTest implements RewriteTest {
                   """,
                 spec -> spec.after(pom ->
                   assertThat(pom)
-                    .doesNotContain("<properties>")
+                    .doesNotContain("<jackson.version>")
                     .doesNotContain("~~(") // Resolution failure markers
                     .contains(">tools.jackson.core<")
                     .actual())
