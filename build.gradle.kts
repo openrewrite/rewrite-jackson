@@ -9,7 +9,9 @@ val rewriteVersion = rewriteRecipe.rewriteVersion.get()
 dependencies {
     implementation(platform("org.openrewrite:rewrite-bom:$rewriteVersion"))
 
+    implementation("org.openrewrite:rewrite-gradle")
     implementation("org.openrewrite:rewrite-java")
+    implementation("org.openrewrite:rewrite-maven")
     implementation("org.openrewrite:rewrite-properties")
     implementation("org.openrewrite:rewrite-yaml")
     implementation("org.openrewrite.recipe:rewrite-java-dependencies:$rewriteVersion")
@@ -23,10 +25,8 @@ dependencies {
         exclude("io.github.eisop","dataflow-errorprone")
     }
 
-    testImplementation("org.openrewrite:rewrite-gradle")
     testImplementation("org.openrewrite:rewrite-kotlin")
     testImplementation("org.openrewrite:rewrite-test")
-    testImplementation("org.openrewrite:rewrite-maven")
     testImplementation("org.openrewrite.gradle.tooling:model:${rewriteVersion}")
 
     testRuntimeOnly(gradleApi())
