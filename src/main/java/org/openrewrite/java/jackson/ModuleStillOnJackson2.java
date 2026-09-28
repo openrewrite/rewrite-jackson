@@ -20,6 +20,7 @@ import org.jspecify.annotations.Nullable;
 import org.openrewrite.*;
 import org.openrewrite.gradle.marker.GradleProject;
 import org.openrewrite.java.dependencies.search.ModuleHasDependency;
+import org.openrewrite.java.internal.TypesInUse;
 import org.openrewrite.java.marker.JavaProject;
 import org.openrewrite.java.tree.JavaSourceFile;
 import org.openrewrite.java.tree.JavaType;
@@ -136,10 +137,18 @@ public class ModuleStillOnJackson2 extends ScanningRecipe<ModuleStillOnJackson2.
     }
 
     private static boolean usesJackson2(JavaSourceFile sourceFile) {
-        return sourceFile.getTypesInUse().getTypesInUse().stream()
-                       .anyMatch(type -> type instanceof JavaType.FullyQualified && isJackson2Type((JavaType.FullyQualified) type)) ||
-               sourceFile.getTypesInUse().getUsedMethods().stream()
-                       .anyMatch(method -> isJackson2Type(method.getDeclaringType()));
+        TypesInUse typesInUse = sourceFile.getTypesInUse();
+        for (JavaType type : typesInUse.getTypesInUse()) {
+            if (type instanceof JavaType.FullyQualified && isJackson2Type((JavaType.FullyQualified) type)) {
+                return true;
+            }
+        }
+        for (JavaType.Method method : typesInUse.getUsedMethods()) {
+            if (isJackson2Type(method.getDeclaringType())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean isJackson2Type(JavaType.FullyQualified type) {
