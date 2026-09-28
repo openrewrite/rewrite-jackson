@@ -90,9 +90,14 @@ recipeList:
 type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.java.jackson.UpgradeJackson_2_3_Dependencies
 displayName: Upgrade Jackson 2.x dependencies to 3.x
-description: Upgrade Jackson Maven dependencies from 2.x to 3.x versions and update group IDs.
+description: >-
+  Upgrade Jackson Maven dependencies from 2.x to 3.x versions and update group IDs.
+  Modules that already resolve Jackson 3 and no longer use Jackson 2 types in their sources are left as-is,
+  as any Jackson 2 dependencies they still declare are there on purpose.
 tags:
   - jackson-3
+preconditions:
+  - org.openrewrite.java.jackson.ModuleStillOnJackson2
 recipeList:
   - org.openrewrite.java.dependencies.ChangeDependency:
       oldGroupId: com.fasterxml.jackson.core

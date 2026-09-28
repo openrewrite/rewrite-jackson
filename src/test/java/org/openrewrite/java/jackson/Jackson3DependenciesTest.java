@@ -19,13 +19,18 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.openrewrite.DocumentExample;
+import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.Issue;
+import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.openrewrite.gradle.Assertions.buildGradle;
 import static org.openrewrite.gradle.toolingapi.Assertions.withToolingApi;
+import static org.openrewrite.java.Assertions.java;
+import static org.openrewrite.java.Assertions.mavenProject;
+import static org.openrewrite.java.Assertions.srcMainJava;
 import static org.openrewrite.maven.Assertions.pomXml;
 
 class Jackson3DependenciesTest implements RewriteTest {
@@ -722,6 +727,221 @@ class Jackson3DependenciesTest implements RewriteTest {
                 .contains(">tools.jackson.jr<")
                 .containsPattern("3\\.\\d+\\.\\d+")
                 .actual())
+          )
+        );
+    }
+
+    @Issue("https://github.com/openrewrite/rewrite-jackson/issues/170")
+    @Test
+    void keepJackson2DependenciesOfModuleAlreadyOnJackson3() {
+        rewriteRun(
+          spec -> spec.parser(JavaParser.fromJavaVersion()
+            .classpathFromResources(new InMemoryExecutionContext(), "jackson-core-3", "jackson-databind-3")),
+          mavenProject("project",
+            srcMainJava(
+              java(
+                """
+                  import tools.jackson.databind.ObjectMapper;
+
+                  class A {
+                      ObjectMapper mapper = new ObjectMapper();
+                  }
+                  """
+              )
+            ),
+            pomXml(
+              //language=xml
+              """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>org.example</groupId>
+                    <artifactId>example</artifactId>
+                    <version>1.0.0</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>tools.jackson.core</groupId>
+                            <artifactId>jackson-databind</artifactId>
+                            <version>3.0.0</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>com.fasterxml.jackson.datatype</groupId>
+                            <artifactId>jackson-datatype-jsr310</artifactId>
+                            <version>2.15.2</version>
+                        </dependency>
+                    </dependencies>
+                </project>
+                """
+            )
+          )
+        );
+    }
+
+    @Issue("https://github.com/openrewrite/rewrite-jackson/issues/170")
+    @Test
+    void keepJackson2DependenciesOfGradleProjectAlreadyOnJackson3() {
+        rewriteRun(
+          spec -> spec.beforeRecipe(withToolingApi())
+            .parser(JavaParser.fromJavaVersion()
+              .classpathFromResources(new InMemoryExecutionContext(), "jackson-core-3", "jackson-databind-3")),
+          mavenProject("project",
+            srcMainJava(
+              java(
+                """
+                  import tools.jackson.databind.ObjectMapper;
+
+                  class A {
+                      ObjectMapper mapper = new ObjectMapper();
+                  }
+                  """
+              )
+            ),
+            buildGradle(
+              """
+                plugins {
+                    id 'java-library'
+                }
+                repositories {
+                    mavenCentral()
+                }
+                dependencies {
+                    implementation 'tools.jackson.core:jackson-databind:3.0.0'
+                    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.15.2'
+                }
+                """
+            )
+          )
+        );
+    }
+
+    @Test
+    void migrateModuleOnJackson3ThatStillUsesJackson2Types() {
+        rewriteRun(
+          spec -> spec.parser(JavaParser.fromJavaVersion()
+            .classpathFromResources(new InMemoryExecutionContext(), "jackson-core-2", "jackson-databind-2")),
+          mavenProject("project",
+            srcMainJava(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+
+                  class A {
+                      ObjectMapper mapper = new ObjectMapper();
+                  }
+                  """,
+                """
+                  import tools.jackson.databind.ObjectMapper;
+                  import tools.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      ObjectMapper mapper = new JsonMapper();
+                  }
+                  """
+              )
+            ),
+            pomXml(
+              //language=xml
+              """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>org.example</groupId>
+                    <artifactId>example</artifactId>
+                    <version>1.0.0</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>tools.jackson.core</groupId>
+                            <artifactId>jackson-core</artifactId>
+                            <version>3.0.0</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>com.fasterxml.jackson.core</groupId>
+                            <artifactId>jackson-databind</artifactId>
+                            <version>2.19.0</version>
+                        </dependency>
+                    </dependencies>
+                </project>
+                """,
+              spec -> spec.after(pom ->
+                assertThat(pom)
+                  .doesNotContain(">com.fasterxml.jackson.core<")
+                  .containsOnlyOnce(">jackson-databind<")
+                  .actual())
+            )
+          )
+        );
+    }
+
+    @Test
+    void migrateParentOnJackson3WhenChildModuleStillUsesJackson2Types() {
+        rewriteRun(
+          spec -> spec.parser(JavaParser.fromJavaVersion()
+            .classpathFromResources(new InMemoryExecutionContext(), "jackson-core-2", "jackson-databind-2")),
+          pomXml(
+            //language=xml
+            """
+              <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>org.example</groupId>
+                  <artifactId>parent</artifactId>
+                  <version>1.0.0</version>
+                  <packaging>pom</packaging>
+                  <modules>
+                      <module>child</module>
+                  </modules>
+                  <dependencies>
+                      <dependency>
+                          <groupId>tools.jackson.core</groupId>
+                          <artifactId>jackson-core</artifactId>
+                          <version>3.0.0</version>
+                      </dependency>
+                      <dependency>
+                          <groupId>com.fasterxml.jackson.core</groupId>
+                          <artifactId>jackson-databind</artifactId>
+                          <version>2.19.0</version>
+                      </dependency>
+                  </dependencies>
+              </project>
+              """,
+            spec -> spec.after(pom ->
+              assertThat(pom)
+                .doesNotContain(">com.fasterxml.jackson.core<")
+                .contains(">tools.jackson.core<")
+                .containsOnlyOnce(">jackson-databind<")
+                .actual())
+          ),
+          mavenProject("child",
+            srcMainJava(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+
+                  class A {
+                      ObjectMapper mapper = new ObjectMapper();
+                  }
+                  """,
+                """
+                  import tools.jackson.databind.ObjectMapper;
+                  import tools.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      ObjectMapper mapper = new JsonMapper();
+                  }
+                  """
+              )
+            ),
+            pomXml(
+              //language=xml
+              """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <parent>
+                        <groupId>org.example</groupId>
+                        <artifactId>parent</artifactId>
+                        <version>1.0.0</version>
+                    </parent>
+                    <artifactId>child</artifactId>
+                </project>
+                """
+            )
           )
         );
     }
