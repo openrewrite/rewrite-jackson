@@ -48,7 +48,7 @@ public class ModuleStillOnJackson2 extends ScanningRecipe<ModuleStillOnJackson2.
         final Set<JavaProject> resolvingJackson3 = new HashSet<>();
         final Map<UUID, JavaProject> mavenProjects = new HashMap<>();
         final Map<JavaProject, List<UUID>> mavenModules = new HashMap<>();
-        final Map<JavaProject, String> gradlePaths = new HashMap<>();
+        final Map<JavaProject, String> gradlePaths = new HashMap<>(); // e.g. ":", ":app", ":libs:core"
 
         @Nullable
         Set<JavaProject> alreadyOnJackson3;
