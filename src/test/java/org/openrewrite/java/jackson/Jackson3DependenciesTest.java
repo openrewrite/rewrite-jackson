@@ -735,8 +735,7 @@ class Jackson3DependenciesTest implements RewriteTest {
     @Test
     void keepJackson2DependenciesOfModuleAlreadyOnJackson3() {
         rewriteRun(
-          spec -> spec.parser(JavaParser.fromJavaVersion()
-            .classpathFromResources(new InMemoryExecutionContext(), "jackson-core-3", "jackson-databind-3")),
+          spec -> spec.parser(jackson(3)),
           mavenProject("project",
             srcMainJava(
               java(
@@ -781,8 +780,7 @@ class Jackson3DependenciesTest implements RewriteTest {
     void keepJackson2DependenciesOfGradleProjectAlreadyOnJackson3() {
         rewriteRun(
           spec -> spec.beforeRecipe(withToolingApi())
-            .parser(JavaParser.fromJavaVersion()
-              .classpathFromResources(new InMemoryExecutionContext(), "jackson-core-3", "jackson-databind-3")),
+            .parser(jackson(3)),
           mavenProject("project",
             srcMainJava(
               java(
@@ -816,8 +814,7 @@ class Jackson3DependenciesTest implements RewriteTest {
     @Test
     void migrateModuleOnJackson3ThatStillUsesJackson2Types() {
         rewriteRun(
-          spec -> spec.parser(JavaParser.fromJavaVersion()
-            .classpathFromResources(new InMemoryExecutionContext(), "jackson-core-2", "jackson-databind-2")),
+          spec -> spec.parser(jackson(2)),
           mavenProject("project",
             srcMainJava(
               java(
@@ -873,8 +870,7 @@ class Jackson3DependenciesTest implements RewriteTest {
     @Test
     void migrateParentOnJackson3WhenChildModuleStillUsesJackson2Types() {
         rewriteRun(
-          spec -> spec.parser(JavaParser.fromJavaVersion()
-            .classpathFromResources(new InMemoryExecutionContext(), "jackson-core-2", "jackson-databind-2")),
+          spec -> spec.parser(jackson(2)),
           pomXml(
             //language=xml
             """
@@ -944,5 +940,10 @@ class Jackson3DependenciesTest implements RewriteTest {
             )
           )
         );
+    }
+
+    private static JavaParser.Builder<?, ?> jackson(int majorVersion) {
+        return JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
+          "jackson-core-" + majorVersion, "jackson-databind-" + majorVersion);
     }
 }
