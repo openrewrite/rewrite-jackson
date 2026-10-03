@@ -60,6 +60,16 @@ public class RemoveBuiltInModuleBeans extends ScanningRecipe<Set<String>> {
     public TreeVisitor<?, ExecutionContext> getScanner(Set<String> referencedMethods) {
         return new JavaIsoVisitor<ExecutionContext>() {
             @Override
+            public J.MethodDeclaration visitMethodDeclaration(J.MethodDeclaration method, ExecutionContext ctx) {
+                for (JavaType.Method overridden = TypeUtils.findOverriddenMethod(method.getMethodType()).orElse(null);
+                     overridden != null;
+                     overridden = TypeUtils.findOverriddenMethod(overridden).orElse(null)) {
+                    referencedMethods.add(methodKey(overridden));
+                }
+                return super.visitMethodDeclaration(method, ctx);
+            }
+
+            @Override
             public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
                 if (method.getMethodType() != null) {
                     referencedMethods.add(methodKey(method.getMethodType()));

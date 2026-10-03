@@ -28,7 +28,9 @@ class RemoveBuiltInModuleBeansTest implements RewriteTest {
         spec.recipe(new RemoveBuiltInModuleBeans())
           .parser(JavaParser.fromJavaVersion().dependsOn(
             "package org.springframework.context.annotation; public @interface Bean {}",
-            "package com.fasterxml.jackson.datatype.jsr310; public class JavaTimeModule { public void configure() {} }",
+            "package com.fasterxml.jackson.databind; public abstract class Module {}",
+            "package com.fasterxml.jackson.databind.module; public class SimpleModule extends com.fasterxml.jackson.databind.Module {}",
+            "package com.fasterxml.jackson.datatype.jsr310; public class JavaTimeModule extends com.fasterxml.jackson.databind.Module { public void configure() {} }",
             "package com.fasterxml.jackson.datatype.jdk8; public class Jdk8Module {}",
             "package com.fasterxml.jackson.module.paramnames; public class ParameterNamesModule { public ParameterNamesModule() {} public ParameterNamesModule(String mode) {} }"));
     }
@@ -180,6 +182,39 @@ class RemoveBuiltInModuleBeansTest implements RewriteTest {
               class Caller {
                   JavaTimeModule direct = new Config().direct();
                   Supplier<JavaTimeModule> reference = new Config()::reference;
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void preserveBeanOverriddenByAnotherClass() {
+        rewriteRun(
+          java(
+            """
+              import org.springframework.context.annotation.Bean;
+              import com.fasterxml.jackson.databind.Module;
+              import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
+              class Base {
+                  @Bean
+                  public Module module() {
+                      return new JavaTimeModule();
+                  }
+              }
+              """
+          ),
+          java(
+            """
+              import com.fasterxml.jackson.databind.Module;
+              import com.fasterxml.jackson.databind.module.SimpleModule;
+
+              class Child extends Base {
+                  @Override
+                  public Module module() {
+                      return new SimpleModule();
+                  }
               }
               """
           )
