@@ -63,6 +63,7 @@ public class UseFormatAlignedObjectMappers extends Recipe {
                 J.NewClass nc = super.visitNewClass(newClass, ctx);
 
                 if (OBJECT_MAPPER_NO_ARG.matches(nc)) {
+                    maybeRemoveImport(OBJECT_MAPPER);
                     maybeAddImport(JSON_MAPPER);
                     return replaceWithMapper(nc, JSON_MAPPER);
                 }
@@ -74,6 +75,7 @@ public class UseFormatAlignedObjectMappers extends Recipe {
                 String source = String.valueOf(nc.getArguments().get(0).getType());
                 String target = FACTORY_TO_MAPPER.get(source);
                 if (target != null) {
+                    maybeRemoveImport(OBJECT_MAPPER);
                     maybeRemoveImport(source);
                     maybeAddImport(target);
                     return replaceWithMapper(nc, target);

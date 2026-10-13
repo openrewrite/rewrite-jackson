@@ -684,7 +684,6 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         } else {
                             maybeAddImport(mapperFqn);
                         }
-                        maybeAddImport(JSON_INCLUDE);
 
                         JavaParser.Builder<?, ?> parser = JavaParser.fromJavaVersion()
                                 .classpathFromResources(ctx,
@@ -757,7 +756,6 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         templateCode.append(")\n.build()");
 
                         maybeAddImport(mapperFqn);
-                        maybeAddImport(JSON_INCLUDE);
 
                         JavaParser.Builder<?, ?> parser = JavaParser.fromJavaVersion()
                                 .classpathFromResources(ctx,

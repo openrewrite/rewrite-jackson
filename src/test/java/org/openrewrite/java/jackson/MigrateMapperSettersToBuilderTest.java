@@ -1883,6 +1883,40 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         }
 
         @Test
+        void serializationInclusionWithNestedIncludeImport() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude.Include;
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      ObjectMapper create() {
+                          JsonMapper mapper = new JsonMapper();
+                          mapper.setSerializationInclusion(Include.NON_NULL);
+                          return mapper;
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude.Include;
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+                  import com.fasterxml.jackson.databind.json.JsonMapper;
+
+                  class A {
+                      ObjectMapper create() {
+                          return JsonMapper.builder()
+                                  .changeDefaultPropertyInclusion(incl -> incl.withContentInclusion(Include.NON_NULL).withValueInclusion(Include.NON_NULL))
+                                  .build();
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
         void registerModuleWithLocalModuleDeclaredBetween() {
             rewriteRun(
               java(
