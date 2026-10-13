@@ -441,41 +441,159 @@ class Jackson3DependenciesTest implements RewriteTest {
         );
     }
 
-    @Test
-    void jacksonModuleParameterNames() {
+    @ParameterizedTest
+    @ValueSource(strings = {
+      "com.fasterxml.jackson.module:jackson-module-parameter-names",
+      "com.fasterxml.jackson.datatype:jackson-datatype-jdk8",
+      "com.fasterxml.jackson.datatype:jackson-datatype-jsr310"})
+    void builtInModuleRemovedAndDatabindAddedWhenUsed(String module) {
+        String[] ga = module.split(":");
         rewriteRun(
-          pomXml(
-            //language=xml
-            """
-              <project>
-                  <modelVersion>4.0.0</modelVersion>
-                  <groupId>org.example</groupId>
-                  <artifactId>example</artifactId>
-                  <version>1.0.0</version>
-                  <dependencies>
-                      <dependency>
-                          <groupId>com.fasterxml.jackson.module</groupId>
-                          <artifactId>jackson-module-parameter-names</artifactId>
-                          <version>2.19.0</version>
-                      </dependency>
-                  </dependencies>
-              </project>
-              """,
-            spec -> spec.after(pom ->
-              assertThat(pom)
-                .doesNotContain(">com.fasterxml.jackson.module<")
-                .doesNotContain(">jackson-module-parameter-names<")
-                .contains(">tools.jackson.core<")
-                .contains(">jackson-databind<")
-                .containsPattern("3\\.\\d+\\.\\d+")
-                .actual())
+          spec -> spec.parser(JavaParser.fromJavaVersion().classpath("jackson-core", "jackson-databind")),
+          mavenProject("project",
+            srcMainJava(
+              //language=java
+              java(
+                """
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+
+                  class A {
+                      ObjectMapper mapper;
+                  }
+                  """,
+                """
+                  import tools.jackson.databind.ObjectMapper;
+
+                  class A {
+                      ObjectMapper mapper;
+                  }
+                  """
+              )
+            ),
+            pomXml(
+              //language=xml
+              """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>org.example</groupId>
+                    <artifactId>example</artifactId>
+                    <version>1.0.0</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>%s</groupId>
+                            <artifactId>%s</artifactId>
+                            <version>2.19.0</version>
+                        </dependency>
+                    </dependencies>
+                </project>
+                """.formatted(ga[0], ga[1]),
+              spec -> spec.after(pom ->
+                assertThat(pom)
+                  .doesNotContain(ga[1])
+                  .contains(">tools.jackson.core<")
+                  .containsOnlyOnce(">jackson-databind<")
+                  .containsPattern("3\\.\\d+\\.\\d+")
+                  .actual())
+            )
           )
         );
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"jackson-datatype-jdk8", "jackson-datatype-jsr310"})
-    void jacksonDatatypeJdk8(String datatypeModule) {
+    @Test
+    void testScopedBuiltInModulesRemovedRatherThanRemappedOntoDatabind() {
+        rewriteRun(
+          spec -> spec.parser(JavaParser.fromJavaVersion().classpath("jackson-core", "jackson-databind")),
+          mavenProject("project",
+            srcMainJava(
+              //language=java
+              java(
+                """
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+
+                  class A {
+                      ObjectMapper mapper;
+                  }
+                  """,
+                """
+                  import tools.jackson.databind.ObjectMapper;
+
+                  class A {
+                      ObjectMapper mapper;
+                  }
+                  """
+              )
+            ),
+            pomXml(
+              //language=xml
+              """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>org.example</groupId>
+                    <artifactId>example</artifactId>
+                    <version>1.0.0</version>
+                    <dependencyManagement>
+                        <dependencies>
+                            <dependency>
+                                <groupId>tools.jackson</groupId>
+                                <artifactId>jackson-bom</artifactId>
+                                <version>3.1.4</version>
+                                <type>pom</type>
+                                <scope>import</scope>
+                            </dependency>
+                        </dependencies>
+                    </dependencyManagement>
+                    <dependencies>
+                        <dependency>
+                            <groupId>io.swagger.core.v3</groupId>
+                            <artifactId>swagger-core</artifactId>
+                            <version>2.2.20</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>com.fasterxml.jackson.datatype</groupId>
+                            <artifactId>jackson-datatype-jsr310</artifactId>
+                            <version>2.19.0</version>
+                            <scope>test</scope>
+                        </dependency>
+                    </dependencies>
+                </project>
+                """,
+              """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>org.example</groupId>
+                    <artifactId>example</artifactId>
+                    <version>1.0.0</version>
+                    <dependencyManagement>
+                        <dependencies>
+                            <dependency>
+                                <groupId>tools.jackson</groupId>
+                                <artifactId>jackson-bom</artifactId>
+                                <version>3.1.4</version>
+                                <type>pom</type>
+                                <scope>import</scope>
+                            </dependency>
+                        </dependencies>
+                    </dependencyManagement>
+                    <dependencies>
+                        <dependency>
+                            <groupId>io.swagger.core.v3</groupId>
+                            <artifactId>swagger-core</artifactId>
+                            <version>2.2.20</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>tools.jackson.core</groupId>
+                            <artifactId>jackson-databind</artifactId>
+                        </dependency>
+                    </dependencies>
+                </project>
+                """
+            )
+          )
+        );
+    }
+
+    @Test
+    void managedBuiltInModulesRemoved() {
         rewriteRun(
           pomXml(
             //language=xml
@@ -485,23 +603,125 @@ class Jackson3DependenciesTest implements RewriteTest {
                   <groupId>org.example</groupId>
                   <artifactId>example</artifactId>
                   <version>1.0.0</version>
+                  <dependencyManagement>
+                      <dependencies>
+                          <dependency>
+                              <groupId>com.fasterxml.jackson.datatype</groupId>
+                              <artifactId>jackson-datatype-jsr310</artifactId>
+                              <version>2.19.0</version>
+                          </dependency>
+                      </dependencies>
+                  </dependencyManagement>
                   <dependencies>
                       <dependency>
                           <groupId>com.fasterxml.jackson.datatype</groupId>
-                          <artifactId>%s</artifactId>
-                          <version>2.19.0</version>
+                          <artifactId>jackson-datatype-jsr310</artifactId>
                       </dependency>
                   </dependencies>
               </project>
-              """.formatted(datatypeModule),
-            spec -> spec.after(pom ->
-              assertThat(pom)
-                .doesNotContain(">com.fasterxml.jackson.datatype<")
-                .doesNotContain(datatypeModule)
-                .contains(">tools.jackson.core<")
-                .contains(">jackson-databind<")
-                .containsPattern("3\\.\\d+\\.\\d+")
-                .actual())
+              """,
+            """
+              <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>org.example</groupId>
+                  <artifactId>example</artifactId>
+                  <version>1.0.0</version>
+              </project>
+              """
+          )
+        );
+    }
+
+    @Test
+    void addJackson3ArtifactsForTypesOnlyResolvedTransitively() {
+        rewriteRun(
+          spec -> spec.parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
+            "jackson-core-2", "jackson-databind-2", "jackson-dataformat-yaml-2")),
+          mavenProject("project",
+            srcMainJava(
+              //language=java
+              java(
+                """
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+                  import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+
+                  class A {
+                      ObjectMapper mapper = new YAMLMapper();
+                  }
+                  """,
+                """
+                  import tools.jackson.databind.ObjectMapper;
+                  import tools.jackson.dataformat.yaml.YAMLMapper;
+
+                  class A {
+                      ObjectMapper mapper = new YAMLMapper();
+                  }
+                  """
+              )
+            ),
+            pomXml(
+              //language=xml
+              """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>org.example</groupId>
+                    <artifactId>example</artifactId>
+                    <version>1.0.0</version>
+                    <dependencyManagement>
+                        <dependencies>
+                            <dependency>
+                                <groupId>tools.jackson</groupId>
+                                <artifactId>jackson-bom</artifactId>
+                                <version>3.1.4</version>
+                                <type>pom</type>
+                                <scope>import</scope>
+                            </dependency>
+                        </dependencies>
+                    </dependencyManagement>
+                    <dependencies>
+                        <dependency>
+                            <groupId>io.swagger.core.v3</groupId>
+                            <artifactId>swagger-core</artifactId>
+                            <version>2.2.20</version>
+                        </dependency>
+                    </dependencies>
+                </project>
+                """,
+              """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>org.example</groupId>
+                    <artifactId>example</artifactId>
+                    <version>1.0.0</version>
+                    <dependencyManagement>
+                        <dependencies>
+                            <dependency>
+                                <groupId>tools.jackson</groupId>
+                                <artifactId>jackson-bom</artifactId>
+                                <version>3.1.4</version>
+                                <type>pom</type>
+                                <scope>import</scope>
+                            </dependency>
+                        </dependencies>
+                    </dependencyManagement>
+                    <dependencies>
+                        <dependency>
+                            <groupId>io.swagger.core.v3</groupId>
+                            <artifactId>swagger-core</artifactId>
+                            <version>2.2.20</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>tools.jackson.core</groupId>
+                            <artifactId>jackson-databind</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>tools.jackson.dataformat</groupId>
+                            <artifactId>jackson-dataformat-yaml</artifactId>
+                        </dependency>
+                    </dependencies>
+                </project>
+                """
+            )
           )
         );
     }

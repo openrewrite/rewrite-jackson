@@ -28,6 +28,8 @@ import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.openrewrite.java.Assertions.java;
+import static org.openrewrite.java.Assertions.mavenProject;
+import static org.openrewrite.java.Assertions.srcMainJava;
 import static org.openrewrite.maven.Assertions.pomXml;
 
 class UpgradeJackson_2_3Test implements RewriteTest {
@@ -529,40 +531,62 @@ class UpgradeJackson_2_3Test implements RewriteTest {
     @Test
     void jacksonUpgradeToVersion3_java8Only() {
         rewriteRun(
-          pomXml(
-            //language=xml
-            """
-              <project>
-                  <modelVersion>4.0.0</modelVersion>
-                  <groupId>org.example</groupId>
-                  <artifactId>example</artifactId>
-                  <version>1.0.0</version>
-                  <dependencies>
-                      <dependency>
-                          <groupId>com.fasterxml.jackson.module</groupId>
-                          <artifactId>jackson-module-parameter-names</artifactId>
-                          <version>2.19.0</version>
-                      </dependency>
-                      <dependency>
-                          <groupId>com.fasterxml.jackson.datatype</groupId>
-                          <artifactId>jackson-datatype-jdk8</artifactId>
-                          <version>2.19.0</version>
-                      </dependency>
-                      <dependency>
-                          <groupId>com.fasterxml.jackson.datatype</groupId>
-                          <artifactId>jackson-datatype-jsr310</artifactId>
-                          <version>2.19.0</version>
-                      </dependency>
-                  </dependencies>
-              </project>
-              """,
-            spec -> spec.after(pom -> assertThat(pom)
-              .containsOnlyOnce("<dependency>")
-              .contains(
-                "<groupId>tools.jackson.core</groupId>",
-                "<artifactId>jackson-databind</artifactId>")
-              .containsPattern("3\\.\\d+\\.\\d+")
-              .actual()))
+          mavenProject("project",
+            srcMainJava(
+              //language=java
+              java(
+                """
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+
+                  class A {
+                      ObjectMapper mapper;
+                  }
+                  """,
+                """
+                  import tools.jackson.databind.ObjectMapper;
+
+                  class A {
+                      ObjectMapper mapper;
+                  }
+                  """
+              )
+            ),
+            pomXml(
+              //language=xml
+              """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>org.example</groupId>
+                    <artifactId>example</artifactId>
+                    <version>1.0.0</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>com.fasterxml.jackson.module</groupId>
+                            <artifactId>jackson-module-parameter-names</artifactId>
+                            <version>2.19.0</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>com.fasterxml.jackson.datatype</groupId>
+                            <artifactId>jackson-datatype-jdk8</artifactId>
+                            <version>2.19.0</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>com.fasterxml.jackson.datatype</groupId>
+                            <artifactId>jackson-datatype-jsr310</artifactId>
+                            <version>2.19.0</version>
+                        </dependency>
+                    </dependencies>
+                </project>
+                """,
+              spec -> spec.after(pom -> assertThat(pom)
+                .containsOnlyOnce("<dependency>")
+                .contains(
+                  "<groupId>tools.jackson.core</groupId>",
+                  "<artifactId>jackson-databind</artifactId>")
+                .containsPattern("3\\.\\d+\\.\\d+")
+                .actual())
+            )
+          )
         );
     }
 
