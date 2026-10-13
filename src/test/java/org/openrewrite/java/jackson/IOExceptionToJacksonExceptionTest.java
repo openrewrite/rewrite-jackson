@@ -339,4 +339,74 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
           )
         );
     }
+
+    @Test
+    void wrapCaughtExceptionPassedOnAsIOException() {
+        rewriteRun(
+          java(
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import java.io.IOException;
+              import java.io.UncheckedIOException;
+
+              class KafkaSqlKeySerializer {
+                  ObjectMapper mapper = new ObjectMapper();
+
+                  byte[] serialize(Object o) {
+                      try {
+                          return mapper.writeValueAsBytes(o);
+                      } catch (IOException e) {
+                          throw new UncheckedIOException(e);
+                      }
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import tools.jackson.core.JacksonException;
+
+              import java.io.IOException;
+              import java.io.UncheckedIOException;
+
+              class KafkaSqlKeySerializer {
+                  ObjectMapper mapper = new ObjectMapper();
+
+                  byte[] serialize(Object o) {
+                      try {
+                          return mapper.writeValueAsBytes(o);
+                      } catch (JacksonException e) {
+                          throw new UncheckedIOException(new IOException(e));
+                      }
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void noChangeWhenMixedIOSourcesAndCaughtExceptionPassedOnAsIOException() {
+        rewriteRun(
+          java(
+            """
+              import java.io.FileInputStream;
+              import java.io.IOException;
+              import java.io.UncheckedIOException;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void readAndDeserialize() {
+                      ObjectMapper mapper = new ObjectMapper();
+                      try {
+                          byte[] data = new FileInputStream("data.json").readAllBytes();
+                          mapper.readValue(data, String.class);
+                      } catch (IOException e) {
+                          throw new UncheckedIOException("Failed to read", e);
+                      }
+                  }
+              }
+              """
+          )
+        );
+    }
 }
