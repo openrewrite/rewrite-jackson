@@ -658,7 +658,7 @@ class Jackson3MethodRenamesTest implements RewriteTest {
                       List<String> textValues = node.findValuesAsString("mango");
                       boolean isContainer = node.isContainer();
                       boolean isString = node.isString();
-                      String textValue = node.stringValue();
+                      String textValue = node.stringValue(null);
                       var modifiedNode = node.withObject("pineapple");
                   }
               }
@@ -709,7 +709,7 @@ class Jackson3MethodRenamesTest implements RewriteTest {
                       List<String> textValues = node.findValuesAsString("mango");
                       boolean isContainer = node.isContainer();
                       boolean isString = node.isString();
-                      String textValue = node.stringValue();
+                      String textValue = node.stringValue(null);
                       var modifiedNode = node.withObject("pineapple");
                   }
               }
@@ -722,7 +722,8 @@ class Jackson3MethodRenamesTest implements RewriteTest {
     @Test
     void jsonNodeAsTextVersusTextValue() {
         // asText() coerces (null node -> ""), textValue() does not (null node -> null);
-        // Jackson 3 preserves this distinction as asString() and stringValue(). See gh-144.
+        // Jackson 3 preserves this distinction as asString() and stringValue(null),
+        // as stringValue() without a default throws for nodes that are not strings. See gh-144.
         rewriteRun(
           //language=java
           java(
@@ -742,7 +743,34 @@ class Jackson3MethodRenamesTest implements RewriteTest {
               class Test {
                   void test(JsonNode node) {
                       String coerced = node.asString();
-                      String exact = node.stringValue();
+                      String exact = node.stringValue(null);
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void textValueOnChainedNodeKeepsReturningNull() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.JsonNode;
+
+              class CyberarkVaultTestResource {
+                  String token(JsonNode node) {
+                      return node.get("token").textValue();
+                  }
+              }
+              """,
+            """
+              import tools.jackson.databind.JsonNode;
+
+              class CyberarkVaultTestResource {
+                  String token(JsonNode node) {
+                      return node.get("token").stringValue(null);
                   }
               }
               """
