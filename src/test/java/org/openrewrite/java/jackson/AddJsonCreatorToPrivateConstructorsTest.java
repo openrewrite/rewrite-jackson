@@ -178,6 +178,34 @@ class AddJsonCreatorToPrivateConstructorsTest implements RewriteTest {
     }
 
     @Test
+    void doNotAddSecondCreatorWhenFactoryMethodIsAnnotated() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonCreator;
+              import java.util.function.Supplier;
+
+              public class Cell<T> {
+                  private T value;
+                  private Supplier<T> loader;
+
+                  private Cell(T value, Supplier<T> loader) {
+                      this.value = value;
+                      this.loader = loader;
+                  }
+
+                  @JsonCreator
+                  public static <T> Cell<T> cell(T value) {
+                      return new Cell<>(value, null);
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void doNotChangeNoArgConstructor() {
         rewriteRun(
           //language=java
