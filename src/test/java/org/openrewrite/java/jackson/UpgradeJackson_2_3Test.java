@@ -358,6 +358,47 @@ class UpgradeJackson_2_3Test implements RewriteTest {
 
     @Issue("https://github.com/openrewrite/rewrite-jackson/issues/89")
     @Test
+    void mutatorsInStaticInitializerFoldedIntoBuilder() {
+        rewriteRun(
+          spec -> spec.parser(JavaParser.fromJavaVersion().classpath(
+            "jackson-annotations", "jackson-core", "jackson-databind", "jackson-module-parameter-names")),
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonCreator.Mode;
+              import com.fasterxml.jackson.annotation.JsonInclude;
+              import com.fasterxml.jackson.databind.DeserializationFeature;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
+
+              class WebSocketsIT {
+                  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+                  static {
+                      OBJECT_MAPPER.registerModule(new ParameterNamesModule(Mode.PROPERTIES));
+                      OBJECT_MAPPER.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+                      OBJECT_MAPPER.setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL);
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonInclude;
+              import tools.jackson.databind.ObjectMapper;
+              import tools.jackson.databind.cfg.ConstructorDetector;
+              import tools.jackson.databind.json.JsonMapper;
+
+              class WebSocketsIT {
+                  private static final ObjectMapper OBJECT_MAPPER = JsonMapper.builder()
+                          .constructorDetector(ConstructorDetector.USE_PROPERTIES_BASED)
+                          .changeDefaultPropertyInclusion(incl -> incl.withContentInclusion(JsonInclude.Include.NON_NULL).withValueInclusion(JsonInclude.Include.NON_NULL))
+                          .build();
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void chainedConfigurationOnNewObjectMapper() {
         rewriteRun(
           //language=java

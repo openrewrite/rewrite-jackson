@@ -790,6 +790,68 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         }
 
         @Test
+        void objectMapperFlaggedAsItHasNoBuilderToFoldInto() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+
+                  class A {
+                      ObjectMapper create() {
+                          ObjectMapper mapper = new ObjectMapper();
+                          mapper.disable(SerializationFeature.INDENT_OUTPUT);
+                          return mapper;
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+
+                  class A {
+                      ObjectMapper create() {
+                          ObjectMapper mapper = new ObjectMapper();
+                          // TODO disable could not be folded to the builder of ObjectMapper. Use mapper.rebuild().disable(...).build() or move to the mapper's instantiation site.
+                          mapper.disable(SerializationFeature.INDENT_OUTPUT);
+                          return mapper;
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void objectMapperParameterOfCustomizer() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+
+                  class Customizer {
+                      void customize(ObjectMapper mapper) {
+                          mapper.configure(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES, false);
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.DeserializationFeature;
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+
+                  class Customizer {
+                      void customize(ObjectMapper mapper) {
+                          // TODO configure could not be folded to the builder of ObjectMapper. Use mapper.rebuild().configure(...).build() or move to the mapper's instantiation site.
+                          mapper.configure(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES, false);
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
         void fieldAssignedInMethod() {
             rewriteRun(
               java(
@@ -2180,26 +2242,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
                           String s = "hello";
                           s.toUpperCase();
                           return s;
-                      }
-                  }
-                  """
-              )
-            );
-        }
-
-        @Test
-        void objectMapperNotAffected() {
-            rewriteRun(
-              java(
-                """
-                  import com.fasterxml.jackson.databind.ObjectMapper;
-                  import com.fasterxml.jackson.databind.SerializationFeature;
-
-                  class A {
-                      ObjectMapper create() {
-                          ObjectMapper mapper = new ObjectMapper();
-                          mapper.disable(SerializationFeature.INDENT_OUTPUT);
-                          return mapper;
                       }
                   }
                   """

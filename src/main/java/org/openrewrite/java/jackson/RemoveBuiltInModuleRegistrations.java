@@ -21,18 +21,20 @@ import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
 import org.openrewrite.TreeVisitor;
+import org.openrewrite.internal.ListUtils;
 import org.openrewrite.java.JavaIsoVisitor;
+import org.openrewrite.java.JavaParser;
+import org.openrewrite.java.JavaTemplate;
 import org.openrewrite.java.JavaVisitor;
 import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.search.UsesMethod;
 import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JavaType;
+import org.openrewrite.java.tree.Space;
 import org.openrewrite.java.tree.TypeUtils;
 
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 import static java.util.Collections.singleton;
 
@@ -43,8 +45,19 @@ public class RemoveBuiltInModuleRegistrations extends Recipe {
     private static final String OBJECT_MAPPER_BUILDER_TYPE = "com.fasterxml.jackson.databind.cfg.MapperBuilder";
     private static final MethodMatcher ADD_MODULE = new MethodMatcher(OBJECT_MAPPER_BUILDER_TYPE + " addModule*(..)");
 
+    private static final String PARAMETER_NAMES_MODULE = "com.fasterxml.jackson.module.paramnames.ParameterNamesModule";
+    private static final String JSON_CREATOR = "com.fasterxml.jackson.annotation.JsonCreator";
+    private static final String JSON_CREATOR_MODE = JSON_CREATOR + "$Mode";
+    private static final String CONSTRUCTOR_DETECTOR = "com.fasterxml.jackson.databind.cfg.ConstructorDetector";
+    private static final Map<String, String> CONSTRUCTOR_DETECTORS = new HashMap<>();
+
+    static {
+        CONSTRUCTOR_DETECTORS.put("PROPERTIES", "USE_PROPERTIES_BASED");
+        CONSTRUCTOR_DETECTORS.put("DELEGATING", "USE_DELEGATING");
+    }
+
     private static final Set<String> BUILT_IN_MODULES = new HashSet<>(Arrays.asList(
-            "com.fasterxml.jackson.module.paramnames.ParameterNamesModule",
+            PARAMETER_NAMES_MODULE,
             "com.fasterxml.jackson.datatype.jdk8.Jdk8Module",
             "com.fasterxml.jackson.datatype.jsr310.JavaTimeModule"
     ));
@@ -55,7 +68,8 @@ public class RemoveBuiltInModuleRegistrations extends Recipe {
     @Getter
     final String description = "In Jackson 3, `ParameterNamesModule`, `Jdk8Module`, and `JavaTimeModule` are built into `jackson-databind` " +
             "and no longer need to be registered manually. This recipe removes `ObjectMapper.registerModule()` and `MapperBuilder.addModule()` calls " +
-            "for these modules.";
+            "for these modules. A `ParameterNamesModule` created with `JsonCreator.Mode.PROPERTIES` or `DELEGATING` is replaced " +
+            "with the matching `ConstructorDetector` instead, as that mode is not the Jackson 3 default.";
 
     @Getter
     final Set<String> tags = singleton( "jackson-3" );
@@ -67,9 +81,16 @@ public class RemoveBuiltInModuleRegistrations extends Recipe {
                     public @Nullable J visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
                         if ((REGISTER_MODULE.matches(method) || ADD_MODULE.matches(method)) &&
                                 method.getArguments().stream().anyMatch(this::isBuiltInModuleInstantiation)) {
+                            if (method.getArguments().size() == 1 && !isRemovable(method.getArguments().get(0))) {
+                                return replaceWithConstructorDetector(method, ctx);
+                            }
+                            if (method.getArguments().stream().anyMatch(arg -> !isRemovable(arg))) {
+                                return withoutRemovableModules(method, ctx);
+                            }
                             for (String module : BUILT_IN_MODULES) {
                                 maybeRemoveImport(module);
                             }
+                            maybeRemoveJsonCreatorModeImports();
                             // If it's part of a chain, return the select; otherwise remove the statement
                             if (method.getSelect() instanceof J.MethodInvocation || method.getSelect() instanceof J.NewClass) {
                                 J visited = visit(method.getSelect(), ctx);
@@ -111,6 +132,70 @@ public class RemoveBuiltInModuleRegistrations extends Recipe {
                             return null;
                         }
                         return mv;
+                    }
+
+                    private boolean isRemovable(Expression arg) {
+                        if (!isBuiltInModuleInstantiation(arg)) {
+                            return false;
+                        }
+                        String mode = parameterNamesModuleMode(arg);
+                        return mode == null || "DEFAULT".equals(mode);
+                    }
+
+                    private void maybeRemoveJsonCreatorModeImports() {
+                        maybeRemoveImport(JSON_CREATOR);
+                        maybeRemoveImport(JSON_CREATOR_MODE);
+                    }
+
+                    private J withoutRemovableModules(J.MethodInvocation method, ExecutionContext ctx) {
+                        for (String module : BUILT_IN_MODULES) {
+                            maybeRemoveImport(module);
+                        }
+                        Space firstPrefix = method.getArguments().get(0).getPrefix();
+                        List<Expression> kept = ListUtils.map(method.getArguments(), arg -> isRemovable(arg) ? null : arg);
+                        return super.visitMethodInvocation(method.withArguments(
+                                ListUtils.mapFirst(kept, arg -> arg.withPrefix(firstPrefix))), ctx);
+                    }
+
+                    private J replaceWithConstructorDetector(J.MethodInvocation method, ExecutionContext ctx) {
+                        String detector = method.getSelect() != null ?
+                                CONSTRUCTOR_DETECTORS.get(parameterNamesModuleMode(method.getArguments().get(0))) : null;
+                        if (detector == null) {
+                            return super.visitMethodInvocation(method, ctx);
+                        }
+                        maybeRemoveImport(PARAMETER_NAMES_MODULE);
+                        maybeRemoveJsonCreatorModeImports();
+                        maybeAddImport(CONSTRUCTOR_DETECTOR);
+                        boolean onBuilder = ADD_MODULE.matches(method);
+                        String template = onBuilder ?
+                                "#{any(" + OBJECT_MAPPER_BUILDER_TYPE + ")}.constructorDetector(ConstructorDetector." + detector + ")" :
+                                "#{any(" + OBJECT_MAPPER_TYPE + ")}.setConstructorDetector(ConstructorDetector." + detector + ")";
+                        J.MethodInvocation replaced = JavaTemplate.builder(template)
+                                .imports(CONSTRUCTOR_DETECTOR)
+                                .javaParser(JavaParser.fromJavaVersion()
+                                        .classpathFromResources(ctx, "jackson-annotations-2", "jackson-core-2", "jackson-databind-2"))
+                                .build()
+                                .apply(getCursor(), method.getCoordinates().replace(), method.getSelect());
+                        return replaced.getPadding().withSelect(replaced.getPadding().getSelect()
+                                .withAfter(method.getPadding().getSelect().getAfter()));
+                    }
+
+                    private @Nullable String parameterNamesModuleMode(Expression arg) {
+                        if (!(arg instanceof J.NewClass) || !TypeUtils.isOfClassType(arg.getType(), PARAMETER_NAMES_MODULE)) {
+                            return null;
+                        }
+                        List<Expression> args = ((J.NewClass) arg).getArguments();
+                        if (args.isEmpty() || args.get(0) instanceof J.Empty) {
+                            return null;
+                        }
+                        Expression mode = args.get(0);
+                        J.Identifier name = mode instanceof J.FieldAccess ? ((J.FieldAccess) mode).getName() :
+                                mode instanceof J.Identifier ? (J.Identifier) mode : null;
+                        if (name != null && name.getFieldType() != null &&
+                                TypeUtils.isOfClassType(name.getFieldType().getOwner(), JSON_CREATOR_MODE)) {
+                            return name.getSimpleName();
+                        }
+                        return "";
                     }
 
                     private boolean isBuiltInModuleInstantiation(Expression expr) {
