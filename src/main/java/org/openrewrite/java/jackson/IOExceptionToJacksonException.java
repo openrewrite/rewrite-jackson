@@ -20,18 +20,18 @@ import org.openrewrite.*;
 import org.openrewrite.internal.ListUtils;
 import org.openrewrite.java.ChangeType;
 import org.openrewrite.java.JavaIsoVisitor;
+import org.openrewrite.java.JavaTemplate;
+import org.openrewrite.java.JavaVisitor;
 import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.search.FindMethods;
 import org.openrewrite.java.search.UsesMethod;
 import org.openrewrite.java.tree.*;
 import org.openrewrite.marker.Markers;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static java.util.Collections.emptySet;
 import static java.util.Collections.singleton;
 
 @Getter
@@ -54,7 +54,9 @@ public class IOExceptionToJacksonException extends Recipe {
             "This recipe replaces `catch (IOException e)` with `catch (JacksonException e)` " +
             "when the try block contains Jackson API calls. When the try block also contains " +
             "non-Jackson code that throws `IOException`, the catch is changed to a multi-catch " +
-            "`catch (JacksonException | IOException e)`.";
+            "`catch (JacksonException | IOException e)`. Where the caught exception is passed on as an `IOException`, " +
+            "for instance to `new UncheckedIOException(e)`, it is wrapped in a `new IOException(e)`; " +
+            "such catches are left alone when the try block also throws `IOException` from non-Jackson code.";
 
     final Set<String> tags = singleton("jackson-3");
 
@@ -80,13 +82,34 @@ public class IOExceptionToJacksonException extends Recipe {
                         }
                         return try_.withCatches(ListUtils.map(try_.getCatches(), catch_ -> {
                             if (catchesIOException(catch_)) {
-                                maybeRemoveImport(IO_EXCEPTION);
+                                Set<UUID> usesRequiringIOException = usesRequiringIOException(catch_);
                                 maybeAddImport(JACKSON_EXCEPTION);
-                                return (J.Try.Catch) new ChangeType(IO_EXCEPTION, JACKSON_EXCEPTION, true)
+                                J.Try.Catch changed = (J.Try.Catch) new ChangeType(IO_EXCEPTION, JACKSON_EXCEPTION, true)
                                         .getVisitor().visitNonNull(catch_, ctx, getCursor().getParentOrThrow());
+                                if (usesRequiringIOException.isEmpty()) {
+                                    maybeRemoveImport(IO_EXCEPTION);
+                                    return changed;
+                                }
+                                return wrapInIOException(changed, usesRequiringIOException, ctx);
                             }
                             return catch_;
                         }));
+                    }
+
+                    private J.Try.Catch wrapInIOException(J.Try.Catch catch_, Set<UUID> uses, ExecutionContext ctx) {
+                        maybeAddImport(IO_EXCEPTION);
+                        return (J.Try.Catch) new JavaVisitor<ExecutionContext>() {
+                            @Override
+                            public J visitIdentifier(J.Identifier ident, ExecutionContext ctx) {
+                                if (!uses.contains(ident.getId())) {
+                                    return ident;
+                                }
+                                return JavaTemplate.builder("new IOException(#{any(java.lang.Throwable)})")
+                                        .imports(IO_EXCEPTION)
+                                        .build()
+                                        .apply(getCursor(), ident.getCoordinates().replace(), ident);
+                            }
+                        }.visitNonNull(catch_, ctx, getCursor().getParentOrThrow());
                     }
 
                     private J.Try addJacksonExceptionCatch(J.Try try_, ExecutionContext ctx) {
@@ -95,7 +118,7 @@ public class IOExceptionToJacksonException extends Recipe {
                             return try_;
                         }
                         return try_.withCatches(ListUtils.map(catches, catch_ -> {
-                            if (!catchesIOException(catch_)) {
+                            if (!catchesIOException(catch_) || !usesRequiringIOException(catch_).isEmpty()) {
                                 return catch_;
                             }
                             J.Try.Catch jacksonCatch = (J.Try.Catch) new ChangeType(IO_EXCEPTION, JACKSON_EXCEPTION, true)
@@ -155,6 +178,48 @@ public class IOExceptionToJacksonException extends Recipe {
                     .anyMatch(alt -> TypeUtils.isOfClassType(alt.getType(), IO_EXCEPTION));
         }
         return TypeUtils.isOfClassType(catch_.getParameter().getType(), IO_EXCEPTION);
+    }
+
+    private static Set<UUID> usesRequiringIOException(J.Try.Catch catch_) {
+        J.VariableDeclarations param = catch_.getParameter().getTree();
+        if (param.getVariables().size() != 1) {
+            return emptySet();
+        }
+        JavaType.Variable caught = param.getVariables().get(0).getVariableType();
+        if (caught == null) {
+            return emptySet();
+        }
+        return new JavaIsoVisitor<Set<UUID>>() {
+            @Override
+            public J.Identifier visitIdentifier(J.Identifier ident, Set<UUID> uses) {
+                if (caught.equals(ident.getFieldType()) && requiresIOException(getCursor().getParentTreeCursor().getValue(), ident)) {
+                    uses.add(ident.getId());
+                }
+                return ident;
+            }
+
+            private boolean requiresIOException(Object parent, J.Identifier ident) {
+                if (parent instanceof MethodCall) {
+                    MethodCall call = (MethodCall) parent;
+                    JavaType.Method methodType = call.getMethodType();
+                    int index = call.getArguments().indexOf(ident);
+                    if (methodType == null || index < 0 || methodType.getParameterTypes().isEmpty()) {
+                        return false;
+                    }
+                    List<JavaType> parameterTypes = methodType.getParameterTypes();
+                    return TypeUtils.isAssignableTo(IO_EXCEPTION, parameterTypes.get(Math.min(index, parameterTypes.size() - 1)));
+                }
+                if (parent instanceof J.VariableDeclarations.NamedVariable) {
+                    J.VariableDeclarations.NamedVariable variable = (J.VariableDeclarations.NamedVariable) parent;
+                    return variable.getInitializer() == ident && TypeUtils.isAssignableTo(IO_EXCEPTION, variable.getType());
+                }
+                if (parent instanceof J.Assignment) {
+                    J.Assignment assignment = (J.Assignment) parent;
+                    return assignment.getAssignment() == ident && TypeUtils.isAssignableTo(IO_EXCEPTION, assignment.getVariable().getType());
+                }
+                return false;
+            }
+        }.reduce(catch_.getBody(), new HashSet<>());
     }
 
     private static boolean catchesJacksonException(J.Try.Catch catch_) {
