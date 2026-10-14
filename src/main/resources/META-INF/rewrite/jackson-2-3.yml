@@ -101,6 +101,34 @@ tags:
 preconditions:
   - org.openrewrite.java.jackson.ModuleStillOnJackson2
 recipeList:
+  - org.openrewrite.java.jackson.UpgradeJackson_2_3_AddDatabindDependency
+  - org.openrewrite.java.jackson.UpgradeJackson_2_3_AddDataformatXmlDependency
+  - org.openrewrite.java.jackson.UpgradeJackson_2_3_AddDataformatYamlDependency
+  - org.openrewrite.java.jackson.UpgradeJackson_2_3_AddDataformatCsvDependency
+  - org.openrewrite.java.jackson.UpgradeJackson_2_3_AddDataformatCborDependency
+  - org.openrewrite.java.jackson.UpgradeJackson_2_3_AddDataformatSmileDependency
+  - org.openrewrite.java.jackson.UpgradeJackson_2_3_AddDataformatAvroDependency
+  - org.openrewrite.java.jackson.UpgradeJackson_2_3_AddDataformatIonDependency
+  - org.openrewrite.java.jackson.UpgradeJackson_2_3_AddDataformatProtobufDependency
+  # Built into `jackson-databind` in Jackson 3; remapping them onto it would duplicate `jackson-databind` in their scope
+  - org.openrewrite.java.dependencies.RemoveDependency:
+      groupId: com.fasterxml.jackson.module
+      artifactId: jackson-module-parameter-names
+  - org.openrewrite.java.dependencies.RemoveDependency:
+      groupId: com.fasterxml.jackson.datatype
+      artifactId: jackson-datatype-jdk8
+  - org.openrewrite.java.dependencies.RemoveDependency:
+      groupId: com.fasterxml.jackson.datatype
+      artifactId: jackson-datatype-jsr310
+  - org.openrewrite.maven.RemoveManagedDependency:
+      groupId: com.fasterxml.jackson.module
+      artifactId: jackson-module-parameter-names
+  - org.openrewrite.maven.RemoveManagedDependency:
+      groupId: com.fasterxml.jackson.datatype
+      artifactId: jackson-datatype-jdk8
+  - org.openrewrite.maven.RemoveManagedDependency:
+      groupId: com.fasterxml.jackson.datatype
+      artifactId: jackson-datatype-jsr310
   - org.openrewrite.java.dependencies.ChangeDependency:
       oldGroupId: com.fasterxml.jackson.core
       oldArtifactId: jackson-core
@@ -116,12 +144,6 @@ recipeList:
   - org.openrewrite.java.dependencies.ChangeDependency:
       oldGroupId: com.fasterxml.jackson.core
       oldArtifactId: jackson-databind
-      newGroupId: tools.jackson.core
-      newArtifactId: jackson-databind
-      newVersion: 3.1.x
-  - org.openrewrite.java.dependencies.ChangeDependency:
-      oldGroupId: com.fasterxml.jackson.module
-      oldArtifactId: jackson-module-parameter-names
       newGroupId: tools.jackson.core
       newArtifactId: jackson-databind
       newVersion: 3.1.x
@@ -222,18 +244,6 @@ recipeList:
       newVersion: 3.1.x
   - org.openrewrite.java.dependencies.ChangeDependency:
       oldGroupId: com.fasterxml.jackson.datatype
-      oldArtifactId: jackson-datatype-jdk8
-      newGroupId: tools.jackson.core
-      newArtifactId: jackson-databind
-      newVersion: 3.1.x
-  - org.openrewrite.java.dependencies.ChangeDependency:
-      oldGroupId: com.fasterxml.jackson.datatype
-      oldArtifactId: jackson-datatype-jsr310
-      newGroupId: tools.jackson.core
-      newArtifactId: jackson-databind
-      newVersion: 3.1.x
-  - org.openrewrite.java.dependencies.ChangeDependency:
-      oldGroupId: com.fasterxml.jackson.datatype
       oldArtifactId: jackson-datatype-*
       newGroupId: tools.jackson.datatype
       newVersion: 3.1.x
@@ -264,6 +274,204 @@ recipeList:
       groupId: org.projectlombok
       artifactId: lombok
       newVersion: "1.18.44"
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.jackson.UpgradeJackson_2_3_AddDatabindDependency
+displayName: Add Jackson 3 `jackson-databind` for sources that use it transitively
+description: >-
+  Add `tools.jackson.core:jackson-databind` to modules whose sources use its Jackson 2 types, but only get `com.fasterxml.jackson.core:jackson-databind` transitively.
+  Jackson 2 artifacts that are declared directly are upgraded instead.
+tags:
+  - jackson-3
+preconditions:
+  - org.openrewrite.java.dependencies.search.DoesNotIncludeDependency:
+      groupId: com.fasterxml.jackson.core
+      artifactId: jackson-databind
+      onlyDirect: true
+recipeList:
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: tools.jackson.core
+      artifactId: jackson-databind
+      version: 3.1.x
+      onlyIfUsing: com.fasterxml.jackson.databind..*
+      acceptTransitive: true
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.jackson.UpgradeJackson_2_3_AddDataformatXmlDependency
+displayName: Add Jackson 3 `jackson-dataformat-xml` for sources that use it transitively
+description: >-
+  Add `tools.jackson.dataformat:jackson-dataformat-xml` to modules whose sources use its Jackson 2 types, but only get `com.fasterxml.jackson.dataformat:jackson-dataformat-xml` transitively.
+  Jackson 2 artifacts that are declared directly are upgraded instead.
+tags:
+  - jackson-3
+preconditions:
+  - org.openrewrite.java.dependencies.search.DoesNotIncludeDependency:
+      groupId: com.fasterxml.jackson.dataformat
+      artifactId: jackson-dataformat-xml
+      onlyDirect: true
+recipeList:
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: tools.jackson.dataformat
+      artifactId: jackson-dataformat-xml
+      version: 3.1.x
+      onlyIfUsing: com.fasterxml.jackson.dataformat.xml..*
+      acceptTransitive: true
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.jackson.UpgradeJackson_2_3_AddDataformatYamlDependency
+displayName: Add Jackson 3 `jackson-dataformat-yaml` for sources that use it transitively
+description: >-
+  Add `tools.jackson.dataformat:jackson-dataformat-yaml` to modules whose sources use its Jackson 2 types, but only get `com.fasterxml.jackson.dataformat:jackson-dataformat-yaml` transitively.
+  Jackson 2 artifacts that are declared directly are upgraded instead.
+tags:
+  - jackson-3
+preconditions:
+  - org.openrewrite.java.dependencies.search.DoesNotIncludeDependency:
+      groupId: com.fasterxml.jackson.dataformat
+      artifactId: jackson-dataformat-yaml
+      onlyDirect: true
+recipeList:
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: tools.jackson.dataformat
+      artifactId: jackson-dataformat-yaml
+      version: 3.1.x
+      onlyIfUsing: com.fasterxml.jackson.dataformat.yaml..*
+      acceptTransitive: true
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.jackson.UpgradeJackson_2_3_AddDataformatCsvDependency
+displayName: Add Jackson 3 `jackson-dataformat-csv` for sources that use it transitively
+description: >-
+  Add `tools.jackson.dataformat:jackson-dataformat-csv` to modules whose sources use its Jackson 2 types, but only get `com.fasterxml.jackson.dataformat:jackson-dataformat-csv` transitively.
+  Jackson 2 artifacts that are declared directly are upgraded instead.
+tags:
+  - jackson-3
+preconditions:
+  - org.openrewrite.java.dependencies.search.DoesNotIncludeDependency:
+      groupId: com.fasterxml.jackson.dataformat
+      artifactId: jackson-dataformat-csv
+      onlyDirect: true
+recipeList:
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: tools.jackson.dataformat
+      artifactId: jackson-dataformat-csv
+      version: 3.1.x
+      onlyIfUsing: com.fasterxml.jackson.dataformat.csv..*
+      acceptTransitive: true
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.jackson.UpgradeJackson_2_3_AddDataformatCborDependency
+displayName: Add Jackson 3 `jackson-dataformat-cbor` for sources that use it transitively
+description: >-
+  Add `tools.jackson.dataformat:jackson-dataformat-cbor` to modules whose sources use its Jackson 2 types, but only get `com.fasterxml.jackson.dataformat:jackson-dataformat-cbor` transitively.
+  Jackson 2 artifacts that are declared directly are upgraded instead.
+tags:
+  - jackson-3
+preconditions:
+  - org.openrewrite.java.dependencies.search.DoesNotIncludeDependency:
+      groupId: com.fasterxml.jackson.dataformat
+      artifactId: jackson-dataformat-cbor
+      onlyDirect: true
+recipeList:
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: tools.jackson.dataformat
+      artifactId: jackson-dataformat-cbor
+      version: 3.1.x
+      onlyIfUsing: com.fasterxml.jackson.dataformat.cbor..*
+      acceptTransitive: true
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.jackson.UpgradeJackson_2_3_AddDataformatSmileDependency
+displayName: Add Jackson 3 `jackson-dataformat-smile` for sources that use it transitively
+description: >-
+  Add `tools.jackson.dataformat:jackson-dataformat-smile` to modules whose sources use its Jackson 2 types, but only get `com.fasterxml.jackson.dataformat:jackson-dataformat-smile` transitively.
+  Jackson 2 artifacts that are declared directly are upgraded instead.
+tags:
+  - jackson-3
+preconditions:
+  - org.openrewrite.java.dependencies.search.DoesNotIncludeDependency:
+      groupId: com.fasterxml.jackson.dataformat
+      artifactId: jackson-dataformat-smile
+      onlyDirect: true
+recipeList:
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: tools.jackson.dataformat
+      artifactId: jackson-dataformat-smile
+      version: 3.1.x
+      onlyIfUsing: com.fasterxml.jackson.dataformat.smile..*
+      acceptTransitive: true
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.jackson.UpgradeJackson_2_3_AddDataformatAvroDependency
+displayName: Add Jackson 3 `jackson-dataformat-avro` for sources that use it transitively
+description: >-
+  Add `tools.jackson.dataformat:jackson-dataformat-avro` to modules whose sources use its Jackson 2 types, but only get `com.fasterxml.jackson.dataformat:jackson-dataformat-avro` transitively.
+  Jackson 2 artifacts that are declared directly are upgraded instead.
+tags:
+  - jackson-3
+preconditions:
+  - org.openrewrite.java.dependencies.search.DoesNotIncludeDependency:
+      groupId: com.fasterxml.jackson.dataformat
+      artifactId: jackson-dataformat-avro
+      onlyDirect: true
+recipeList:
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: tools.jackson.dataformat
+      artifactId: jackson-dataformat-avro
+      version: 3.1.x
+      onlyIfUsing: com.fasterxml.jackson.dataformat.avro..*
+      acceptTransitive: true
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.jackson.UpgradeJackson_2_3_AddDataformatIonDependency
+displayName: Add Jackson 3 `jackson-dataformat-ion` for sources that use it transitively
+description: >-
+  Add `tools.jackson.dataformat:jackson-dataformat-ion` to modules whose sources use its Jackson 2 types, but only get `com.fasterxml.jackson.dataformat:jackson-dataformat-ion` transitively.
+  Jackson 2 artifacts that are declared directly are upgraded instead.
+tags:
+  - jackson-3
+preconditions:
+  - org.openrewrite.java.dependencies.search.DoesNotIncludeDependency:
+      groupId: com.fasterxml.jackson.dataformat
+      artifactId: jackson-dataformat-ion
+      onlyDirect: true
+recipeList:
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: tools.jackson.dataformat
+      artifactId: jackson-dataformat-ion
+      version: 3.1.x
+      onlyIfUsing: com.fasterxml.jackson.dataformat.ion..*
+      acceptTransitive: true
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.jackson.UpgradeJackson_2_3_AddDataformatProtobufDependency
+displayName: Add Jackson 3 `jackson-dataformat-protobuf` for sources that use it transitively
+description: >-
+  Add `tools.jackson.dataformat:jackson-dataformat-protobuf` to modules whose sources use its Jackson 2 types, but only get `com.fasterxml.jackson.dataformat:jackson-dataformat-protobuf` transitively.
+  Jackson 2 artifacts that are declared directly are upgraded instead.
+tags:
+  - jackson-3
+preconditions:
+  - org.openrewrite.java.dependencies.search.DoesNotIncludeDependency:
+      groupId: com.fasterxml.jackson.dataformat
+      artifactId: jackson-dataformat-protobuf
+      onlyDirect: true
+recipeList:
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: tools.jackson.dataformat
+      artifactId: jackson-dataformat-protobuf
+      version: 3.1.x
+      onlyIfUsing: com.fasterxml.jackson.dataformat.protobuf..*
+      acceptTransitive: true
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
