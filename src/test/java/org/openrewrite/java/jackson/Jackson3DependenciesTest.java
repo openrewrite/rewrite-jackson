@@ -122,6 +122,82 @@ class Jackson3DependenciesTest implements RewriteTest {
     }
 
     @Test
+    void sharedVersionPropertyStaysInTheModuleThatDeclaresIt() {
+        rewriteRun(
+          mavenProject("parent",
+            pomXml(
+              //language=xml
+              """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>org.example</groupId>
+                    <artifactId>parent</artifactId>
+                    <version>1.0.0</version>
+                    <packaging>pom</packaging>
+                    <properties>
+                        <jackson.version>2.19.0</jackson.version>
+                    </properties>
+                    <modules>
+                        <module>child</module>
+                    </modules>
+                    <dependencyManagement>
+                        <dependencies>
+                            <dependency>
+                                <groupId>com.fasterxml.jackson.core</groupId>
+                                <artifactId>jackson-annotations</artifactId>
+                                <version>${jackson.version}</version>
+                            </dependency>
+                            <dependency>
+                                <groupId>com.fasterxml.jackson.core</groupId>
+                                <artifactId>jackson-core</artifactId>
+                                <version>${jackson.version}</version>
+                            </dependency>
+                        </dependencies>
+                    </dependencyManagement>
+                </project>
+                """,
+              spec -> spec.after(pom ->
+                assertThat(pom)
+                  .contains("<jackson.version>2.21</jackson.version>")
+                  .actual())
+            ),
+            mavenProject("child",
+              pomXml(
+                //language=xml
+                """
+                  <project>
+                      <modelVersion>4.0.0</modelVersion>
+                      <parent>
+                          <groupId>org.example</groupId>
+                          <artifactId>parent</artifactId>
+                          <version>1.0.0</version>
+                      </parent>
+                      <artifactId>child</artifactId>
+                      <dependencies>
+                          <dependency>
+                              <groupId>com.fasterxml.jackson.core</groupId>
+                              <artifactId>jackson-annotations</artifactId>
+                          </dependency>
+                          <dependency>
+                              <groupId>com.fasterxml.jackson.core</groupId>
+                              <artifactId>jackson-core</artifactId>
+                          </dependency>
+                      </dependencies>
+                  </project>
+                  """,
+                spec -> spec.after(pom ->
+                  assertThat(pom)
+                    .doesNotContain("<jackson.version>")
+                    .doesNotContain("~~(") // Resolution failure markers
+                    .contains(">tools.jackson.core<")
+                    .actual())
+              )
+            )
+          )
+        );
+    }
+
+    @Test
     void lombokMinimumVersionBumped() {
         rewriteRun(
           pomXml(
