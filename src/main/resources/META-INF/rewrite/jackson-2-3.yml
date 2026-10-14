@@ -57,6 +57,7 @@ recipeList:
       oldParameterNames: [msg, cause, gen]
   - org.openrewrite.java.jackson.AddMissingJacksonDependencies
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_Dependencies
+  - org.openrewrite.java.jackson.UpgradeJackson_2_3_RestAssured
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_MethodRenames
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_RelocatedFeatureConstants
   - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
@@ -263,6 +264,30 @@ recipeList:
       groupId: org.projectlombok
       artifactId: lombok
       newVersion: "1.18.44"
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.jackson.UpgradeJackson_2_3_RestAssured
+displayName: Use the Jackson 3 object mapper factory of REST Assured
+description: >-
+  REST Assured 6 configures Jackson 3 through `jackson3ObjectMapperFactory` and `ObjectMapperType.JACKSON_3`,
+  next to their Jackson 2 counterparts, which do not accept a Jackson 3 `ObjectMapper`.
+tags:
+  - jackson-3
+  - rest-assured
+recipeList:
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: io.restassured.config.ObjectMapperConfig jackson2ObjectMapperFactory(..)
+      newMethodName: jackson3ObjectMapperFactory
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: io.restassured.path.json.mapper.factory.Jackson2ObjectMapperFactory
+      newFullyQualifiedTypeName: io.restassured.path.json.mapper.factory.Jackson3ObjectMapperFactory
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: io.restassured.path.json.mapper.factory.DefaultJackson2ObjectMapperFactory
+      newFullyQualifiedTypeName: io.restassured.path.json.mapper.factory.DefaultJackson3ObjectMapperFactory
+  - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
+      existingFullyQualifiedConstantName: io.restassured.mapper.ObjectMapperType.JACKSON_2
+      fullyQualifiedConstantName: io.restassured.mapper.ObjectMapperType.JACKSON_3
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
