@@ -574,7 +574,8 @@ recipeList:
       methodPattern: com.fasterxml.jackson.databind.JsonNode isTextual()
       newMethodName: isString
       matchOverrides: true
-  - org.openrewrite.java.ChangeMethodName:
+  - org.openrewrite.java.jackson.JsonNodeTextValueToStringValue
+  - org.openrewrite.java.ChangeMethodName:  # Overriding declarations only, as calls were handled above
       methodPattern: com.fasterxml.jackson.databind.JsonNode textValue()
       newMethodName: stringValue
       matchOverrides: true
