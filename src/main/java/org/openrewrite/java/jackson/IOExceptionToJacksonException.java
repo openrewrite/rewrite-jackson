@@ -16,7 +16,6 @@
 package org.openrewrite.java.jackson;
 
 import lombok.Getter;
-import org.jspecify.annotations.Nullable;
 import org.openrewrite.*;
 import org.openrewrite.internal.ListUtils;
 import org.openrewrite.java.ChangeType;
@@ -84,10 +83,13 @@ public class IOExceptionToJacksonException extends Recipe {
                         return try_.withCatches(ListUtils.map(try_.getCatches(), catch_ -> {
                             if (catchesIOException(catch_)) {
                                 Set<UUID> usesRequiringIOException = usesRequiringIOException(catch_);
-                                maybeRemoveImport(IO_EXCEPTION);
                                 maybeAddImport(JACKSON_EXCEPTION);
                                 J.Try.Catch changed = (J.Try.Catch) new ChangeType(IO_EXCEPTION, JACKSON_EXCEPTION, true)
                                         .getVisitor().visitNonNull(catch_, ctx, getCursor().getParentOrThrow());
+                                if (usesRequiringIOException.isEmpty()) {
+                                    maybeRemoveImport(IO_EXCEPTION);
+                                    return changed;
+                                }
                                 return wrapInIOException(changed, usesRequiringIOException, ctx);
                             }
                             return catch_;
@@ -95,9 +97,7 @@ public class IOExceptionToJacksonException extends Recipe {
                     }
 
                     private J.Try.Catch wrapInIOException(J.Try.Catch catch_, Set<UUID> uses, ExecutionContext ctx) {
-                        if (uses.isEmpty()) {
-                            return catch_;
-                        }
+                        maybeAddImport(IO_EXCEPTION);
                         return (J.Try.Catch) new JavaVisitor<ExecutionContext>() {
                             @Override
                             public J visitIdentifier(J.Identifier ident, ExecutionContext ctx) {
@@ -207,21 +207,17 @@ public class IOExceptionToJacksonException extends Recipe {
                         return false;
                     }
                     List<JavaType> parameterTypes = methodType.getParameterTypes();
-                    return isIOException(parameterTypes.get(Math.min(index, parameterTypes.size() - 1)));
+                    return TypeUtils.isAssignableTo(IO_EXCEPTION, parameterTypes.get(Math.min(index, parameterTypes.size() - 1)));
                 }
                 if (parent instanceof J.VariableDeclarations.NamedVariable) {
                     J.VariableDeclarations.NamedVariable variable = (J.VariableDeclarations.NamedVariable) parent;
-                    return variable.getInitializer() == ident && isIOException(variable.getType());
+                    return variable.getInitializer() == ident && TypeUtils.isAssignableTo(IO_EXCEPTION, variable.getType());
                 }
                 if (parent instanceof J.Assignment) {
                     J.Assignment assignment = (J.Assignment) parent;
-                    return assignment.getAssignment() == ident && isIOException(assignment.getVariable().getType());
+                    return assignment.getAssignment() == ident && TypeUtils.isAssignableTo(IO_EXCEPTION, assignment.getVariable().getType());
                 }
                 return false;
-            }
-
-            private boolean isIOException(@Nullable JavaType type) {
-                return type != null && TypeUtils.isAssignableTo(IO_EXCEPTION, type);
             }
         }.reduce(catch_.getBody(), new HashSet<>());
     }
