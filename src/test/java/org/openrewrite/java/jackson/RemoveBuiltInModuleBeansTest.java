@@ -16,6 +16,7 @@
 package org.openrewrite.java.jackson;
 
 import org.junit.jupiter.api.Test;
+import org.openrewrite.DocumentExample;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
@@ -35,6 +36,7 @@ class RemoveBuiltInModuleBeansTest implements RewriteTest {
             "package com.fasterxml.jackson.module.paramnames; public class ParameterNamesModule { public ParameterNamesModule() {} public ParameterNamesModule(String mode) {} }"));
     }
 
+    @DocumentExample
     @Test
     void removeBuiltInModuleBeans() {
         rewriteRun(

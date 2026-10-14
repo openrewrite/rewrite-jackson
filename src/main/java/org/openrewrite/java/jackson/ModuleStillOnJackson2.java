@@ -29,6 +29,7 @@ import org.openrewrite.maven.tree.MavenResolutionResult;
 
 import java.util.*;
 
+import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
 
 @Getter
@@ -66,7 +67,7 @@ public class ModuleStillOnJackson2 extends ScanningRecipe<ModuleStillOnJackson2.
         }
 
         private boolean anyChildUsesJackson2(JavaProject javaProject) {
-            for (UUID moduleId : mavenModules.getOrDefault(javaProject, Collections.emptyList())) {
+            for (UUID moduleId : mavenModules.getOrDefault(javaProject, emptyList())) {
                 JavaProject module = mavenProjects.get(moduleId);
                 if (module != null && (usingJackson2.contains(module) || anyChildUsesJackson2(module))) {
                     return true;
