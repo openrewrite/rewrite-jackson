@@ -63,7 +63,7 @@ public class AddJsonCreatorToPrivateConstructors extends Recipe {
                 new JavaIsoVisitor<ExecutionContext>() {
                     @Override
                     public J.ClassDeclaration visitClassDeclaration(J.ClassDeclaration classDecl, ExecutionContext ctx) {
-                        getCursor().putMessage("HAS_JACKSON", hasJacksonAnnotation(classDecl));
+                        getCursor().putMessage("HAS_JACKSON", hasJacksonAnnotation(classDecl) && !declaresJsonCreator(classDecl));
                         return super.visitClassDeclaration(classDecl, ctx);
                     }
 
@@ -134,6 +134,19 @@ public class AddJsonCreatorToPrivateConstructors extends Recipe {
                 for (Statement param : md.getParameters()) {
                     if (param instanceof J.VariableDeclarations &&
                             hasJacksonAmong(((J.VariableDeclarations) param).getLeadingAnnotations())) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean declaresJsonCreator(J.ClassDeclaration classDecl) {
+        for (Statement stmt : classDecl.getBody().getStatements()) {
+            if (stmt instanceof J.MethodDeclaration) {
+                for (J.Annotation annotation : ((J.MethodDeclaration) stmt).getLeadingAnnotations()) {
+                    if (JSON_CREATOR_MATCHER.matches(annotation)) {
                         return true;
                     }
                 }

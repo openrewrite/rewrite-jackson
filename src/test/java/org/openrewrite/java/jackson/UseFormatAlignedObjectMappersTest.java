@@ -63,6 +63,32 @@ class UseFormatAlignedObjectMappersTest implements RewriteTest {
     }
 
     @Test
+    void removeObjectMapperImportOnceUnused() {
+        rewriteRun(
+          java(
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class A {
+                  String serialize(Object o) throws Exception {
+                      return new ObjectMapper().writeValueAsString(o);
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.json.JsonMapper;
+
+              class A {
+                  String serialize(Object o) throws Exception {
+                      return new JsonMapper().writeValueAsString(o);
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void xmlMapper() {
         rewriteRun(
           java(
