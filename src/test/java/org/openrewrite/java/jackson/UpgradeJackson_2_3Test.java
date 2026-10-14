@@ -361,7 +361,10 @@ class UpgradeJackson_2_3Test implements RewriteTest {
     void mutatorsInStaticInitializerFoldedIntoBuilder() {
         rewriteRun(
           spec -> spec.parser(JavaParser.fromJavaVersion().classpath(
-            "jackson-annotations", "jackson-core", "jackson-databind", "jackson-module-parameter-names")),
+            "jackson-annotations",
+            "jackson-core",
+            "jackson-databind",
+            "jackson-module-parameter-names")),
           //language=java
           java(
             """

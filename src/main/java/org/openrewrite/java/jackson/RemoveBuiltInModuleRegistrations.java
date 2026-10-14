@@ -90,7 +90,8 @@ public class RemoveBuiltInModuleRegistrations extends Recipe {
                             for (String module : BUILT_IN_MODULES) {
                                 maybeRemoveImport(module);
                             }
-                            maybeRemoveJsonCreatorModeImports();
+                            maybeRemoveImport(JSON_CREATOR);
+                            maybeRemoveImport(JSON_CREATOR_MODE);
                             // If it's part of a chain, return the select; otherwise remove the statement
                             if (method.getSelect() instanceof J.MethodInvocation || method.getSelect() instanceof J.NewClass) {
                                 J visited = visit(method.getSelect(), ctx);
@@ -142,11 +143,6 @@ public class RemoveBuiltInModuleRegistrations extends Recipe {
                         return mode == null || "DEFAULT".equals(mode);
                     }
 
-                    private void maybeRemoveJsonCreatorModeImports() {
-                        maybeRemoveImport(JSON_CREATOR);
-                        maybeRemoveImport(JSON_CREATOR_MODE);
-                    }
-
                     private J withoutRemovableModules(J.MethodInvocation method, ExecutionContext ctx) {
                         for (String module : BUILT_IN_MODULES) {
                             maybeRemoveImport(module);
@@ -164,7 +160,8 @@ public class RemoveBuiltInModuleRegistrations extends Recipe {
                             return super.visitMethodInvocation(method, ctx);
                         }
                         maybeRemoveImport(PARAMETER_NAMES_MODULE);
-                        maybeRemoveJsonCreatorModeImports();
+                        maybeRemoveImport(JSON_CREATOR);
+                        maybeRemoveImport(JSON_CREATOR_MODE);
                         maybeAddImport(CONSTRUCTOR_DETECTOR);
                         boolean onBuilder = ADD_MODULE.matches(method);
                         String template = onBuilder ?

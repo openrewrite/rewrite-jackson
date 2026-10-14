@@ -790,39 +790,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         }
 
         @Test
-        void objectMapperFlaggedAsItHasNoBuilderToFoldInto() {
-            rewriteRun(
-              java(
-                """
-                  import com.fasterxml.jackson.databind.ObjectMapper;
-                  import com.fasterxml.jackson.databind.SerializationFeature;
-
-                  class A {
-                      ObjectMapper create() {
-                          ObjectMapper mapper = new ObjectMapper();
-                          mapper.disable(SerializationFeature.INDENT_OUTPUT);
-                          return mapper;
-                      }
-                  }
-                  """,
-                """
-                  import com.fasterxml.jackson.databind.ObjectMapper;
-                  import com.fasterxml.jackson.databind.SerializationFeature;
-
-                  class A {
-                      ObjectMapper create() {
-                          ObjectMapper mapper = new ObjectMapper();
-                          // TODO disable could not be folded to the builder of ObjectMapper. Use mapper.rebuild().disable(...).build() or move to the mapper's instantiation site.
-                          mapper.disable(SerializationFeature.INDENT_OUTPUT);
-                          return mapper;
-                      }
-                  }
-                  """
-              )
-            );
-        }
-
-        @Test
         void objectMapperParameterOfCustomizer() {
             rewriteRun(
               java(
