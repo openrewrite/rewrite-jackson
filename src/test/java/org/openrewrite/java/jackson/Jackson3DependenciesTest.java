@@ -593,41 +593,63 @@ class Jackson3DependenciesTest implements RewriteTest {
     }
 
     @Test
-    void managedBuiltInModulesRemoved() {
+    void managedBuiltInModuleRemovedAndDatabindAddedWhenUsed() {
         rewriteRun(
-          pomXml(
-            //language=xml
-            """
-              <project>
-                  <modelVersion>4.0.0</modelVersion>
-                  <groupId>org.example</groupId>
-                  <artifactId>example</artifactId>
-                  <version>1.0.0</version>
-                  <dependencyManagement>
-                      <dependencies>
-                          <dependency>
-                              <groupId>com.fasterxml.jackson.datatype</groupId>
-                              <artifactId>jackson-datatype-jsr310</artifactId>
-                              <version>2.19.0</version>
-                          </dependency>
-                      </dependencies>
-                  </dependencyManagement>
-                  <dependencies>
-                      <dependency>
-                          <groupId>com.fasterxml.jackson.datatype</groupId>
-                          <artifactId>jackson-datatype-jsr310</artifactId>
-                      </dependency>
-                  </dependencies>
-              </project>
-              """,
-            """
-              <project>
-                  <modelVersion>4.0.0</modelVersion>
-                  <groupId>org.example</groupId>
-                  <artifactId>example</artifactId>
-                  <version>1.0.0</version>
-              </project>
+          spec -> spec.parser(JavaParser.fromJavaVersion().classpath("jackson-core", "jackson-databind")),
+          mavenProject("project",
+            srcMainJava(
+              //language=java
+              java(
+                """
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+
+                  class A {
+                      ObjectMapper mapper;
+                  }
+                  """,
+                """
+                  import tools.jackson.databind.ObjectMapper;
+
+                  class A {
+                      ObjectMapper mapper;
+                  }
+                  """
+              )
+            ),
+            pomXml(
+              //language=xml
               """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>org.example</groupId>
+                    <artifactId>example</artifactId>
+                    <version>1.0.0</version>
+                    <dependencyManagement>
+                        <dependencies>
+                            <dependency>
+                                <groupId>com.fasterxml.jackson.datatype</groupId>
+                                <artifactId>jackson-datatype-jsr310</artifactId>
+                                <version>2.19.0</version>
+                            </dependency>
+                        </dependencies>
+                    </dependencyManagement>
+                    <dependencies>
+                        <dependency>
+                            <groupId>com.fasterxml.jackson.datatype</groupId>
+                            <artifactId>jackson-datatype-jsr310</artifactId>
+                        </dependency>
+                    </dependencies>
+                </project>
+                """,
+              spec -> spec.after(pom ->
+                assertThat(pom)
+                  .doesNotContain("jackson-datatype-jsr310")
+                  .doesNotContain("<dependencyManagement>")
+                  .contains(">tools.jackson.core<")
+                  .containsOnlyOnce(">jackson-databind<")
+                  .containsPattern("3\\.\\d+\\.\\d+")
+                  .actual())
+            )
           )
         );
     }
