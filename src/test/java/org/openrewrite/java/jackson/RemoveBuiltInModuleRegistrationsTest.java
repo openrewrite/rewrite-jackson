@@ -31,6 +31,7 @@ class RemoveBuiltInModuleRegistrationsTest implements RewriteTest {
     public void defaults(RecipeSpec spec) {
         spec.recipe(new RemoveBuiltInModuleRegistrations())
           .parser(JavaParser.fromJavaVersion().classpath(
+            "jackson-annotations",
             "jackson-core",
             "jackson-databind",
             "jackson-datatype-jsr310",
@@ -116,6 +117,152 @@ class RemoveBuiltInModuleRegistrationsTest implements RewriteTest {
               class Test {
                   void configure() {
                       ObjectMapper mapper = new ObjectMapper();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void replaceParameterNamesModuleWithPropertiesModeByConstructorDetector() {
+        rewriteRun(
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonCreator.Mode;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
+
+              class Test {
+                  void configure() {
+                      ObjectMapper mapper = new ObjectMapper();
+                      mapper.registerModule(new ParameterNamesModule(Mode.PROPERTIES));
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.databind.cfg.ConstructorDetector;
+
+              class Test {
+                  void configure() {
+                      ObjectMapper mapper = new ObjectMapper();
+                      mapper.setConstructorDetector(ConstructorDetector.USE_PROPERTIES_BASED);
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void replaceParameterNamesModuleWithDelegatingModeOnBuilder() {
+        rewriteRun(
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonCreator;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.databind.json.JsonMapper;
+              import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
+
+              class Test {
+                  ObjectMapper mapper() {
+                      return JsonMapper.builder()
+                              .addModule(new ParameterNamesModule(JsonCreator.Mode.DELEGATING))
+                              .build();
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.databind.cfg.ConstructorDetector;
+              import com.fasterxml.jackson.databind.json.JsonMapper;
+
+              class Test {
+                  ObjectMapper mapper() {
+                      return JsonMapper.builder()
+                              .constructorDetector(ConstructorDetector.USE_DELEGATING)
+                              .build();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void removeParameterNamesModuleWithDefaultMode() {
+        rewriteRun(
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonCreator;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
+
+              class Test {
+                  void configure() {
+                      ObjectMapper mapper = new ObjectMapper();
+                      mapper.registerModule(new ParameterNamesModule(JsonCreator.Mode.DEFAULT));
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void configure() {
+                      ObjectMapper mapper = new ObjectMapper();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void keepParameterNamesModuleWithDisabledMode() {
+        rewriteRun(
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonCreator;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
+
+              class Test {
+                  void configure() {
+                      ObjectMapper mapper = new ObjectMapper();
+                      mapper.registerModule(new ParameterNamesModule(JsonCreator.Mode.DISABLED));
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void removeOnlyBuiltInModulesFromRegisterModules() {
+        rewriteRun(
+          java(
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.databind.module.SimpleModule;
+              import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
+              class Test {
+                  void configure(SimpleModule custom) {
+                      ObjectMapper mapper = new ObjectMapper();
+                      mapper.registerModules(new JavaTimeModule(), custom);
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.databind.module.SimpleModule;
+
+              class Test {
+                  void configure(SimpleModule custom) {
+                      ObjectMapper mapper = new ObjectMapper();
+                      mapper.registerModules(custom);
                   }
               }
               """

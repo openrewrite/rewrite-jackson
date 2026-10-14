@@ -37,6 +37,7 @@ import static java.util.Collections.singletonList;
 @Getter
 public class MigrateMapperSettersToBuilder extends Recipe {
 
+    private static final String OBJECT_MAPPER = "com.fasterxml.jackson.databind.ObjectMapper";
     private static final String JSON_MAPPER = "com.fasterxml.jackson.databind.json.JsonMapper";
 
     /**
@@ -172,7 +173,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
             preconditions.add(new UsesType<>(mapper, false));
         }
         // https://github.com/openrewrite/rewrite/issues/7434
-        preconditions.add(new UsesType<>("com.fasterxml.jackson.databind.ObjectMapper", false));
+        preconditions.add(new UsesType<>(OBJECT_MAPPER, false));
         preconditions.add(new UsesMethod<>(KOTLIN_EXTENSIONS_FQN + " " + JACKSON_OBJECT_MAPPER_NAME + "()", false));
         Set<UUID> reclaimableFinalDecls = new HashSet<>();
         return Preconditions.check(
@@ -284,6 +285,9 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         }
 
                         String matchedMapper = matchingMapperType(select.getType());
+                        if (matchedMapper == null && TypeUtils.isAssignableTo(OBJECT_MAPPER, select.getType())) {
+                            matchedMapper = OBJECT_MAPPER;
+                        }
                         if (matchedMapper == null) {
                             return mi;
                         }
@@ -293,14 +297,15 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             return mi;
                         }
 
-                        if (isTopLevelStatement(getCursor()) && isReassignableReceiver(select, getCursor())) {
+                        boolean hasMapperStub = !OBJECT_MAPPER.equals(matchedMapper);
+                        if (hasMapperStub && isTopLevelStatement(getCursor()) && isReassignableReceiver(select, getCursor())) {
                             J rebuilt = rewriteAsRebuildAssignment(mi, select, matchedMapper, mapping, ctx);
                             if (rebuilt != null) {
                                 return rebuilt;
                             }
                         }
 
-                        if (isTopLevelStatement(getCursor())) {
+                        if (hasMapperStub && isTopLevelStatement(getCursor())) {
                             UUID declToUnfinalize = reclaimableFinalLocalDeclarationId(select, getCursor());
                             if (declToUnfinalize != null) {
                                 J rebuilt = rewriteAsRebuildAssignment(mi, select, matchedMapper, mapping, ctx);
@@ -372,7 +377,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         if (returnType == JavaType.Primitive.Void) {
                             return mi.getName().getSimpleName().startsWith("set");
                         }
-                        return TypeUtils.isAssignableTo("com.fasterxml.jackson.databind.ObjectMapper", returnType);
+                        return TypeUtils.isAssignableTo(OBJECT_MAPPER, returnType);
                     }
 
                     private boolean referencesAnyVariable(Statement stmt, List<J.Identifier> varIdents) {
