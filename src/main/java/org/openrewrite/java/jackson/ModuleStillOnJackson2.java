@@ -35,7 +35,7 @@ import static java.util.stream.Collectors.toList;
 @Getter
 public class ModuleStillOnJackson2 extends ScanningRecipe<ModuleStillOnJackson2.Accumulator> {
 
-    private static final ModuleHasDependency HAS_JACKSON_3 = new ModuleHasDependency("tools.jackson*", "*", null, null, null);
+    private static final ModuleHasDependency HAS_JACKSON_3 = new ModuleHasDependency("tools.jackson*", "*", null, null, null, null);
 
     String displayName = "Find modules still on Jackson 2";
     String description = "Marks the source files of modules that either do not resolve Jackson 3 yet, " +
