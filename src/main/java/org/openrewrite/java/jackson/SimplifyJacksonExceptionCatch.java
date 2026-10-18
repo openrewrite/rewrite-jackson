@@ -70,6 +70,18 @@ public class SimplifyJacksonExceptionCatch extends Recipe {
                         });
                         return mc.withAlternatives(ListUtils.mapFirst(filtered, first -> first.withPrefix(mc.getAlternatives().get(0).getPrefix())));
                     }
+
+                    @Override
+                    public J.VariableDeclarations visitVariableDeclarations(J.VariableDeclarations multiVariable, ExecutionContext ctx) {
+                        J.VariableDeclarations mv = super.visitVariableDeclarations(multiVariable, ctx);
+                        // a catch of one type holds the type itself, not a multi-catch of one alternative
+                        if (mv.getTypeExpression() instanceof J.MultiCatch &&
+                            ((J.MultiCatch) mv.getTypeExpression()).getAlternatives().size() == 1) {
+                            J.MultiCatch mc = (J.MultiCatch) mv.getTypeExpression();
+                            return mv.withTypeExpression(mc.getAlternatives().get(0).withPrefix(mc.getPrefix()));
+                        }
+                        return mv;
+                    }
                 }
         );
     }
