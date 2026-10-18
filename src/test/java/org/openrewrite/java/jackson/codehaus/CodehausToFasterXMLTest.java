@@ -332,8 +332,9 @@ class CodehausToFasterXMLTest implements RewriteTest {
           org.codehaus.jackson.xc.JaxbAnnotationIntrospector, com.fasterxml.jackson.module.jaxb.JaxbAnnotationIntrospector
           org.codehaus.jackson.map.introspect.JacksonAnnotationIntrospector, com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector
           org.codehaus.jackson.map.introspect.NopAnnotationIntrospector, com.fasterxml.jackson.databind.introspect.NopAnnotationIntrospector
+          org.codehaus.jackson.map.AnnotationIntrospector.Pair, com.fasterxml.jackson.databind.introspect.AnnotationIntrospectorPair
           """)
-        @ParameterizedTest // org.codehaus.jackson.map.AnnotationIntrospector.Pair, com.fasterxml.jackson.databind.introspect.AnnotationIntrospectorPair
+        @ParameterizedTest
         void replaceWithSetConfigCallJaxB(String codehausClass, String fasterXmlClass) {
             rewriteRun(
               //language=java
