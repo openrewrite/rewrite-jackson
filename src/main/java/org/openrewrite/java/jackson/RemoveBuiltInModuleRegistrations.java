@@ -148,7 +148,7 @@ public class RemoveBuiltInModuleRegistrations extends Recipe {
                             maybeRemoveImport(module);
                         }
                         Space firstPrefix = method.getArguments().get(0).getPrefix();
-                        List<Expression> kept = ListUtils.map(method.getArguments(), arg -> isRemovable(arg) ? null : arg);
+                        List<Expression> kept = ListUtils.filter(method.getArguments(), arg -> !isRemovable(arg));
                         return super.visitMethodInvocation(method.withArguments(
                                 ListUtils.mapFirst(kept, arg -> arg.withPrefix(firstPrefix))), ctx);
                     }

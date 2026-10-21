@@ -980,8 +980,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                 if (modifiers.isEmpty() || modifiers.get(0).getType() != J.Modifier.Type.Final) {
                     // `final` is absent or not leading, so removing it can't affect the declaration's
                     // leading whitespace; just drop it wherever it appears.
-                    return vd.withModifiers(ListUtils.map(modifiers,
-                            m -> m.getType() == J.Modifier.Type.Final ? null : m));
+                    return vd.withModifiers(ListUtils.filter(modifiers,
+                            m -> m.getType() != J.Modifier.Type.Final));
                 }
                 // `final` leads the declaration, so carry its prefix to whatever becomes first.
                 Space carry = modifiers.get(0).getPrefix();
@@ -1789,12 +1789,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                 J.Block b = super.visitBlock(block, ctx);
                 if (b.getStatements().stream().anyMatch(s ->
                         s instanceof J.Block && ((J.Block) s).getStatements().isEmpty())) {
-                    b = b.withStatements(ListUtils.map(b.getStatements(), s -> {
-                        if (s instanceof J.Block && ((J.Block) s).getStatements().isEmpty()) {
-                            return null;
-                        }
-                        return s;
-                    }));
+                    b = b.withStatements(ListUtils.filter(b.getStatements(), s ->
+                            !(s instanceof J.Block && ((J.Block) s).getStatements().isEmpty())));
                 }
                 return b;
             }
