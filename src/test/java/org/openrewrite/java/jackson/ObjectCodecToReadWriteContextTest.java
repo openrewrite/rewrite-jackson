@@ -184,6 +184,59 @@ class ObjectCodecToReadWriteContextTest implements RewriteTest {
     }
 
     @Test
+    void sameNameInSiblingForLoopKeepsObjectCodecType() {
+        rewriteRun(
+          spec -> spec.recipe(new ObjectCodecToReadWriteContext()),
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonParser;
+              import com.fasterxml.jackson.core.ObjectCodec;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void test(JsonParser p, ObjectMapper mapper) throws Exception {
+                      for (ObjectCodec codec = p.getCodec(); codec != null; codec = null) {
+                          codec.readTree(p);
+                      }
+                      for (ObjectCodec codec = mapper; codec != null; codec = null) {
+                          codec.readTree(p);
+                      }
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.core.JsonParser;
+              import com.fasterxml.jackson.core.ObjectCodec;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import tools.jackson.core.ObjectReadContext;
+
+              class Test {
+                  void test(JsonParser p, ObjectMapper mapper) throws Exception {
+                      for (ObjectReadContext codec = p.getCodec(); codec != null; codec = null) {
+                          codec.readTree(p);
+                      }
+                      for (ObjectCodec codec = mapper; codec != null; codec = null) {
+                          codec.readTree(p);
+                      }
+                  }
+              }
+              """,
+            spec -> spec.afterRecipe(cu -> assertThat(new JavaIsoVisitor<List<String>>() {
+                @Override
+                public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, List<String> declaringTypes) {
+                    if ("readTree".equals(method.getSimpleName())) {
+                        declaringTypes.add(method.getMethodType().getDeclaringType().getFullyQualifiedName());
+                    }
+                    return super.visitMethodInvocation(method, declaringTypes);
+                }
+            }.reduce(cu, new ArrayList<>()))
+              .containsExactly("tools.jackson.core.ObjectReadContext", "com.fasterxml.jackson.core.ObjectCodec"))
+          )
+        );
+    }
+
+    @Test
     void codecNotFromParserOrGeneratorIsLeftAlone() {
         rewriteRun(
           spec -> spec.recipe(new ObjectCodecToReadWriteContext()),

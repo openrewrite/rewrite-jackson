@@ -17,6 +17,7 @@ package org.openrewrite.java.jackson;
 
 import lombok.Getter;
 import org.jspecify.annotations.Nullable;
+import org.openrewrite.Cursor;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
@@ -105,10 +106,11 @@ public class ObjectCodecToReadWriteContext extends Recipe {
                         Markers.EMPTY, emptyList(), newType.getClassName(), newType, null);
                 maybeRemoveImport(OBJECT_CODEC);
                 maybeAddImport(newFqn);
+                Cursor scope = getCursor().dropParentUntil(it -> it instanceof J.Block || it instanceof J.ForLoop || it == Cursor.ROOT_VALUE);
                 return vd.withTypeExpression(typeExpression)
                         .withVariables(ListUtils.map(vd.getVariables(), v -> {
                             if (v.getVariableType() != null) {
-                                getCursor().putMessageOnFirstEnclosing(J.Block.class, key(v.getVariableType()), newType);
+                                scope.putMessage(key(v.getVariableType()), newType);
                             }
                             J.MethodInvocation init = (J.MethodInvocation) v.getInitializer();
                             if (init != null && init.getMethodType() != null) {
@@ -119,7 +121,7 @@ public class ObjectCodecToReadWriteContext extends Recipe {
                         }));
             }
 
-            // Scoped to the enclosing block, as same-named variables in sibling blocks have the same name and owner
+            // Scoped to the declaring block or for loop, as same-named variables in sibling scopes have the same name and owner
             private JavaType.@Nullable FullyQualified retypedTo(JavaType.@Nullable Variable variable) {
                 return variable == null ? null : getCursor().getNearestMessage(key(variable));
             }
