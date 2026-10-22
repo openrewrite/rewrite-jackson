@@ -63,8 +63,11 @@ public class ObjectCodecToReadWriteContext extends Recipe {
             @Override
             public J.Identifier visitIdentifier(J.Identifier identifier, ExecutionContext ctx) {
                 J.Identifier i = super.visitIdentifier(identifier, ctx);
+                if (!TypeUtils.isOfClassType(i.getType(), OBJECT_CODEC)) {
+                    return i;
+                }
                 JavaType.FullyQualified newType = retypedTo(i.getFieldType());
-                if (newType == null || newType.equals(i.getType())) {
+                if (newType == null) {
                     return i;
                 }
                 return i.withType(newType).withFieldType(i.getFieldType().withType(newType));
