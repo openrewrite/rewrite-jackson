@@ -43,10 +43,8 @@ public class ObjectCodecToReadWriteContext extends Recipe {
     private static final String OBJECT_CODEC = "com.fasterxml.jackson.core.ObjectCodec";
     private static final String OBJECT_READ_CONTEXT = "tools.jackson.core.ObjectReadContext";
     private static final String OBJECT_WRITE_CONTEXT = "tools.jackson.core.ObjectWriteContext";
-    private static final MethodMatcher PARSER_GET_CODEC = new MethodMatcher(
-            "com.fasterxml.jackson.core.JsonParser getCodec()", true);
-    private static final MethodMatcher GENERATOR_GET_CODEC = new MethodMatcher(
-            "com.fasterxml.jackson.core.JsonGenerator getCodec()", true);
+    private static final MethodMatcher PARSER_GET_CODEC = new MethodMatcher("com.fasterxml.jackson.core.JsonParser getCodec()", true);
+    private static final MethodMatcher GENERATOR_GET_CODEC = new MethodMatcher("com.fasterxml.jackson.core.JsonGenerator getCodec()", true);
 
     final String displayName = "Declare `ObjectCodec` variables as `ObjectReadContext` or `ObjectWriteContext`";
 
