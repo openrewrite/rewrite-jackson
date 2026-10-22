@@ -139,7 +139,15 @@ public class ObjectCodecToReadWriteContext extends Recipe {
                 }
             }
 
+            @SuppressWarnings("unchecked")
             private Expression retypeInitializer(Expression init, JavaType.FullyQualified newType) {
+                if (isObjectCodecCast(init)) {
+                    return retypeInitializer(((J.TypeCast) init).getExpression().withPrefix(init.getPrefix()), newType);
+                }
+                if (init instanceof J.Parentheses) {
+                    J.Parentheses<Expression> parentheses = (J.Parentheses<Expression>) init;
+                    return parentheses.withTree(retypeInitializer(parentheses.getTree(), newType));
+                }
                 J.MethodInvocation getCodec = (J.MethodInvocation) init;
                 return getCodec.getMethodType() == null ? getCodec :
                         getCodec.withMethodType(getCodec.getMethodType().withReturnType(newType));
@@ -163,7 +171,10 @@ public class ObjectCodecToReadWriteContext extends Recipe {
                 }
                 String fqn = null;
                 for (J.VariableDeclarations.NamedVariable v : vd.getVariables()) {
-                    Expression init = v.getInitializer();
+                    Expression init = Expression.unwrap(v.getInitializer());
+                    if (isObjectCodecCast(init)) {
+                        init = ((J.TypeCast) init).getExpression().unwrap();
+                    }
                     String candidate = PARSER_GET_CODEC.matches(init) ? OBJECT_READ_CONTEXT :
                             GENERATOR_GET_CODEC.matches(init) ? OBJECT_WRITE_CONTEXT : null;
                     if (candidate == null || fqn != null && !fqn.equals(candidate)) {
@@ -172,6 +183,10 @@ public class ObjectCodecToReadWriteContext extends Recipe {
                     fqn = candidate;
                 }
                 return fqn == null ? null : JavaType.ShallowClass.build(fqn);
+            }
+
+            private boolean isObjectCodecCast(@Nullable Expression expression) {
+                return expression instanceof J.TypeCast && TypeUtils.isOfClassType(((J.TypeCast) expression).getType(), OBJECT_CODEC);
             }
         });
     }

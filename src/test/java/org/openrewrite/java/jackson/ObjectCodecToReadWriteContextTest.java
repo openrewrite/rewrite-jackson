@@ -287,6 +287,70 @@ class ObjectCodecToReadWriteContextTest implements RewriteTest {
     }
 
     @Test
+    void parenthesizedInitializer() {
+        rewriteRun(
+          spec -> spec.recipe(new ObjectCodecToReadWriteContext()),
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonParser;
+              import com.fasterxml.jackson.core.ObjectCodec;
+
+              class Test {
+                  void test(JsonParser p) throws Exception {
+                      ObjectCodec codec = (p.getCodec());
+                      codec.readTree(p);
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.core.JsonParser;
+              import tools.jackson.core.ObjectReadContext;
+
+              class Test {
+                  void test(JsonParser p) throws Exception {
+                      ObjectReadContext codec = (p.getCodec());
+                      codec.readTree(p);
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void redundantCastIsRemoved() {
+        rewriteRun(
+          spec -> spec.recipe(new ObjectCodecToReadWriteContext()),
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonGenerator;
+              import com.fasterxml.jackson.core.ObjectCodec;
+
+              class Test {
+                  void test(JsonGenerator g) throws Exception {
+                      ObjectCodec codec = (ObjectCodec) g.getCodec();
+                      codec.writeValue(g, "x");
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.core.JsonGenerator;
+              import tools.jackson.core.ObjectWriteContext;
+
+              class Test {
+                  void test(JsonGenerator g) throws Exception {
+                      ObjectWriteContext codec = g.getCodec();
+                      codec.writeValue(g, "x");
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void codecNotFromParserOrGeneratorIsLeftAlone() {
         rewriteRun(
           spec -> spec.recipe(new ObjectCodecToReadWriteContext()),
