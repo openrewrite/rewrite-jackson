@@ -105,8 +105,8 @@ public class ObjectCodecToReadWriteContext extends Recipe {
                 JavaType.ShallowClass newType = JavaType.ShallowClass.build(newFqn);
                 J.Identifier typeExpression = new J.Identifier(randomId(), vd.getTypeExpression().getPrefix(),
                         Markers.EMPTY, emptyList(), newType.getClassName(), newType, null);
-                maybeAddImport(newFqn);
                 maybeRemoveImport(OBJECT_CODEC);
+                maybeAddImport(newFqn);
                 return vd.withTypeExpression(typeExpression)
                         .withVariables(ListUtils.map(vd.getVariables(), v -> {
                             if (v.getVariableType() != null) {
