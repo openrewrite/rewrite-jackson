@@ -141,7 +141,7 @@ public class ObjectCodecToReadWriteContext extends Recipe {
 
             @SuppressWarnings("unchecked")
             private Expression retypeInitializer(Expression init, JavaType.FullyQualified newType) {
-                if (isObjectCodecCast(init)) {
+                if (init instanceof J.TypeCast) {
                     return retypeInitializer(((J.TypeCast) init).getExpression().withPrefix(init.getPrefix()), newType);
                 }
                 if (init instanceof J.Parentheses) {
@@ -172,7 +172,7 @@ public class ObjectCodecToReadWriteContext extends Recipe {
                 String fqn = null;
                 for (J.VariableDeclarations.NamedVariable v : vd.getVariables()) {
                     Expression init = Expression.unwrap(v.getInitializer());
-                    if (isObjectCodecCast(init)) {
+                    if (init instanceof J.TypeCast && TypeUtils.isOfClassType(((J.TypeCast) init).getType(), OBJECT_CODEC)) {
                         init = ((J.TypeCast) init).getExpression().unwrap();
                     }
                     String candidate = PARSER_GET_CODEC.matches(init) ? OBJECT_READ_CONTEXT :
@@ -183,10 +183,6 @@ public class ObjectCodecToReadWriteContext extends Recipe {
                     fqn = candidate;
                 }
                 return fqn == null ? null : JavaType.ShallowClass.build(fqn);
-            }
-
-            private boolean isObjectCodecCast(@Nullable Expression expression) {
-                return expression instanceof J.TypeCast && TypeUtils.isOfClassType(((J.TypeCast) expression).getType(), OBJECT_CODEC);
             }
         });
     }
