@@ -114,7 +114,8 @@ public class ObjectCodecToReadWriteContext extends Recipe {
                             if (init != null && init.getMethodType() != null) {
                                 v = v.withInitializer(init.withMethodType(init.getMethodType().withReturnType(newType)));
                             }
-                            return v.withType(newType).withName(v.getName().withType(newType));
+                            v = v.withType(newType);
+                            return v.withName(v.getName().withType(newType).withFieldType(v.getVariableType()));
                         }));
             }
 
