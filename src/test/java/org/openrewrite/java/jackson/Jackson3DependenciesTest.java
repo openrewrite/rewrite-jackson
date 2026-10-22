@@ -500,7 +500,7 @@ class Jackson3DependenciesTest implements RewriteTest {
     }
 
     @Test
-    void testScopedBuiltInModulesRemovedRatherThanRemappedOntoDatabind() {
+    void scopedBuiltInModulesRemovedRatherThanRemappedOntoDatabind() {
         rewriteRun(
           spec -> spec.parser(JavaParser.fromJavaVersion().classpath("jackson-core", "jackson-databind")),
           mavenProject("project",
@@ -658,7 +658,9 @@ class Jackson3DependenciesTest implements RewriteTest {
     void addJackson3ArtifactsForTypesOnlyResolvedTransitively() {
         rewriteRun(
           spec -> spec.parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
-            "jackson-core-2", "jackson-databind-2", "jackson-dataformat-yaml-2")),
+            "jackson-core-2",
+            "jackson-databind-2",
+            "jackson-dataformat-yaml-2")),
           mavenProject("project",
             srcMainJava(
               //language=java

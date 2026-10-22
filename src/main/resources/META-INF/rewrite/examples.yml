@@ -532,6 +532,32 @@ examples:
     language: java
 ---
 type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.jackson.RemoveBuiltInModuleBeans
+examples:
+- description: '`RemoveBuiltInModuleBeansTest#removeBuiltInModuleBeans`'
+  sources:
+  - before: |
+      import org.springframework.context.annotation.Bean;
+      import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+      import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+
+      class Config {
+          @Bean
+          JavaTimeModule javaTimeModule() {
+              return new JavaTimeModule();
+          }
+
+          @Bean
+          Jdk8Module jdk8Module() {
+              return new Jdk8Module();
+          }
+      }
+    after: |
+      class Config {
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.jackson.RemoveBuiltInModuleRegistrations
 examples:
 - description: '`RemoveBuiltInModuleRegistrationsTest#removeJavaTimeModuleRegistration`'
@@ -912,6 +938,27 @@ examples:
       class Test {
           void example(JsonGenerator gen) {
               throw new StreamWriteException(gen, "message");
+          }
+      }
+    language: java
+- description: '`RestAssuredJackson3Test#jackson3ObjectMapperFactory`'
+  sources:
+  - before: |
+      import com.fasterxml.jackson.databind.ObjectMapper;
+      import io.restassured.config.ObjectMapperConfig;
+
+      class PersonResourceTest {
+          ObjectMapperConfig config() {
+              return new ObjectMapperConfig().jackson2ObjectMapperFactory((type, s) -> new ObjectMapper());
+          }
+      }
+    after: |
+      import tools.jackson.databind.json.JsonMapper;
+      import io.restassured.config.ObjectMapperConfig;
+
+      class PersonResourceTest {
+          ObjectMapperConfig config() {
+              return new ObjectMapperConfig().jackson3ObjectMapperFactory((type, s) -> new JsonMapper());
           }
       }
     language: java
