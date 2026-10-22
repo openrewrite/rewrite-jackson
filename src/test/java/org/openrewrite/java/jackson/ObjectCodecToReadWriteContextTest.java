@@ -237,6 +237,56 @@ class ObjectCodecToReadWriteContextTest implements RewriteTest {
     }
 
     @Test
+    void fieldReferencedBeforeDeclarationAndThroughThis() {
+        rewriteRun(
+          spec -> spec.recipe(new ObjectCodecToReadWriteContext()),
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonParser;
+              import com.fasterxml.jackson.core.ObjectCodec;
+
+              class Test {
+                  static JsonParser parser;
+
+                  void test(JsonParser p) throws Exception {
+                      codec.readTree(p);
+                      this.codec.readTree(p);
+                  }
+
+                  ObjectCodec codec = parser.getCodec();
+              }
+              """,
+            """
+              import com.fasterxml.jackson.core.JsonParser;
+              import tools.jackson.core.ObjectReadContext;
+
+              class Test {
+                  static JsonParser parser;
+
+                  void test(JsonParser p) throws Exception {
+                      codec.readTree(p);
+                      this.codec.readTree(p);
+                  }
+
+                  ObjectReadContext codec = parser.getCodec();
+              }
+              """,
+            spec -> spec.afterRecipe(cu -> assertThat(new JavaIsoVisitor<List<String>>() {
+                @Override
+                public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, List<String> declaringTypes) {
+                    if ("readTree".equals(method.getSimpleName())) {
+                        declaringTypes.add(method.getMethodType().getDeclaringType().getFullyQualifiedName());
+                    }
+                    return super.visitMethodInvocation(method, declaringTypes);
+                }
+            }.reduce(cu, new ArrayList<>()))
+              .containsExactly("tools.jackson.core.ObjectReadContext", "tools.jackson.core.ObjectReadContext"))
+          )
+        );
+    }
+
+    @Test
     void codecNotFromParserOrGeneratorIsLeftAlone() {
         rewriteRun(
           spec -> spec.recipe(new ObjectCodecToReadWriteContext()),

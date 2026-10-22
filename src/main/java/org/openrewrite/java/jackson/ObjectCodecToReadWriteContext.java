@@ -29,6 +29,7 @@ import org.openrewrite.java.search.UsesMethod;
 import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JavaType;
+import org.openrewrite.java.tree.Statement;
 import org.openrewrite.java.tree.TypeUtils;
 import org.openrewrite.marker.Markers;
 
@@ -62,6 +63,20 @@ public class ObjectCodecToReadWriteContext extends Recipe {
                 new UsesMethod<>(PARSER_GET_CODEC),
                 new UsesMethod<>(GENERATOR_GET_CODEC)), new JavaIsoVisitor<ExecutionContext>() {
             @Override
+            public J.ClassDeclaration visitClassDeclaration(J.ClassDeclaration classDecl, ExecutionContext ctx) {
+                // Fields can be referenced before their declaration
+                for (Statement statement : classDecl.getBody().getStatements()) {
+                    if (statement instanceof J.VariableDeclarations) {
+                        JavaType.FullyQualified newType = contextType((J.VariableDeclarations) statement);
+                        if (newType != null) {
+                            retypeInScope(getCursor(), (J.VariableDeclarations) statement, newType);
+                        }
+                    }
+                }
+                return super.visitClassDeclaration(classDecl, ctx);
+            }
+
+            @Override
             public J.Identifier visitIdentifier(J.Identifier identifier, ExecutionContext ctx) {
                 J.Identifier i = super.visitIdentifier(identifier, ctx);
                 if (!TypeUtils.isOfClassType(i.getType(), OBJECT_CODEC)) {
@@ -75,14 +90,23 @@ public class ObjectCodecToReadWriteContext extends Recipe {
             }
 
             @Override
+            public J.FieldAccess visitFieldAccess(J.FieldAccess fieldAccess, ExecutionContext ctx) {
+                J.FieldAccess fa = super.visitFieldAccess(fieldAccess, ctx);
+                if (!TypeUtils.isOfClassType(fa.getType(), OBJECT_CODEC)) {
+                    return fa;
+                }
+                JavaType.FullyQualified newType = retypedTo(fa.getName().getFieldType());
+                return newType == null ? fa : fa.withType(newType);
+            }
+
+            @Override
             public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
                 J.MethodInvocation mi = super.visitMethodInvocation(method, ctx);
-                if (mi.getMethodType() != null && mi.getSelect() instanceof J.Identifier &&
-                        TypeUtils.isOfClassType(mi.getMethodType().getDeclaringType(), OBJECT_CODEC)) {
-                    JavaType.FullyQualified newType = retypedTo(((J.Identifier) mi.getSelect()).getFieldType());
-                    if (newType != null) {
-                        return mi.withMethodType(mi.getMethodType().withDeclaringType(newType));
-                    }
+                JavaType.FullyQualified selectType = mi.getSelect() == null ? null : TypeUtils.asFullyQualified(mi.getSelect().getType());
+                if (mi.getMethodType() != null &&
+                        TypeUtils.isOfClassType(mi.getMethodType().getDeclaringType(), OBJECT_CODEC) &&
+                        (TypeUtils.isOfClassType(selectType, OBJECT_READ_CONTEXT) || TypeUtils.isOfClassType(selectType, OBJECT_WRITE_CONTEXT))) {
+                    return mi.withMethodType(mi.getMethodType().withDeclaringType(selectType));
                 }
                 return mi;
             }
@@ -90,35 +114,35 @@ public class ObjectCodecToReadWriteContext extends Recipe {
             @Override
             public J.VariableDeclarations visitVariableDeclarations(J.VariableDeclarations multiVariable, ExecutionContext ctx) {
                 J.VariableDeclarations vd = super.visitVariableDeclarations(multiVariable, ctx);
-                if (!(vd.getTypeExpression() instanceof J.Identifier || vd.getTypeExpression() instanceof J.FieldAccess) ||
-                        !TypeUtils.isOfClassType(vd.getTypeExpression().getType(), OBJECT_CODEC) ||
-                        vd.getTypeExpression() instanceof J.Identifier &&
-                                "var".equals(((J.Identifier) vd.getTypeExpression()).getSimpleName())) {
-                    return vd;
-                }
-                String newFqn = contextType(vd);
-                if (newFqn == null) {
+                JavaType.FullyQualified newType = contextType(vd);
+                if (newType == null) {
                     return vd;
                 }
 
-                JavaType.ShallowClass newType = JavaType.ShallowClass.build(newFqn);
                 J.Identifier typeExpression = new J.Identifier(randomId(), vd.getTypeExpression().getPrefix(),
                         Markers.EMPTY, emptyList(), newType.getClassName(), newType, null);
                 maybeRemoveImport(OBJECT_CODEC);
-                maybeAddImport(newFqn);
-                Cursor scope = getCursor().dropParentUntil(it -> it instanceof J.Block || it instanceof J.ForLoop || it == Cursor.ROOT_VALUE);
+                maybeAddImport(newType.getFullyQualifiedName());
+                retypeInScope(getCursor().dropParentUntil(it -> it instanceof J.Block || it instanceof J.ForLoop || it == Cursor.ROOT_VALUE), vd, newType);
                 return vd.withTypeExpression(typeExpression)
                         .withVariables(ListUtils.map(vd.getVariables(), v -> {
-                            if (v.getVariableType() != null) {
-                                scope.putMessage(key(v.getVariableType()), newType);
-                            }
-                            J.MethodInvocation init = (J.MethodInvocation) v.getInitializer();
-                            if (init != null && init.getMethodType() != null) {
-                                v = v.withInitializer(init.withMethodType(init.getMethodType().withReturnType(newType)));
-                            }
-                            v = v.withType(newType);
+                            v = v.withInitializer(retypeInitializer(v.getInitializer(), newType)).withType(newType);
                             return v.withName(v.getName().withType(newType).withFieldType(v.getVariableType()));
                         }));
+            }
+
+            private void retypeInScope(Cursor scope, J.VariableDeclarations vd, JavaType.FullyQualified newType) {
+                for (J.VariableDeclarations.NamedVariable v : vd.getVariables()) {
+                    if (v.getVariableType() != null) {
+                        scope.putMessage(key(v.getVariableType()), newType);
+                    }
+                }
+            }
+
+            private Expression retypeInitializer(Expression init, JavaType.FullyQualified newType) {
+                J.MethodInvocation getCodec = (J.MethodInvocation) init;
+                return getCodec.getMethodType() == null ? getCodec :
+                        getCodec.withMethodType(getCodec.getMethodType().withReturnType(newType));
             }
 
             // Scoped to the declaring block or for loop, as same-named variables in sibling scopes have the same name and owner
@@ -130,7 +154,13 @@ public class ObjectCodecToReadWriteContext extends Recipe {
                 return "retyped:" + variable.getName() + "@" + variable.getOwner();
             }
 
-            private @Nullable String contextType(J.VariableDeclarations vd) {
+            private JavaType.@Nullable ShallowClass contextType(J.VariableDeclarations vd) {
+                if (!(vd.getTypeExpression() instanceof J.Identifier || vd.getTypeExpression() instanceof J.FieldAccess) ||
+                        !TypeUtils.isOfClassType(vd.getTypeExpression().getType(), OBJECT_CODEC) ||
+                        vd.getTypeExpression() instanceof J.Identifier &&
+                                "var".equals(((J.Identifier) vd.getTypeExpression()).getSimpleName())) {
+                    return null;
+                }
                 String fqn = null;
                 for (J.VariableDeclarations.NamedVariable v : vd.getVariables()) {
                     Expression init = v.getInitializer();
@@ -141,7 +171,7 @@ public class ObjectCodecToReadWriteContext extends Recipe {
                     }
                     fqn = candidate;
                 }
-                return fqn;
+                return fqn == null ? null : JavaType.ShallowClass.build(fqn);
             }
         });
     }
