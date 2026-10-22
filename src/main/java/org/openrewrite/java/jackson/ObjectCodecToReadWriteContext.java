@@ -31,8 +31,6 @@ import org.openrewrite.java.tree.JavaType;
 import org.openrewrite.java.tree.TypeUtils;
 import org.openrewrite.marker.Markers;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Set;
 
 import static java.util.Collections.emptyList;
@@ -64,13 +62,10 @@ public class ObjectCodecToReadWriteContext extends Recipe {
         return Preconditions.check(Preconditions.or(
                 new UsesMethod<>(PARSER_GET_CODEC),
                 new UsesMethod<>(GENERATOR_GET_CODEC)), new JavaIsoVisitor<ExecutionContext>() {
-            // Variables whose declared type changed, keyed by name and owner, so their usages get the new type too
-            private final Map<String, JavaType.FullyQualified> retyped = new HashMap<>();
-
             @Override
             public J.Identifier visitIdentifier(J.Identifier identifier, ExecutionContext ctx) {
                 J.Identifier i = super.visitIdentifier(identifier, ctx);
-                JavaType.FullyQualified newType = i.getFieldType() == null ? null : retyped.get(key(i.getFieldType()));
+                JavaType.FullyQualified newType = retypedTo(i.getFieldType());
                 if (newType == null || newType.equals(i.getType())) {
                     return i;
                 }
@@ -82,8 +77,8 @@ public class ObjectCodecToReadWriteContext extends Recipe {
                 J.MethodInvocation mi = super.visitMethodInvocation(method, ctx);
                 if (mi.getMethodType() != null && mi.getSelect() instanceof J.Identifier &&
                         TypeUtils.isOfClassType(mi.getMethodType().getDeclaringType(), OBJECT_CODEC)) {
-                    JavaType.FullyQualified newType = TypeUtils.asFullyQualified(mi.getSelect().getType());
-                    if (newType != null && !TypeUtils.isOfClassType(newType, OBJECT_CODEC)) {
+                    JavaType.FullyQualified newType = retypedTo(((J.Identifier) mi.getSelect()).getFieldType());
+                    if (newType != null) {
                         return mi.withMethodType(mi.getMethodType().withDeclaringType(newType));
                     }
                 }
@@ -112,7 +107,7 @@ public class ObjectCodecToReadWriteContext extends Recipe {
                 return vd.withTypeExpression(typeExpression)
                         .withVariables(ListUtils.map(vd.getVariables(), v -> {
                             if (v.getVariableType() != null) {
-                                retyped.put(key(v.getVariableType()), newType);
+                                getCursor().putMessageOnFirstEnclosing(J.Block.class, key(v.getVariableType()), newType);
                             }
                             J.MethodInvocation init = (J.MethodInvocation) v.getInitializer();
                             if (init != null && init.getMethodType() != null) {
@@ -122,8 +117,13 @@ public class ObjectCodecToReadWriteContext extends Recipe {
                         }));
             }
 
+            // Scoped to the enclosing block, as same-named variables in sibling blocks have the same name and owner
+            private JavaType.@Nullable FullyQualified retypedTo(JavaType.@Nullable Variable variable) {
+                return variable == null ? null : getCursor().getNearestMessage(key(variable));
+            }
+
             private String key(JavaType.Variable variable) {
-                return variable.getName() + "@" + variable.getOwner();
+                return "retyped:" + variable.getName() + "@" + variable.getOwner();
             }
 
             /**
