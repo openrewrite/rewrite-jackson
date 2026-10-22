@@ -35,7 +35,7 @@ class ObjectCodecToReadWriteContextTest implements RewriteTest {
     @Override
     public void defaults(RecipeSpec spec) {
         spec
-          .recipeFromResources("org.openrewrite.java.jackson.UpgradeJackson_2_3")
+          .recipe(new ObjectCodecToReadWriteContext())
           .parser(JavaParser.fromJavaVersion()
             .classpathFromResources(new InMemoryExecutionContext(),
               "jackson-annotations-2",
@@ -47,6 +47,7 @@ class ObjectCodecToReadWriteContextTest implements RewriteTest {
     @Test
     void parserCodecVariableBecomesObjectReadContext() {
         rewriteRun(
+          spec -> spec.recipeFromResources("org.openrewrite.java.jackson.UpgradeJackson_2_3"),
           //language=java
           java(
             """
@@ -90,6 +91,7 @@ class ObjectCodecToReadWriteContextTest implements RewriteTest {
     @Test
     void generatorCodecVariableBecomesObjectWriteContext() {
         rewriteRun(
+          spec -> spec.recipeFromResources("org.openrewrite.java.jackson.UpgradeJackson_2_3"),
           //language=java
           java(
             """
@@ -129,7 +131,6 @@ class ObjectCodecToReadWriteContextTest implements RewriteTest {
     @Test
     void sameNameInSiblingBlockKeepsObjectCodecType() {
         rewriteRun(
-          spec -> spec.recipe(new ObjectCodecToReadWriteContext()),
           //language=java
           java(
             """
@@ -169,16 +170,7 @@ class ObjectCodecToReadWriteContextTest implements RewriteTest {
                   }
               }
               """,
-            spec -> spec.afterRecipe(cu -> assertThat(new JavaIsoVisitor<List<String>>() {
-                @Override
-                public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, List<String> declaringTypes) {
-                    if ("readTree".equals(method.getSimpleName())) {
-                        declaringTypes.add(method.getMethodType().getDeclaringType().getFullyQualifiedName());
-                    }
-                    return super.visitMethodInvocation(method, declaringTypes);
-                }
-            }.reduce(cu, new ArrayList<>()))
-              .containsExactly("tools.jackson.core.ObjectReadContext", "com.fasterxml.jackson.core.ObjectCodec"))
+            spec -> spec.afterRecipe(cu -> assertThat(readTreeDeclaringTypes(cu)).containsExactly("tools.jackson.core.ObjectReadContext", "com.fasterxml.jackson.core.ObjectCodec"))
           )
         );
     }
@@ -186,7 +178,6 @@ class ObjectCodecToReadWriteContextTest implements RewriteTest {
     @Test
     void sameNameInSiblingForLoopKeepsObjectCodecType() {
         rewriteRun(
-          spec -> spec.recipe(new ObjectCodecToReadWriteContext()),
           //language=java
           java(
             """
@@ -222,16 +213,7 @@ class ObjectCodecToReadWriteContextTest implements RewriteTest {
                   }
               }
               """,
-            spec -> spec.afterRecipe(cu -> assertThat(new JavaIsoVisitor<List<String>>() {
-                @Override
-                public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, List<String> declaringTypes) {
-                    if ("readTree".equals(method.getSimpleName())) {
-                        declaringTypes.add(method.getMethodType().getDeclaringType().getFullyQualifiedName());
-                    }
-                    return super.visitMethodInvocation(method, declaringTypes);
-                }
-            }.reduce(cu, new ArrayList<>()))
-              .containsExactly("tools.jackson.core.ObjectReadContext", "com.fasterxml.jackson.core.ObjectCodec"))
+            spec -> spec.afterRecipe(cu -> assertThat(readTreeDeclaringTypes(cu)).containsExactly("tools.jackson.core.ObjectReadContext", "com.fasterxml.jackson.core.ObjectCodec"))
           )
         );
     }
@@ -239,7 +221,6 @@ class ObjectCodecToReadWriteContextTest implements RewriteTest {
     @Test
     void fieldReferencedBeforeDeclarationAndThroughThis() {
         rewriteRun(
-          spec -> spec.recipe(new ObjectCodecToReadWriteContext()),
           //language=java
           java(
             """
@@ -272,16 +253,7 @@ class ObjectCodecToReadWriteContextTest implements RewriteTest {
                   ObjectReadContext codec = parser.getCodec();
               }
               """,
-            spec -> spec.afterRecipe(cu -> assertThat(new JavaIsoVisitor<List<String>>() {
-                @Override
-                public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, List<String> declaringTypes) {
-                    if ("readTree".equals(method.getSimpleName())) {
-                        declaringTypes.add(method.getMethodType().getDeclaringType().getFullyQualifiedName());
-                    }
-                    return super.visitMethodInvocation(method, declaringTypes);
-                }
-            }.reduce(cu, new ArrayList<>()))
-              .containsExactly("tools.jackson.core.ObjectReadContext", "tools.jackson.core.ObjectReadContext"))
+            spec -> spec.afterRecipe(cu -> assertThat(readTreeDeclaringTypes(cu)).containsExactly("tools.jackson.core.ObjectReadContext", "tools.jackson.core.ObjectReadContext"))
           )
         );
     }
@@ -289,7 +261,6 @@ class ObjectCodecToReadWriteContextTest implements RewriteTest {
     @Test
     void parenthesizedInitializer() {
         rewriteRun(
-          spec -> spec.recipe(new ObjectCodecToReadWriteContext()),
           //language=java
           java(
             """
@@ -321,7 +292,6 @@ class ObjectCodecToReadWriteContextTest implements RewriteTest {
     @Test
     void redundantCastIsRemoved() {
         rewriteRun(
-          spec -> spec.recipe(new ObjectCodecToReadWriteContext()),
           //language=java
           java(
             """
@@ -353,7 +323,6 @@ class ObjectCodecToReadWriteContextTest implements RewriteTest {
     @Test
     void codecNotFromParserOrGeneratorIsLeftAlone() {
         rewriteRun(
-          spec -> spec.recipe(new ObjectCodecToReadWriteContext()),
           //language=java
           java(
             """
@@ -371,5 +340,17 @@ class ObjectCodecToReadWriteContextTest implements RewriteTest {
               """
           )
         );
+    }
+
+    private static List<String> readTreeDeclaringTypes(J.CompilationUnit cu) {
+        return new JavaIsoVisitor<List<String>>() {
+            @Override
+            public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, List<String> declaringTypes) {
+                if ("readTree".equals(method.getSimpleName())) {
+                    declaringTypes.add(method.getMethodType().getDeclaringType().getFullyQualifiedName());
+                }
+                return super.visitMethodInvocation(method, declaringTypes);
+            }
+        }.reduce(cu, new ArrayList<>());
     }
 }
