@@ -124,10 +124,6 @@ public class ObjectCodecToReadWriteContext extends Recipe {
                 return "retyped:" + variable.getName() + "@" + variable.getOwner();
             }
 
-            /**
-             * @return the Jackson 3 type of the declaration when every variable is initialized from the same kind
-             * of {@code getCodec()} call, or {@code null} otherwise.
-             */
             private @Nullable String contextType(J.VariableDeclarations vd) {
                 String fqn = null;
                 for (J.VariableDeclarations.NamedVariable v : vd.getVariables()) {
