@@ -2,7 +2,7 @@
 ### Migrate Jackson projects. Automatically.
 
 [![Apache 2.0](https://img.shields.io/github/license/openrewrite/rewrite-jackson.svg)](https://www.apache.org/licenses/LICENSE-2.0)
-[![ci](https://github.com/openrewrite/rewrite-jackson/actions/workflows/ci.yml/badge.svg)](https://github.com/openrewrite/rewrite-jackson/actions/workflows/ci.yml)
+[![ci](https://codegenomeproject.org/ci/modules/openrewrite/rewrite-jackson/badge.svg)](https://codegenomeproject.org/ci/modules/openrewrite/rewrite-jackson/builds/latest)
 [![Revved up by Develocity](https://img.shields.io/badge/Revved%20up%20by-Develocity-06A0CE?logo=Gradle&labelColor=02303A)](https://community.develocity.cloud/scans)
 [![Contributing Guide](https://img.shields.io/badge/Contributing-Guide-informational)](https://github.com/openrewrite/.github/blob/main/CONTRIBUTING.md)
 
