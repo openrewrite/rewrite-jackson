@@ -192,7 +192,7 @@ public class IOExceptionToJacksonException extends Recipe {
         return new JavaIsoVisitor<Set<UUID>>() {
             @Override
             public J.Identifier visitIdentifier(J.Identifier ident, Set<UUID> uses) {
-                if (caught.equals(ident.getFieldType()) && requiresIOException(getCursor().getParentTreeCursor().getValue(), ident)) {
+                if (TypeUtils.isOfType(caught, ident.getFieldType()) && requiresIOException(getCursor().getParentTreeCursor().getValue(), ident)) {
                     uses.add(ident.getId());
                 }
                 return ident;
