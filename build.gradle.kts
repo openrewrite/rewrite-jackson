@@ -26,9 +26,6 @@ dependencies {
 
     testRuntimeOnly(gradleApi())
     testRuntimeOnly("org.openrewrite:rewrite-java-21")
-    testRuntimeOnly("org.codehaus.jackson:jackson-core-asl:latest.release")
-    testRuntimeOnly("org.codehaus.jackson:jackson-mapper-asl:latest.release")
-    testRuntimeOnly("org.codehaus.jackson:jackson-xc:latest.release")
 }
 
 recipeDependencies {
@@ -49,6 +46,10 @@ recipeDependencies {
     parserClasspath("tools.jackson.core:jackson-core:3.+")
     parserClasspath("tools.jackson.core:jackson-databind:3.+")
 
+    parserClasspath("org.codehaus.jackson:jackson-core-asl:1.9.13")
+    parserClasspath("org.codehaus.jackson:jackson-mapper-asl:1.9.13")
+
     testParserClasspath("com.fasterxml.jackson.datatype:jackson-datatype-joda:2.19.2")
     testParserClasspath("com.fasterxml.jackson.module:jackson-module-afterburner:2.19.2")
+    testParserClasspath("org.codehaus.jackson:jackson-xc:1.9.13")
 }

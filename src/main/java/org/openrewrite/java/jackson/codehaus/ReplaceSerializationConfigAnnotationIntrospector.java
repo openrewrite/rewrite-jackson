@@ -16,6 +16,7 @@
 package org.openrewrite.java.jackson.codehaus;
 
 import lombok.Getter;
+import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
@@ -40,19 +41,25 @@ public class ReplaceSerializationConfigAnnotationIntrospector extends Recipe {
     public TreeVisitor<?, ExecutionContext> getVisitor() {
         // The before and after templates use different types matching types, so we use JavaTemplate.Matcher here only
         JavaVisitor<ExecutionContext> javaVisitor = new AbstractRefasterJavaVisitor() {
-            final JavaTemplate before = JavaTemplate
-                    .builder("#{mapper:any(org.codehaus.jackson.map.ObjectMapper)}.getSerializationConfig().setAnnotationIntrospector(#{introspector:any(org.codehaus.jackson.map.AnnotationIntrospector)});")
-                    .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
-                    .build();
-            final JavaTemplate after = JavaTemplate
-                    .builder("#{mapper:any(com.fasterxml.jackson.databind.ObjectMapper)}.setConfig(#{mapper}.getSerializationConfig().with(#{introspector:any(com.fasterxml.jackson.databind.AnnotationIntrospector)}));")
-                    .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
-                    .build();
+            @Nullable JavaTemplate before;
+            @Nullable JavaTemplate after;
 
             @Override
             public J visitMethodInvocation(J.MethodInvocation elem, ExecutionContext ctx) {
+                if (before == null) {
+                    before = JavaTemplate
+                            .builder("#{mapper:any(org.codehaus.jackson.map.ObjectMapper)}.getSerializationConfig().setAnnotationIntrospector(#{introspector:any(org.codehaus.jackson.map.AnnotationIntrospector)});")
+                            .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx, "jackson-core-asl", "jackson-mapper-asl"))
+                            .build();
+                }
                 JavaTemplate.Matcher matcher = before.matcher(getCursor());
                 if (matcher.find()) {
+                    if (after == null) {
+                        after = JavaTemplate
+                                .builder("#{mapper:any(com.fasterxml.jackson.databind.ObjectMapper)}.setConfig(#{mapper}.getSerializationConfig().with(#{introspector:any(com.fasterxml.jackson.databind.AnnotationIntrospector)}));")
+                                .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx, "jackson-annotations-2", "jackson-core-2", "jackson-databind-2"))
+                                .build();
+                    }
                     return embed(
                             after.apply(getCursor(), elem.getCoordinates().replace(), matcher.parameter(0), matcher.parameter(1)),
                             getCursor(),

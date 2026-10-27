@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.openrewrite.DocumentExample;
+import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.Issue;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
@@ -33,7 +34,7 @@ class CodehausToFasterXMLTest implements RewriteTest {
     public void defaults(RecipeSpec spec) {
         spec
           .recipeFromResources("org.openrewrite.java.jackson.CodehausToFasterXML")
-          .parser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()));
+          .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(), "jackson-core-asl", "jackson-mapper-asl", "jackson-xc", "jackson-annotations-2", "jackson-core-2", "jackson-databind-2"));
     }
 
     @DocumentExample

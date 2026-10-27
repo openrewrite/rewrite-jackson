@@ -18,6 +18,7 @@ package org.openrewrite.java.jackson.codehaus;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
@@ -31,7 +32,7 @@ class TransferJsonSerializeArgumentsFromCodehausToFasterXMLTest implements Rewri
     public void defaults(RecipeSpec spec) {
         spec
           .recipe(new TransferJsonSerializeArgumentsFromCodehausToFasterXML())
-          .parser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()));
+          .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(), "jackson-core-asl", "jackson-mapper-asl", "jackson-xc", "jackson-annotations-2", "jackson-core-2", "jackson-databind-2"));
     }
 
     @ParameterizedTest
