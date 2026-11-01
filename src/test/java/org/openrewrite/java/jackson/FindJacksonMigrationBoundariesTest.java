@@ -415,4 +415,23 @@ class FindJacksonMigrationBoundariesTest implements RewriteTest {
           )
         );
     }
+
+    @Test
+    void anonymousJacksonSubclassesAreSourceApis() {
+        rewriteRun(
+          spec -> spec.dataTable(JacksonMigrationBoundaries.Row.class, rows -> {
+              assertThat(rows).noneMatch(r -> r.getCategory().equals("EXTERNAL_API"));
+              assertThat(rows).filteredOn(r -> r.getCategory().equals("SOURCE_API")).hasSize(1);
+          }),
+          java(
+            """
+              import com.fasterxml.jackson.core.type.TypeReference;
+              import java.util.Map;
+              class Example {
+                  TypeReference<Map<String, Object>> type = new TypeReference<Map<String, Object>>() {};
+              }
+              """
+          )
+        );
+    }
 }

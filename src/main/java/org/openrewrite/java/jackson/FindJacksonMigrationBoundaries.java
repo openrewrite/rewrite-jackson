@@ -59,6 +59,17 @@ public class FindJacksonMigrationBoundaries extends ScanningRecipe<Map<JavaProje
                 }
                 return super.visitClassDeclaration(cd, ctx);
             }
+
+            @Override
+            public J.NewClass visitNewClass(J.NewClass newClass, ExecutionContext ctx) {
+                if (newClass.getBody() != null && newClass.getConstructorType() != null) {
+                    JavaSourceFile source = getCursor().firstEnclosing(JavaSourceFile.class);
+                    JavaProject project = source == null ? null : source.getMarkers().findFirst(JavaProject.class).orElse(null);
+                    sourceTypes.computeIfAbsent(project, p -> new HashSet<>())
+                            .add(newClass.getConstructorType().getDeclaringType().getFullyQualifiedName());
+                }
+                return super.visitNewClass(newClass, ctx);
+            }
         };
     }
 
