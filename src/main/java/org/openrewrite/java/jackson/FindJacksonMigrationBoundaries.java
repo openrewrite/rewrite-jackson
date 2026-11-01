@@ -190,7 +190,7 @@ public class FindJacksonMigrationBoundaries extends ScanningRecipe<Map<JavaProje
                             source.getMarkers().findFirst(JavaProject.class).map(JavaProject::getProjectName).orElse("unknown"),
                             source.getMarkers().findFirst(JavaSourceSet.class).map(JavaSourceSet::getName).orElse("unknown"),
                             source.getSourcePath().toString(), category, String.join(", ", types), api,
-                            tree.printTrimmed(getCursor())));
+                            tree.printTrimmed(tree.isScope(getCursor().getValue()) ? getCursor().getParentOrThrow() : getCursor())));
                 }
             }
         };
