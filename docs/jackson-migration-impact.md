@@ -41,6 +41,22 @@ It does not detect Jackson dependencies hidden entirely inside an SDK, reflectio
 external configuration, generated code absent from the LST, or untyped expressions. No findings is not proof
 that Jackson 2 can be removed. Run the dependency inventory alongside source analysis.
 
+## Repository-wide preconditions
+
+`UsesExternalJackson2Api` is a scanning precondition for a conservative retention policy.
+It matches every file, including Maven/Gradle build files, when a resolved call or method
+reference has a fixed third-party signature containing Jackson 2 types. Supplied source
+owners, Spring/Jackson APIs, shared annotations, and signatures potentially specialized
+by generic inference do not trigger it. The source ownership scan completes before the
+predicate is evaluated. `DoesNotUseExternalJackson2Api` is its inverse.
+
+These predicates enable two declarative branches without a top-level version option.
+They deliberately select an entire repository, keeping its build and source policy
+consistent. They do not establish that reflection, runtime wiring, or unresolved calls
+are compatible with Jackson 3, and they do not provide a safe mixed-version module split.
+The impact table remains necessary to review those cases. An OSS prototype exercising
+Azure Cosmos and Swagger boundaries lives in rewrite-spring's validation documentation.
+
 ## Follow-up migration composition
 
 Do not add a Jackson selection option to the public Spring Boot upgrade recipe. Keep detection separate and
@@ -57,9 +73,9 @@ use its evidence to design module-scoped composition:
 4. Do not infer automatic exception-driven Jackson 3 fallback. Boot's preferred-mapper properties choose a
    mapper; they do not promise retry after serialization failure.
 
-An external Jackson-typed signature is evidence about that API, not enough to select every source file in a
-module automatically. Leave ambiguous boundaries for review until representative customer findings establish
-safe rules. Compile and test consumers; wire-format and persisted-session compatibility need application tests.
+An external Jackson-typed signature is evidence about that API. Repository-wide retention is conservative;
+automatically separating Jackson 2 and Jackson 3 files inside a module requires additional dependency/API
+closure. Leave ambiguous boundaries for review. Compile and test consumers; wire-format and persisted-session compatibility need application tests.
 
 References:
 

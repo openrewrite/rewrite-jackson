@@ -207,7 +207,7 @@ public class FindJacksonMigrationBoundaries extends ScanningRecipe<Map<JavaProje
         };
     }
 
-    private static boolean isGenericApi(JavaType.Method method) {
+    static boolean isGenericApi(JavaType.Method method) {
         if (!method.getDeclaredFormalTypeNames().isEmpty() || method.getDeclaringType() instanceof JavaType.Parameterized) {
             return true;
         }
@@ -223,7 +223,7 @@ public class FindJacksonMigrationBoundaries extends ScanningRecipe<Map<JavaProje
         return false;
     }
 
-    private static Set<String> signatureTypes(JavaType.@Nullable Method method) {
+    static Set<String> signatureTypes(JavaType.@Nullable Method method) {
         Set<String> types = new TreeSet<>();
         if (method != null) {
             types.addAll(jacksonTypes(method.getReturnType()));
@@ -234,7 +234,7 @@ public class FindJacksonMigrationBoundaries extends ScanningRecipe<Map<JavaProje
         return types;
     }
 
-    private static Set<String> jacksonTypes(@Nullable JavaType type) {
+    static Set<String> jacksonTypes(@Nullable JavaType type) {
         Set<String> types = new TreeSet<>();
         collectTypes(type, types, Collections.newSetFromMap(new IdentityHashMap<>()));
         return types;
@@ -268,7 +268,7 @@ public class FindJacksonMigrationBoundaries extends ScanningRecipe<Map<JavaProje
         }
     }
 
-    private static boolean isJackson(String fqn) {
+    static boolean isJackson(String fqn) {
         return fqn.startsWith("com.fasterxml.jackson.") && !fqn.startsWith("com.fasterxml.jackson.annotation.") ||
                 fqn.startsWith("tools.jackson.") || fqn.startsWith("org.codehaus.jackson.");
     }
