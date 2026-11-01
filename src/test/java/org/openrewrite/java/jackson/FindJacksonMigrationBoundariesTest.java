@@ -17,6 +17,7 @@ package org.openrewrite.java.jackson;
 
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
+import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.marker.JavaProject;
@@ -384,6 +385,31 @@ class FindJacksonMigrationBoundariesTest implements RewriteTest {
               import com.fasterxml.jackson.databind.ObjectMapper;
               class Config<T extends ObjectMapper> {
                   T mapper;
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void actualAzureSerializerRequiresJackson2Mapper() {
+        rewriteRun(
+          spec -> spec.parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
+              "azure-core-serializer-json-jackson", "jackson-databind-2", "jackson-core-2", "jackson-annotations"))
+            .dataTable(JacksonMigrationBoundaries.Row.class, rows ->
+                assertThat(rows).filteredOn(r -> r.getCategory().equals("EXTERNAL_API"))
+                  .singleElement().satisfies(r -> {
+                      assertThat(r.getApi()).contains("JacksonJsonSerializerBuilder", "serializer");
+                      assertThat(r.getJacksonTypes()).isEqualTo("com.fasterxml.jackson.databind.ObjectMapper");
+                  })),
+          java(
+            """
+              import com.azure.core.serializer.json.jackson.JacksonJsonSerializerBuilder;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              class AzureConfig {
+                  JacksonJsonSerializerBuilder serializer(ObjectMapper mapper) {
+                      return new JacksonJsonSerializerBuilder().serializer(mapper);
+                  }
               }
               """
           )
