@@ -656,6 +656,24 @@ recipeList:
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: com.fasterxml.jackson.databind.JsonMappingException.Reference getFieldName()
       newMethodName: getPropertyName
+  # `SerializerProvider` becomes `SerializationContext`, where these were renamed
+  - org.openrewrite.java.ReorderMethodArguments:
+      methodPattern: com.fasterxml.jackson.databind.SerializerProvider defaultSerializeValue(Object, com.fasterxml.jackson.core.JsonGenerator)
+      newParameterNames: [gen, value]
+      oldParameterNames: [value, gen]
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.databind.SerializerProvider defaultSerializeValue(com.fasterxml.jackson.core.JsonGenerator, Object)
+      newMethodName: writeValue
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.databind.SerializerProvider defaultSerializeField(String, Object, com.fasterxml.jackson.core.JsonGenerator)
+      newMethodName: defaultSerializeProperty
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.databind.SerializerProvider defaultSerializeNull(com.fasterxml.jackson.core.JsonGenerator)
+      newMethodName: defaultSerializeNullValue
+  # Jackson 3 keeps only the one-argument `findValueSerializer`; the contextualizing variant is `findContentValueSerializer`
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.fasterxml.jackson.databind.SerializerProvider findValueSerializer(*, com.fasterxml.jackson.databind.BeanProperty)
+      newMethodName: findContentValueSerializer
 
 ---
 type: specs.openrewrite.org/v1beta/recipe

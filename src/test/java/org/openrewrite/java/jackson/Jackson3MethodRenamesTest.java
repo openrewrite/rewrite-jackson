@@ -901,4 +901,115 @@ class Jackson3MethodRenamesTest implements RewriteTest {
           )
         );
     }
+
+    @Test
+    void serializerProviderDefaultSerializeMethods() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonGenerator;
+              import com.fasterxml.jackson.databind.SerializerProvider;
+              import com.fasterxml.jackson.databind.ser.std.StdSerializer;
+
+              import java.io.IOException;
+              import java.util.List;
+
+              class ListSerializer extends StdSerializer<List<Object>> {
+                  ListSerializer() {
+                      super(List.class, false);
+                  }
+
+                  @Override
+                  public void serialize(List<Object> value, JsonGenerator gen, SerializerProvider provider) throws IOException {
+                      gen.writeStartObject();
+                      provider.defaultSerializeField("first", value.get(0), gen);
+                      gen.writeFieldName("rest");
+                      gen.writeStartArray();
+                      for (Object text : value) {
+                          provider.defaultSerializeValue(text, gen);
+                      }
+                      gen.writeEndArray();
+                      gen.writeFieldName("none");
+                      provider.defaultSerializeNull(gen);
+                      gen.writeEndObject();
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonGenerator;
+              import tools.jackson.databind.ser.std.StdSerializer;
+              import tools.jackson.databind.SerializationContext;
+
+              import java.util.List;
+
+              class ListSerializer extends StdSerializer<List<Object>> {
+                  ListSerializer() {
+                      super(List.class, false);
+                  }
+
+                  @Override
+                  public void serialize(List<Object> value, JsonGenerator gen, SerializationContext provider) {
+                      gen.writeStartObject();
+                      provider.defaultSerializeProperty("first", value.get(0), gen);
+                      gen.writeName("rest");
+                      gen.writeStartArray();
+                      for (Object text : value) {
+                          provider.writeValue(gen, text);
+                      }
+                      gen.writeEndArray();
+                      gen.writeName("none");
+                      provider.defaultSerializeNullValue(gen);
+                      gen.writeEndObject();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void serializerProviderFindValueSerializerWithProperty() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.BeanProperty;
+              import com.fasterxml.jackson.databind.JsonMappingException;
+              import com.fasterxml.jackson.databind.JsonSerializer;
+              import com.fasterxml.jackson.databind.SerializerProvider;
+
+              class Test {
+                  JsonSerializer<Object> find(SerializerProvider serializerProvider, BeanProperty beanProperty) throws JsonMappingException {
+                      if (beanProperty == null) {
+                          return serializerProvider.findValueSerializer(String.class);
+                      }
+                      if (beanProperty.getType().isPrimitive()) {
+                          return serializerProvider.findValueSerializer(beanProperty.getType().getRawClass(), beanProperty);
+                      }
+                      return serializerProvider.findValueSerializer(beanProperty.getType(), beanProperty);
+                  }
+              }
+              """,
+            """
+              import tools.jackson.databind.BeanProperty;
+              import tools.jackson.databind.DatabindException;
+              import tools.jackson.databind.SerializationContext;
+              import tools.jackson.databind.ValueSerializer;
+
+              class Test {
+                  ValueSerializer<Object> find(SerializationContext serializerProvider, BeanProperty beanProperty) throws DatabindException {
+                      if (beanProperty == null) {
+                          return serializerProvider.findValueSerializer(String.class);
+                      }
+                      if (beanProperty.getType().isPrimitive()) {
+                          return serializerProvider.findContentValueSerializer(beanProperty.getType().getRawClass(), beanProperty);
+                      }
+                      return serializerProvider.findContentValueSerializer(beanProperty.getType(), beanProperty);
+                  }
+              }
+              """
+          )
+        );
+    }
 }
