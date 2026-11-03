@@ -819,6 +819,43 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         }
 
         @Test
+        void todoAfterTrailingCommentOfPreviousLine() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+
+                  class Customizer {
+                      void customize(ObjectMapper mapper) {
+                          mapper.configure(SerializationFeature.FAIL_ON_SELF_REFERENCES, true);//c1
+                          mapper.configure(SerializationFeature.WRITE_SELF_REFERENCES_AS_NULL, true);//c2
+                          // leading comment
+                          mapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+                  import com.fasterxml.jackson.databind.SerializationFeature;
+
+                  class Customizer {
+                      void customize(ObjectMapper mapper) {
+                          // TODO configure could not be folded to the builder of ObjectMapper. Use mapper.rebuild().configure(...).build() or move to the mapper's instantiation site.
+                          mapper.configure(SerializationFeature.FAIL_ON_SELF_REFERENCES, true);//c1
+                          // TODO configure could not be folded to the builder of ObjectMapper. Use mapper.rebuild().configure(...).build() or move to the mapper's instantiation site.
+                          mapper.configure(SerializationFeature.WRITE_SELF_REFERENCES_AS_NULL, true);//c2
+                          // leading comment
+                          // TODO configure could not be folded to the builder of ObjectMapper. Use mapper.rebuild().configure(...).build() or move to the mapper's instantiation site.
+                          mapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
         void fieldAssignedInMethod() {
             rewriteRun(
               java(
@@ -1000,7 +1037,7 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
                       ObjectMapper consumed(Locale locale) {
                           JsonMapper mapper = new JsonMapper();
                           ObjectMapper configured = // TODO setLocale could not be folded to the builder of JsonMapper. Use mapper.rebuild().defaultLocale(...).build() or move to the mapper's instantiation site.
-                          mapper.setLocale(locale);
+                                  mapper.setLocale(locale);
                           return configured;
                       }
                   }

@@ -214,6 +214,69 @@ class MigrateFactorySettersToBuilderTest implements RewriteTest {
         }
 
         @Test
+        void todoAfterTrailingCommentOfPreviousLine() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.core.JsonFactory;
+                  import com.fasterxml.jackson.core.io.CharacterEscapes;
+
+                  class A {
+                      void configure(JsonFactory factory, CharacterEscapes escapes) {
+                          factory.setCharacterEscapes(escapes);//c1
+                          factory.setCharacterEscapes(escapes);
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.core.JsonFactory;
+                  import com.fasterxml.jackson.core.io.CharacterEscapes;
+
+                  class A {
+                      void configure(JsonFactory factory, CharacterEscapes escapes) {
+                          // TODO setCharacterEscapes could not be folded to the builder of JsonFactory. Use factory.rebuild().characterEscapes(...).build() or move to the factory's instantiation site.
+                          factory.setCharacterEscapes(escapes);//c1
+                          // TODO setCharacterEscapes could not be folded to the builder of JsonFactory. Use factory.rebuild().characterEscapes(...).build() or move to the factory's instantiation site.
+                          factory.setCharacterEscapes(escapes);
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void todoOnSetterWhoseResultIsAssigned() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.core.JsonFactory;
+                  import com.fasterxml.jackson.core.io.CharacterEscapes;
+
+                  class A {
+                      JsonFactory configure(JsonFactory factory, CharacterEscapes escapes) {
+                          JsonFactory configured = factory.setCharacterEscapes(escapes);
+                          return configured;
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.core.JsonFactory;
+                  import com.fasterxml.jackson.core.io.CharacterEscapes;
+
+                  class A {
+                      JsonFactory configure(JsonFactory factory, CharacterEscapes escapes) {
+                          JsonFactory configured = // TODO setCharacterEscapes could not be folded to the builder of JsonFactory. Use factory.rebuild().characterEscapes(...).build() or move to the factory's instantiation site.
+                                  factory.setCharacterEscapes(escapes);
+                          return configured;
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
         void factoryPassedToOtherMethodStillFolded() {
             rewriteRun(
               java(

@@ -17,23 +17,21 @@ package org.openrewrite.java.jackson;
 
 import lombok.Getter;
 import org.jspecify.annotations.Nullable;
+import org.openrewrite.Cursor;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
 import org.openrewrite.TreeVisitor;
-import org.openrewrite.internal.ListUtils;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.java.JavaTemplate;
 import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.search.UsesMethod;
-import org.openrewrite.java.tree.Comment;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JavaType;
 import org.openrewrite.java.tree.Statement;
-import org.openrewrite.java.tree.TextComment;
 import org.openrewrite.java.tree.TypeUtils;
-import org.openrewrite.marker.Markers;
+import org.openrewrite.trait.Comments;
 
 import java.util.Set;
 
@@ -86,14 +84,8 @@ public class UseReadTreeAsValueInDeserializer extends Recipe {
             }
 
             private J.MethodInvocation addTodoComment(J.MethodInvocation mi) {
-                for (Comment c : mi.getComments()) {
-                    if (c instanceof TextComment && ((TextComment) c).getText().contains(COMMENT_MARKER)) {
-                        return mi;
-                    }
-                }
-                TextComment todo = new TextComment(true, " " + COMMENT_MARKER + " ",
-                        mi.getPrefix().getWhitespace(), Markers.EMPTY);
-                return mi.withComments(ListUtils.concat(mi.getComments(), todo));
+                return Comments.of(new Cursor(getCursor().getParentOrThrow(), mi))
+                        .multilineComment(" " + COMMENT_MARKER + " ");
             }
 
             private J.@Nullable Identifier enclosingDeserializationContextParam() {
