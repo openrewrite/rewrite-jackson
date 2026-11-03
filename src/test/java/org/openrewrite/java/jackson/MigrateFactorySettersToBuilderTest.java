@@ -25,13 +25,11 @@ import org.openrewrite.test.RewriteTest;
 
 import static org.openrewrite.java.Assertions.java;
 
-/**
- * The recipe's structural job is independent of feature-constant renames — those happen in a
- * separate pipeline pass before this recipe runs. To keep these unit tests self-contained, they
- * use setters that take non-feature arguments ({@code setCharacterEscapes},
- * {@code setRootValueSeparator}). The full feature-constant-bearing flow is covered end-to-end
- * in {@code Jackson3TypeChangesTest}.
- */
+/// The recipe's structural job is independent of feature-constant renames — those happen in a
+/// separate pipeline pass before this recipe runs. To keep these unit tests self-contained, they
+/// use setters that take non-feature arguments (`setCharacterEscapes`,
+/// `setRootValueSeparator`). The full feature-constant-bearing flow is covered end-to-end
+/// in `Jackson3TypeChangesTest`.
 class MigrateFactorySettersToBuilderTest implements RewriteTest {
 
     @Override
@@ -313,19 +311,17 @@ class MigrateFactorySettersToBuilderTest implements RewriteTest {
         }
     }
 
-    /**
-     * Format-aligned factories (Avro, CBOR, Csv, Smile, Xml, YAML) migrate via the concrete
-     * {@code XFactory.builder()} static, not {@code new XFactoryBuilder()} — the no-arg
-     * {@code XFactoryBuilder} constructor is package-protected, so a direct {@code new}
-     * call would emit uncompilable code outside its package. IonFactory is omitted from
-     * the migration because it has no plain {@code IonFactory.builder()} static.
-     * <p>
-     * Stream-constraint setters resolve through {@link com.fasterxml.jackson.core.TSFBuilder}
-     * inherited methods. {@code characterEscapes} / {@code rootValueSeparator} are only
-     * present on {@code JsonFactoryBuilder}, so calls to {@code setCharacterEscapes} /
-     * {@code setRootValueSeparator} on a format-aligned factory fall through to the TODO
-     * path rather than fold.
-     */
+    /// Format-aligned factories (Avro, CBOR, Csv, Smile, Xml, YAML) migrate via the concrete
+    /// `XFactory.builder()` static, not `new XFactoryBuilder()` — the no-arg
+    /// `XFactoryBuilder` constructor is package-protected, so a direct `new`
+    /// call would emit uncompilable code outside its package. IonFactory is omitted from
+    /// the migration because it has no plain `IonFactory.builder()` static.
+    ///
+    /// Stream-constraint setters resolve through [com.fasterxml.jackson.core.TSFBuilder]
+    /// inherited methods. `characterEscapes` / `rootValueSeparator` are only
+    /// present on `JsonFactoryBuilder`, so calls to `setCharacterEscapes` /
+    /// `setRootValueSeparator` on a format-aligned factory fall through to the TODO
+    /// path rather than fold.
     @Nested
     class FormatAlignedFactories {
 

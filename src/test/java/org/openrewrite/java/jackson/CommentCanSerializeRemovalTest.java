@@ -36,7 +36,10 @@ class CommentCanSerializeRemovalTest implements RewriteTest {
               "TODO canDeserialize was removed in Jackson 3 with no replacement (see https://github.com/FasterXML/jackson-databind/issues/1917). Attempt serialization/deserialization and catch exceptions instead.",
               "com.fasterxml.jackson.databind.ObjectMapper canDeserialize(..)")
           )
-          .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(), "jackson-annotations-2", "jackson-core-2", "jackson-databind-2"));
+          .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
+            "jackson-annotations-2",
+            "jackson-core-2",
+            "jackson-databind-2"));
     }
 
     @DocumentExample

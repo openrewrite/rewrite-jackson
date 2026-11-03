@@ -24,13 +24,11 @@ import org.openrewrite.test.RewriteTest;
 
 import static org.openrewrite.java.Assertions.java;
 
-/**
- * Tests for gap: {@code StdDeserializer} no longer accepts {@code null} for the handled type
- * parameter in Jackson 3. The common {@code this(null)} / {@code super(vc)} pattern must be
- * replaced with {@code super(ActualType.class)}.
- *
- * @see <a href="https://github.com/moderneinc/customer-requests/issues/1963">customer-requests#1963</a>
- */
+/// Tests for gap: `StdDeserializer` no longer accepts `null` for the handled type
+/// parameter in Jackson 3. The common `this(null)` / `super(vc)` pattern must be
+/// replaced with `super(ActualType.class)`.
+///
+/// @see <a href="https://github.com/moderneinc/customer-requests/issues/1963">customer-requests#1963</a>
 @Issue("https://github.com/moderneinc/customer-requests/issues/1963")
 class StdDeserializerNullConstructorTest implements RewriteTest {
 

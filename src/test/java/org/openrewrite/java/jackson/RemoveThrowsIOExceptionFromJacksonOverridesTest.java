@@ -24,14 +24,12 @@ import org.openrewrite.test.RewriteTest;
 
 import static org.openrewrite.java.Assertions.java;
 
-/**
- * Tests for gap: {@code throws IOException} is not removed from
- * {@code serialize()} / {@code deserialize()} method overrides.
- * In Jackson 3, these methods no longer throw {@code IOException}
- * ({@code JacksonException} extends {@code RuntimeException}).
- *
- * @see <a href="https://github.com/moderneinc/customer-requests/issues/1963">customer-requests#1963</a>
- */
+/// Tests for gap: `throws IOException` is not removed from
+/// `serialize()` / `deserialize()` method overrides.
+/// In Jackson 3, these methods no longer throw `IOException`
+/// (`JacksonException` extends `RuntimeException`).
+///
+/// @see <a href="https://github.com/moderneinc/customer-requests/issues/1963">customer-requests#1963</a>
 @Issue("https://github.com/moderneinc/customer-requests/issues/1963")
 class RemoveThrowsIOExceptionFromJacksonOverridesTest implements RewriteTest {
 
