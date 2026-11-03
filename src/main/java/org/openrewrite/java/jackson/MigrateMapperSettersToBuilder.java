@@ -26,6 +26,7 @@ import org.openrewrite.java.search.UsesMethod;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.*;
 import org.openrewrite.marker.Markers;
+import org.openrewrite.trait.Comments;
 
 import java.util.*;
 
@@ -323,24 +324,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                         "Use mapper.rebuild().%s(...).build() or move to the mapper's instantiation site.",
                                 mapping.setterName, simpleMapperName, mapping.builderName);
 
-                        if (hasComment(mi, commentText)) {
-                            return mi;
-                        }
-
-                        String suffix = lineBreakBeforeElement(mi.getPrefix());
-                        if (!suffix.contains("\n")) {
-                            suffix = enclosingBlockStatementWhitespace(getCursor());
-                        }
-                        TextComment comment = new TextComment(false, commentText, suffix, Markers.EMPTY);
-                        return mi.withPrefix(mi.getPrefix().withComments(
-                                ListUtils.concat(mi.getPrefix().getComments(), comment)));
-                    }
-
-                    private boolean hasComment(J.MethodInvocation mi, String commentText) {
-                        return mi.getPrefix().getComments().stream()
-                                .filter(TextComment.class::isInstance)
-                                .map(c -> ((TextComment) c).getText().trim())
-                                .anyMatch(t -> t.equals(commentText.trim()));
+                        return Comments.of(new Cursor(getCursor().getParentOrThrow(), mi)).comment(commentText);
                     }
 
                     private boolean argumentReferencesAny(J.MethodInvocation mi, Set<J.Identifier> intermediateVars) {
@@ -895,31 +879,6 @@ public class MigrateMapperSettersToBuilder extends Recipe {
             c = c.getParent();
         }
         return null;
-    }
-
-    /**
-     * The leading whitespace of the block-level statement enclosing {@code cursor},
-     * i.e. the line break and indent the statement itself starts with.
-     */
-    private static String enclosingBlockStatementWhitespace(Cursor cursor) {
-        Cursor c = cursor;
-        Cursor parent = c.getParentTreeCursor();
-        while (!(parent.getValue() instanceof J.Block) && parent.getValue() instanceof J) {
-            c = parent;
-            parent = parent.getParentTreeCursor();
-        }
-        return lineBreakBeforeElement(((J) c.getValue()).getPrefix());
-    }
-
-    /**
-     * The whitespace directly in front of the element: the suffix of the last comment in the prefix,
-     * or the prefix's whitespace when it holds no comments. A comment inserted last in the prefix takes
-     * this as its suffix, so that it never runs into the element, such as when the prefix starts with
-     * the trailing comment of the previous line.
-     */
-    private static String lineBreakBeforeElement(Space prefix) {
-        List<Comment> comments = prefix.getComments();
-        return comments.isEmpty() ? prefix.getWhitespace() : comments.get(comments.size() - 1).getSuffix();
     }
 
     // Captured locals are skipped: reassigning them would break Java's effective-final requirement.

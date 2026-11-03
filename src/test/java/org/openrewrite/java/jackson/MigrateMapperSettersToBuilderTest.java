@@ -1037,7 +1037,7 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
                       ObjectMapper consumed(Locale locale) {
                           JsonMapper mapper = new JsonMapper();
                           ObjectMapper configured = // TODO setLocale could not be folded to the builder of JsonMapper. Use mapper.rebuild().defaultLocale(...).build() or move to the mapper's instantiation site.
-                          mapper.setLocale(locale);
+                                  mapper.setLocale(locale);
                           return configured;
                       }
                   }
