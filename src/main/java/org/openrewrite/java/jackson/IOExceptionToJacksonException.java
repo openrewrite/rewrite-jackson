@@ -19,11 +19,13 @@ import lombok.Getter;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.*;
 import org.openrewrite.internal.ListUtils;
+import org.openrewrite.java.AnnotationMatcher;
 import org.openrewrite.java.ChangeType;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.JavaTemplate;
 import org.openrewrite.java.JavaVisitor;
 import org.openrewrite.java.MethodMatcher;
+import org.openrewrite.java.RemoveAnnotationVisitor;
 import org.openrewrite.java.search.FindMethods;
 import org.openrewrite.java.search.UsesMethod;
 import org.openrewrite.java.tree.*;
@@ -34,6 +36,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.util.Collections.emptySet;
 import static java.util.Collections.singleton;
+import static java.util.Objects.requireNonNull;
 
 @Getter
 public class IOExceptionToJacksonException extends Recipe {
@@ -58,7 +61,8 @@ public class IOExceptionToJacksonException extends Recipe {
             "the catch is changed to a multi-catch " +
             "`catch (JacksonException | IOException e)`. Where the caught exception is passed on as an `IOException`, " +
             "for instance to `new UncheckedIOException(e)`, it is wrapped in a `new IOException(e)`; " +
-            "such catches are left alone when the try block also throws `IOException` from non-Jackson code.";
+            "such catches are left alone when the try block also throws `IOException` from non-Jackson code. " +
+            "Likewise, `IOException` is removed from Lombok's `@SneakyThrows` on methods whose only `IOException` source is Jackson.";
 
     final Set<String> tags = singleton("jackson-3");
 
@@ -96,6 +100,47 @@ public class IOExceptionToJacksonException extends Recipe {
                             }
                             return catch_;
                         }));
+                    }
+
+                    @Override
+                    public J.MethodDeclaration visitMethodDeclaration(J.MethodDeclaration method, ExecutionContext ctx) {
+                        J.MethodDeclaration md = super.visitMethodDeclaration(method, ctx);
+                        J.Block body = md.getBody();
+                        if (body == null ||
+                                md.getLeadingAnnotations().stream().noneMatch(IOExceptionToJacksonException::sneakilyThrowsIOException) ||
+                                FindMethods.find(body, OBJECT_MAPPER_PATTERN).isEmpty() &&
+                                        FindMethods.find(body, OBJECT_READER_PATTERN).isEmpty() &&
+                                        FindMethods.find(body, OBJECT_WRITER_PATTERN).isEmpty() ||
+                                bodyHasNonJacksonIOExceptionSource(body)) {
+                            return md;
+                        }
+                        // Lombok wraps the body in a catch of the listed exceptions, which no longer compiles
+                        // once the Jackson calls are the only source of IOException left in it
+                        md = md.withLeadingAnnotations(ListUtils.map(md.getLeadingAnnotations(), a -> {
+                            Expression value = sneakilyThrowsIOException(a) ? sneakyThrowsValue(a) : null;
+                            if (!(value instanceof J.NewArray)) {
+                                return a;
+                            }
+                            J.NewArray array = (J.NewArray) value;
+                            List<Expression> initializer = requireNonNull(array.getInitializer());
+                            List<Expression> remaining = ListUtils.filter(initializer, e -> !isIOExceptionClassLiteral(e));
+                            if (remaining.isEmpty()) {
+                                return a;
+                            }
+                            J.NewArray newArray = array.withInitializer(
+                                    ListUtils.mapFirst(remaining, e -> e.withPrefix(initializer.get(0).getPrefix())));
+                            return a.withArguments(ListUtils.map(a.getArguments(), arg -> arg instanceof J.Assignment ?
+                                    ((J.Assignment) arg).withAssignment(newArray) : newArray));
+                        }));
+                        maybeRemoveImport(IO_EXCEPTION);
+                        if (md.getLeadingAnnotations().stream().noneMatch(IOExceptionToJacksonException::sneakilyThrowsIOException)) {
+                            return md;
+                        }
+                        // Only IOException was listed: remove the annotation, leaving any in the body alone
+                        J.MethodDeclaration removed = (J.MethodDeclaration) new RemoveAnnotationVisitor(SNEAKY_THROWS_MATCHER)
+                                .visitNonNull(md.withBody(null), ctx, getCursor().getParentOrThrow());
+                        maybeRemoveImport("lombok.SneakyThrows");
+                        return removed.withBody(body);
                     }
 
                     private J.Try.Catch wrapInIOException(J.Try.Catch catch_, Set<UUID> uses, ExecutionContext ctx) {
@@ -173,6 +218,46 @@ public class IOExceptionToJacksonException extends Recipe {
         );
     }
 
+    private static final AnnotationMatcher SNEAKY_THROWS_MATCHER = new AnnotationMatcher("@lombok.SneakyThrows");
+
+    private static @Nullable Expression sneakyThrowsValue(J.Annotation annotation) {
+        if (annotation.getArguments() == null || annotation.getArguments().size() != 1) {
+            return null;
+        }
+        Expression arg = annotation.getArguments().get(0);
+        if (arg instanceof J.Assignment) {
+            J.Assignment assignment = (J.Assignment) arg;
+            if (!(assignment.getVariable() instanceof J.Identifier) ||
+                    !"value".equals(((J.Identifier) assignment.getVariable()).getSimpleName())) {
+                return null;
+            }
+            return assignment.getAssignment();
+        }
+        return arg;
+    }
+
+    /**
+     * Whether this is a Lombok {@code @SneakyThrows} that lists {@code IOException.class} among the exceptions it
+     * sneakily throws. A bare {@code @SneakyThrows} means {@code Throwable}, which still compiles, so it does not count.
+     */
+    private static boolean sneakilyThrowsIOException(J.Annotation annotation) {
+        if (!SNEAKY_THROWS_MATCHER.matches(annotation)) {
+            return false;
+        }
+        Expression value = sneakyThrowsValue(annotation);
+        if (value instanceof J.NewArray) {
+            List<Expression> initializer = ((J.NewArray) value).getInitializer();
+            return initializer != null && initializer.stream().anyMatch(IOExceptionToJacksonException::isIOExceptionClassLiteral);
+        }
+        return value != null && isIOExceptionClassLiteral(value);
+    }
+
+    private static boolean isIOExceptionClassLiteral(Expression e) {
+        return e instanceof J.FieldAccess &&
+                "class".equals(((J.FieldAccess) e).getSimpleName()) &&
+                TypeUtils.isOfClassType(((J.FieldAccess) e).getTarget().getType(), IO_EXCEPTION);
+    }
+
     private static boolean catchesIOException(J.Try.Catch catch_) {
         J.VariableDeclarations param = catch_.getParameter().getTree();
         if (param.getTypeExpression() instanceof J.MultiCatch) {
@@ -233,8 +318,8 @@ public class IOExceptionToJacksonException extends Recipe {
         return TypeUtils.isAssignableTo(JACKSON_EXCEPTION, catch_.getParameter().getType());
     }
 
-    private static boolean hasNonJacksonIOExceptionSource(J.Try try_) {
-        JavaIsoVisitor<AtomicBoolean> visitor = new JavaIsoVisitor<AtomicBoolean>() {
+    private static JavaIsoVisitor<AtomicBoolean> nonJacksonIOExceptionSourceFinder() {
+        return new JavaIsoVisitor<AtomicBoolean>() {
             @Override
             public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, AtomicBoolean result) {
                 if (result.get()) {
@@ -283,6 +368,14 @@ public class IOExceptionToJacksonException extends Recipe {
                 return super.visitThrow(thrown, result);
             }
         };
+    }
+
+    private static boolean bodyHasNonJacksonIOExceptionSource(J.Block body) {
+        return nonJacksonIOExceptionSourceFinder().reduce(body, new AtomicBoolean(false)).get();
+    }
+
+    private static boolean hasNonJacksonIOExceptionSource(J.Try try_) {
+        JavaIsoVisitor<AtomicBoolean> visitor = nonJacksonIOExceptionSourceFinder();
         AtomicBoolean result = new AtomicBoolean(false);
         if (try_.getResources() != null) {
             for (J.Try.Resource resource : try_.getResources()) {
