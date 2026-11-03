@@ -327,7 +327,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             return mi;
                         }
 
-                        String suffix = mi.getPrefix().getWhitespace();
+                        String suffix = lineBreakBeforeElement(mi.getPrefix());
                         if (!suffix.contains("\n")) {
                             suffix = enclosingBlockStatementWhitespace(getCursor());
                         }
@@ -908,7 +908,18 @@ public class MigrateMapperSettersToBuilder extends Recipe {
             c = parent;
             parent = parent.getParentTreeCursor();
         }
-        return ((J) c.getValue()).getPrefix().getWhitespace();
+        return lineBreakBeforeElement(((J) c.getValue()).getPrefix());
+    }
+
+    /**
+     * The whitespace directly in front of the element: the suffix of the last comment in the prefix,
+     * or the prefix's whitespace when it holds no comments. A comment inserted last in the prefix takes
+     * this as its suffix, so that it never runs into the element, such as when the prefix starts with
+     * the trailing comment of the previous line.
+     */
+    private static String lineBreakBeforeElement(Space prefix) {
+        List<Comment> comments = prefix.getComments();
+        return comments.isEmpty() ? prefix.getWhitespace() : comments.get(comments.size() - 1).getSuffix();
     }
 
     // Captured locals are skipped: reassigning them would break Java's effective-final requirement.
