@@ -588,4 +588,138 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
           )
         );
     }
+
+    private static final String SNEAKY_THROWS =
+      """
+        package lombok;
+        import java.lang.annotation.*;
+        @Target({ElementType.METHOD, ElementType.CONSTRUCTOR})
+        @Retention(RetentionPolicy.SOURCE)
+        public @interface SneakyThrows {
+            Class<? extends Throwable>[] value() default java.lang.Throwable.class;
+        }
+        """;
+
+    @Test
+    void removeSneakyThrowsOfIOException() {
+        rewriteRun(
+          spec -> spec.parser(JavaParser.fromJavaVersion()
+            .classpathFromResources(new InMemoryExecutionContext(), "jackson-core-2", "jackson-databind-2")
+            .dependsOn(SNEAKY_THROWS)),
+          java(
+            """
+              import java.io.IOException;
+              import java.util.Currency;
+              import com.fasterxml.jackson.databind.JsonNode;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import lombok.SneakyThrows;
+
+              class Test {
+                  ObjectMapper objectMapper = new ObjectMapper();
+
+                  @SneakyThrows(value = IOException.class)
+                  private Currency mapRate(JsonNode currency) {
+                      return objectMapper.readValue(currency.toString(), Currency.class);
+                  }
+
+                  @SneakyThrows({IOException.class, InterruptedException.class})
+                  private Currency mapRateLater(JsonNode currency) {
+                      Thread.sleep(10);
+                      return objectMapper.readValue(currency.toString(), Currency.class);
+                  }
+              }
+              """,
+            """
+              import java.util.Currency;
+              import com.fasterxml.jackson.databind.JsonNode;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import lombok.SneakyThrows;
+
+              class Test {
+                  ObjectMapper objectMapper = new ObjectMapper();
+
+                  private Currency mapRate(JsonNode currency) {
+                      return objectMapper.readValue(currency.toString(), Currency.class);
+                  }
+
+                  @SneakyThrows({InterruptedException.class})
+                  private Currency mapRateLater(JsonNode currency) {
+                      Thread.sleep(10);
+                      return objectMapper.readValue(currency.toString(), Currency.class);
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void removeImportOfSneakyThrowsWhenNoLongerUsed() {
+        rewriteRun(
+          spec -> spec.parser(JavaParser.fromJavaVersion()
+            .classpathFromResources(new InMemoryExecutionContext(), "jackson-core-2", "jackson-databind-2")
+            .dependsOn(SNEAKY_THROWS)),
+          java(
+            """
+              import java.io.IOException;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import lombok.SneakyThrows;
+
+              class Test {
+                  ObjectMapper objectMapper = new ObjectMapper();
+
+                  @SneakyThrows(IOException.class)
+                  @Deprecated
+                  String read(String json) {
+                      return objectMapper.readValue(json, String.class);
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  ObjectMapper objectMapper = new ObjectMapper();
+
+                  @Deprecated
+                  String read(String json) {
+                      return objectMapper.readValue(json, String.class);
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void keepSneakyThrowsOfIOExceptionWithOtherIOSources() {
+        rewriteRun(
+          spec -> spec.parser(JavaParser.fromJavaVersion()
+            .classpathFromResources(new InMemoryExecutionContext(), "jackson-core-2", "jackson-databind-2")
+            .dependsOn(SNEAKY_THROWS)),
+          java(
+            """
+              import java.io.IOException;
+              import java.nio.file.Files;
+              import java.nio.file.Path;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import lombok.SneakyThrows;
+
+              class Test {
+                  ObjectMapper objectMapper = new ObjectMapper();
+
+                  @SneakyThrows(IOException.class)
+                  String read(Path path) {
+                      return objectMapper.readValue(Files.readString(path), String.class);
+                  }
+
+                  @SneakyThrows
+                  String readAny(String json) {
+                      return objectMapper.readValue(json, String.class);
+                  }
+              }
+              """
+          )
+        );
+    }
 }
