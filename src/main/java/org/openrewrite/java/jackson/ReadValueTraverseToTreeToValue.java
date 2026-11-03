@@ -30,11 +30,6 @@ import org.openrewrite.java.tree.JavaType;
 
 import java.util.Arrays;
 
-/**
- * Migrates {@code mapper.readValue(node.traverse(), type)} to {@code mapper.treeToValue(node, type)}.
- * In Jackson 3.x {@code TreeNode.traverse()} requires an {@code ObjectReadContext}, so the no-argument
- * call no longer compiles. {@code treeToValue} reads the tree directly and exists in both versions.
- */
 public class ReadValueTraverseToTreeToValue extends Recipe {
     private static final MethodMatcher READ_VALUE_PARSER_CLASS = new MethodMatcher(
             "com.fasterxml.jackson.databind.ObjectMapper readValue(com.fasterxml.jackson.core.JsonParser, java.lang.Class)", true);
