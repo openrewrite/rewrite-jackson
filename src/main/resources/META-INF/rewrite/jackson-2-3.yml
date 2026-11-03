@@ -85,6 +85,7 @@ recipeList:
   - org.openrewrite.java.jackson.UseJsonFactoryStaticBuilder  # After TypeChanges retargets to tools.jackson.core.json.*
   - org.openrewrite.java.jackson.JsonSerializeIncludeToJsonInclude  # Before PackageChanges below
   - org.openrewrite.java.jackson.ReadValueUrlToOpenStream  # Before PackageChanges renames ObjectMapper away from com.fasterxml.jackson
+  - org.openrewrite.java.jackson.ReadValueTraverseToTreeToValue  # Before PackageChanges, as it matches on com.fasterxml.jackson
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_PackageChanges
   - org.openrewrite.java.jackson.RemoveDeadJacksonThrows  # After PackageChanges so we only see the J3 unchecked hierarchy
   - org.openrewrite.java.jackson.SimplifyJacksonExceptionCatch
