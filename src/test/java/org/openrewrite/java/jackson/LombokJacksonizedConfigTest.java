@@ -25,13 +25,11 @@ import org.openrewrite.test.RewriteTest;
 import static org.openrewrite.java.Assertions.java;
 import static org.openrewrite.test.SourceSpecs.text;
 
-/**
- * Tests for gap: Lombok's {@code @Jacksonized} annotation generates Jackson 2.x annotations
- * by default. When migrating to Jackson 3, {@code lombok.config} must be updated to set
- * {@code lombok.jacksonized.jacksonVersion += 3}.
- *
- * @see <a href="https://github.com/moderneinc/customer-requests/issues/1963">customer-requests#1963</a>
- */
+/// Tests for gap: Lombok's `@Jacksonized` annotation generates Jackson 2.x annotations
+/// by default. When migrating to Jackson 3, `lombok.config` must be updated to set
+/// `lombok.jacksonized.jacksonVersion += 3`.
+///
+/// @see <a href="https://github.com/moderneinc/customer-requests/issues/1963">customer-requests#1963</a>
 @Issue("https://github.com/moderneinc/customer-requests/issues/1963")
 class LombokJacksonizedConfigTest implements RewriteTest {
 

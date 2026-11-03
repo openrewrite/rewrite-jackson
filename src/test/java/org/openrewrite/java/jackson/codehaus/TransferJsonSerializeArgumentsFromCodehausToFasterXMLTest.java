@@ -32,7 +32,13 @@ class TransferJsonSerializeArgumentsFromCodehausToFasterXMLTest implements Rewri
     public void defaults(RecipeSpec spec) {
         spec
           .recipe(new TransferJsonSerializeArgumentsFromCodehausToFasterXML())
-          .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(), "jackson-core-asl", "jackson-mapper-asl", "jackson-xc", "jackson-annotations-2", "jackson-core-2", "jackson-databind-2"));
+          .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
+            "jackson-core-asl",
+            "jackson-mapper-asl",
+            "jackson-xc",
+            "jackson-annotations-2",
+            "jackson-core-2",
+            "jackson-databind-2"));
     }
 
     @ParameterizedTest

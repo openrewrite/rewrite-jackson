@@ -24,12 +24,10 @@ import org.openrewrite.test.RewriteTest;
 
 import static org.openrewrite.java.Assertions.java;
 
-/**
- * Tests for gap: {@code TypeFactory.defaultInstance()} was removed in Jackson 3.
- * It should be migrated to {@code TypeFactory.createDefaultInstance()}.
- *
- * @see <a href="https://github.com/moderneinc/customer-requests/issues/1963">customer-requests#1963</a>
- */
+/// Tests for gap: `TypeFactory.defaultInstance()` was removed in Jackson 3.
+/// It should be migrated to `TypeFactory.createDefaultInstance()`.
+///
+/// @see <a href="https://github.com/moderneinc/customer-requests/issues/1963">customer-requests#1963</a>
 @Issue("https://github.com/moderneinc/customer-requests/issues/1963")
 class TypeFactoryDefaultInstanceTest implements RewriteTest {
 
