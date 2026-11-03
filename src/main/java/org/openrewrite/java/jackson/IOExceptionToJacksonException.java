@@ -240,18 +240,19 @@ public class IOExceptionToJacksonException extends Recipe {
                 if (result.get()) {
                     return method;
                 }
-                if (OBJECT_MAPPER_MATCHER.matches(method) ||
-                        OBJECT_READER_MATCHER.matches(method) ||
-                        OBJECT_WRITER_MATCHER.matches(method)) {
-                    return method;
+                if (!OBJECT_MAPPER_MATCHER.matches(method) &&
+                        !OBJECT_READER_MATCHER.matches(method) &&
+                        !OBJECT_WRITER_MATCHER.matches(method)) {
+                    JavaType.Method methodType = method.getMethodType();
+                    if (methodType != null &&
+                            methodType.getThrownExceptions().stream()
+                                    .anyMatch(te -> TypeUtils.isAssignableTo(IO_EXCEPTION, te))) {
+                        result.set(true);
+                        return method;
+                    }
                 }
-                JavaType.Method methodType = method.getMethodType();
-                if (methodType != null &&
-                        methodType.getThrownExceptions().stream()
-                                .anyMatch(te -> TypeUtils.isAssignableTo(IO_EXCEPTION, te))) {
-                    result.set(true);
-                }
-                return method;
+                // The select and arguments may throw IOException themselves
+                return super.visitMethodInvocation(method, result);
             }
 
             @Override
@@ -264,8 +265,9 @@ public class IOExceptionToJacksonException extends Recipe {
                         methodType.getThrownExceptions().stream()
                                 .anyMatch(te -> TypeUtils.isAssignableTo(IO_EXCEPTION, te))) {
                     result.set(true);
+                    return newClass;
                 }
-                return newClass;
+                return super.visitNewClass(newClass, result);
             }
 
             @Override
@@ -276,8 +278,9 @@ public class IOExceptionToJacksonException extends Recipe {
                 JavaType type = thrown.getException().getType();
                 if (type != null && TypeUtils.isAssignableTo(IO_EXCEPTION, type)) {
                     result.set(true);
+                    return thrown;
                 }
-                return thrown;
+                return super.visitThrow(thrown, result);
             }
         };
         AtomicBoolean result = new AtomicBoolean(false);

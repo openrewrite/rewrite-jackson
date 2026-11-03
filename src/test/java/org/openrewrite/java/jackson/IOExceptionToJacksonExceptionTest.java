@@ -541,4 +541,51 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
           )
         );
     }
+
+    @Test
+    void multiCatchWhenIOExceptionIsThrownInsideAnArgument() {
+        rewriteRun(
+          java(
+            """
+              import java.io.IOException;
+              import java.io.InputStream;
+              import java.nio.charset.StandardCharsets;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  ObjectMapper objectMapper = new ObjectMapper();
+
+                  String read(InputStream in) {
+                      try {
+                          var json = new String(in.readAllBytes(), StandardCharsets.UTF_8).replace("x", "y");
+                          return objectMapper.readValue(json, String.class);
+                      } catch (IOException ex) {
+                          throw new IllegalStateException(ex);
+                      }
+                  }
+              }
+              """,
+            """
+              import java.io.IOException;
+              import java.io.InputStream;
+              import java.nio.charset.StandardCharsets;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import tools.jackson.core.JacksonException;
+
+              class Test {
+                  ObjectMapper objectMapper = new ObjectMapper();
+
+                  String read(InputStream in) {
+                      try {
+                          var json = new String(in.readAllBytes(), StandardCharsets.UTF_8).replace("x", "y");
+                          return objectMapper.readValue(json, String.class);
+                      } catch (JacksonException | IOException ex) {
+                          throw new IllegalStateException(ex);
+                      }
+                  }
+              }
+              """
+          )
+        );
+    }
 }
