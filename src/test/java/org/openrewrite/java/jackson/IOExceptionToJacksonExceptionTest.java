@@ -409,4 +409,183 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
           )
         );
     }
+
+    @Test
+    void multiCatchWhenTryWithResourcesClosesCloseable() {
+        rewriteRun(
+          java(
+            """
+              import java.io.IOException;
+              import java.io.InputStream;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  ObjectMapper objectMapper = new ObjectMapper();
+
+                  String read(InputStream in) {
+                      try (var is = in) {
+                          return objectMapper.readValue(is, String.class);
+                      } catch (IOException ex) {
+                          throw new IllegalStateException(ex);
+                      }
+                  }
+              }
+              """,
+            """
+              import java.io.IOException;
+              import java.io.InputStream;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import tools.jackson.core.JacksonException;
+
+              class Test {
+                  ObjectMapper objectMapper = new ObjectMapper();
+
+                  String read(InputStream in) {
+                      try (var is = in) {
+                          return objectMapper.readValue(is, String.class);
+                      } catch (JacksonException | IOException ex) {
+                          throw new IllegalStateException(ex);
+                      }
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void multiCatchWhenTryWithResourcesInitializerThrowsIOException() {
+        rewriteRun(
+          java(
+            """
+              import java.io.IOException;
+              import java.nio.file.Files;
+              import java.nio.file.Path;
+              import java.util.stream.Stream;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  ObjectMapper objectMapper = new ObjectMapper();
+
+                  long count(Path dir) {
+                      try (Stream<Path> files = Files.list(dir)) {
+                          return files.map(f -> objectMapper.convertValue(f, String.class)).count();
+                      } catch (IOException ex) {
+                          throw new IllegalStateException(ex);
+                      }
+                  }
+              }
+              """,
+            """
+              import java.io.IOException;
+              import java.nio.file.Files;
+              import java.nio.file.Path;
+              import java.util.stream.Stream;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import tools.jackson.core.JacksonException;
+
+              class Test {
+                  ObjectMapper objectMapper = new ObjectMapper();
+
+                  long count(Path dir) {
+                      try (Stream<Path> files = Files.list(dir)) {
+                          return files.map(f -> objectMapper.convertValue(f, String.class)).count();
+                      } catch (JacksonException | IOException ex) {
+                          throw new IllegalStateException(ex);
+                      }
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void narrowWhenTryWithResourcesCloseThrowsNoIOException() {
+        rewriteRun(
+          java(
+            """
+              import java.io.IOException;
+              import java.util.Scanner;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  ObjectMapper objectMapper = new ObjectMapper();
+
+                  String read(String json) {
+                      try (Scanner scanner = new Scanner(json)) {
+                          return objectMapper.readValue(scanner.nextLine(), String.class);
+                      } catch (IOException ex) {
+                          throw new IllegalStateException(ex);
+                      }
+                  }
+              }
+              """,
+            """
+              import java.util.Scanner;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import tools.jackson.core.JacksonException;
+
+              class Test {
+                  ObjectMapper objectMapper = new ObjectMapper();
+
+                  String read(String json) {
+                      try (Scanner scanner = new Scanner(json)) {
+                          return objectMapper.readValue(scanner.nextLine(), String.class);
+                      } catch (JacksonException ex) {
+                          throw new IllegalStateException(ex);
+                      }
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void multiCatchWhenIOExceptionIsThrownInsideAnArgument() {
+        rewriteRun(
+          java(
+            """
+              import java.io.IOException;
+              import java.io.InputStream;
+              import java.nio.charset.StandardCharsets;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  ObjectMapper objectMapper = new ObjectMapper();
+
+                  String read(InputStream in) {
+                      try {
+                          var json = new String(in.readAllBytes(), StandardCharsets.UTF_8).replace("x", "y");
+                          return objectMapper.readValue(json, String.class);
+                      } catch (IOException ex) {
+                          throw new IllegalStateException(ex);
+                      }
+                  }
+              }
+              """,
+            """
+              import java.io.IOException;
+              import java.io.InputStream;
+              import java.nio.charset.StandardCharsets;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import tools.jackson.core.JacksonException;
+
+              class Test {
+                  ObjectMapper objectMapper = new ObjectMapper();
+
+                  String read(InputStream in) {
+                      try {
+                          var json = new String(in.readAllBytes(), StandardCharsets.UTF_8).replace("x", "y");
+                          return objectMapper.readValue(json, String.class);
+                      } catch (JacksonException | IOException ex) {
+                          throw new IllegalStateException(ex);
+                      }
+                  }
+              }
+              """
+          )
+        );
+    }
 }

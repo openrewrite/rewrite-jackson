@@ -16,6 +16,7 @@
 package org.openrewrite.java.jackson;
 
 import lombok.Getter;
+import org.jspecify.annotations.Nullable;
 import org.openrewrite.*;
 import org.openrewrite.internal.ListUtils;
 import org.openrewrite.java.ChangeType;
@@ -53,7 +54,8 @@ public class IOExceptionToJacksonException extends Recipe {
     final String description = "In Jackson 3, `ObjectMapper` and related classes no longer throw `IOException`. " +
             "This recipe replaces `catch (IOException e)` with `catch (JacksonException e)` " +
             "when the try block contains Jackson API calls. When the try block also contains " +
-            "non-Jackson code that throws `IOException`, the catch is changed to a multi-catch " +
+            "non-Jackson code that throws `IOException`, such as the implicit `close()` of a try-with-resources resource, " +
+            "the catch is changed to a multi-catch " +
             "`catch (JacksonException | IOException e)`. Where the caught exception is passed on as an `IOException`, " +
             "for instance to `new UncheckedIOException(e)`, it is wrapped in a `new IOException(e)`; " +
             "such catches are left alone when the try block also throws `IOException` from non-Jackson code.";
@@ -232,24 +234,25 @@ public class IOExceptionToJacksonException extends Recipe {
     }
 
     private static boolean hasNonJacksonIOExceptionSource(J.Try try_) {
-        return new JavaIsoVisitor<AtomicBoolean>() {
+        JavaIsoVisitor<AtomicBoolean> visitor = new JavaIsoVisitor<AtomicBoolean>() {
             @Override
             public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, AtomicBoolean result) {
                 if (result.get()) {
                     return method;
                 }
-                if (OBJECT_MAPPER_MATCHER.matches(method) ||
-                        OBJECT_READER_MATCHER.matches(method) ||
-                        OBJECT_WRITER_MATCHER.matches(method)) {
-                    return method;
+                if (!OBJECT_MAPPER_MATCHER.matches(method) &&
+                        !OBJECT_READER_MATCHER.matches(method) &&
+                        !OBJECT_WRITER_MATCHER.matches(method)) {
+                    JavaType.Method methodType = method.getMethodType();
+                    if (methodType != null &&
+                            methodType.getThrownExceptions().stream()
+                                    .anyMatch(te -> TypeUtils.isAssignableTo(IO_EXCEPTION, te))) {
+                        result.set(true);
+                        return method;
+                    }
                 }
-                JavaType.Method methodType = method.getMethodType();
-                if (methodType != null &&
-                        methodType.getThrownExceptions().stream()
-                                .anyMatch(te -> TypeUtils.isAssignableTo(IO_EXCEPTION, te))) {
-                    result.set(true);
-                }
-                return method;
+                // The select and arguments may throw IOException themselves
+                return super.visitMethodInvocation(method, result);
             }
 
             @Override
@@ -262,8 +265,9 @@ public class IOExceptionToJacksonException extends Recipe {
                         methodType.getThrownExceptions().stream()
                                 .anyMatch(te -> TypeUtils.isAssignableTo(IO_EXCEPTION, te))) {
                     result.set(true);
+                    return newClass;
                 }
-                return newClass;
+                return super.visitNewClass(newClass, result);
             }
 
             @Override
@@ -274,9 +278,57 @@ public class IOExceptionToJacksonException extends Recipe {
                 JavaType type = thrown.getException().getType();
                 if (type != null && TypeUtils.isAssignableTo(IO_EXCEPTION, type)) {
                     result.set(true);
+                    return thrown;
                 }
-                return thrown;
+                return super.visitThrow(thrown, result);
             }
-        }.reduce(try_.getBody(), new AtomicBoolean(false)).get();
+        };
+        AtomicBoolean result = new AtomicBoolean(false);
+        if (try_.getResources() != null) {
+            for (J.Try.Resource resource : try_.getResources()) {
+                // The implicit close() of a resource may throw IOException, as can its initializer
+                if (closeThrowsIOException(resource) || visitor.reduce(resource, result).get()) {
+                    return true;
+                }
+            }
+        }
+        return visitor.reduce(try_.getBody(), result).get();
+    }
+
+    private static boolean closeThrowsIOException(J.Try.Resource resource) {
+        TypedTree variableDeclarations = resource.getVariableDeclarations();
+        JavaType.FullyQualified type = TypeUtils.asFullyQualified(variableDeclarations instanceof J.VariableDeclarations ?
+                ((J.VariableDeclarations) variableDeclarations).getVariables().get(0).getType() :
+                variableDeclarations.getType());
+        if (type == null) {
+            return false;
+        }
+        JavaType.Method close = findClose(type, new HashSet<>());
+        if (close == null) {
+            return TypeUtils.isAssignableTo("java.io.Closeable", type);
+        }
+        return close.getThrownExceptions().stream().anyMatch(te -> TypeUtils.isAssignableTo(IO_EXCEPTION, te));
+    }
+
+    private static JavaType.@Nullable Method findClose(JavaType.@Nullable FullyQualified type, Set<String> seen) {
+        if (type == null || !seen.add(type.getFullyQualifiedName())) {
+            return null;
+        }
+        for (JavaType.Method method : type.getMethods()) {
+            if ("close".equals(method.getName()) && method.getParameterTypes().isEmpty()) {
+                return method;
+            }
+        }
+        JavaType.Method close = findClose(type.getSupertype(), seen);
+        if (close != null) {
+            return close;
+        }
+        for (JavaType.FullyQualified iface : type.getInterfaces()) {
+            close = findClose(iface, seen);
+            if (close != null) {
+                return close;
+            }
+        }
+        return null;
     }
 }
