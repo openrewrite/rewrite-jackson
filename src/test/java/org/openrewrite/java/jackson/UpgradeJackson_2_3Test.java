@@ -590,4 +590,32 @@ class UpgradeJackson_2_3Test implements RewriteTest {
         );
     }
 
+    @Test
+    void readValueOfTraverseBecomesTreeToValue() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.JsonNode;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  String load(ObjectMapper mapper, JsonNode node) throws Exception {
+                      return mapper.readValue(node.traverse(), String.class);
+                  }
+              }
+              """,
+            """
+              import tools.jackson.databind.JsonNode;
+              import tools.jackson.databind.ObjectMapper;
+
+              class Test {
+                  String load(ObjectMapper mapper, JsonNode node) throws Exception {
+                      return mapper.treeToValue(node, String.class);
+                  }
+              }
+              """
+          )
+        );
+    }
 }
