@@ -27,7 +27,7 @@ import org.openrewrite.java.JavaVisitor;
 import org.openrewrite.java.search.SemanticallyEqual;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.*;
-import org.openrewrite.marker.Markers;
+import org.openrewrite.trait.Comments;
 
 import java.util.*;
 
@@ -300,21 +300,7 @@ public class MigrateFactorySettersToBuilder extends Recipe {
                                         "Use factory.rebuild().%s(...).build() or move to the factory's instantiation site.",
                                 mapping.setterName, simpleFactoryName, mapping.builderName);
 
-                        if (hasComment(mi, commentText)) {
-                            return mi;
-                        }
-
-                        String prefixWhitespace = mi.getPrefix().getWhitespace();
-                        TextComment comment = new TextComment(false, commentText, prefixWhitespace, Markers.EMPTY);
-                        return mi.withPrefix(mi.getPrefix().withComments(
-                                ListUtils.concat(mi.getPrefix().getComments(), comment)));
-                    }
-
-                    private boolean hasComment(J.MethodInvocation mi, String commentText) {
-                        return mi.getPrefix().getComments().stream()
-                                .filter(TextComment.class::isInstance)
-                                .map(c -> ((TextComment) c).getText().trim())
-                                .anyMatch(t -> t.equals(commentText.trim()));
+                        return Comments.of(new Cursor(getCursor().getParentOrThrow(), mi)).comment(commentText);
                     }
 
                     private boolean argumentReferencesAny(J.MethodInvocation mi, Set<J.Identifier> intermediateVars) {

@@ -16,16 +16,16 @@
 package org.openrewrite.java.jackson;
 
 import lombok.Getter;
+import org.openrewrite.Cursor;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
 import org.openrewrite.TreeVisitor;
-import org.openrewrite.internal.ListUtils;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.search.UsesMethod;
 import org.openrewrite.java.tree.*;
-import org.openrewrite.marker.Markers;
+import org.openrewrite.trait.Comments;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -84,11 +84,7 @@ public class CommentOutSimpleModuleMethodCalls extends Recipe {
                         if (!isOnAffectedModule(m)) {
                             return m;
                         }
-                        if (hasComment(m.getComments())) {
-                            return m;
-                        }
-                        String prefixWhitespace = m.getPrefix().getWhitespace();
-                        String indent = prefixWhitespace.replaceAll("^\\s*\\n", "");
+                        String indent = m.getPrefix().getWhitespace().replaceAll("^\\s*\\n", "");
                         String comment = " " + COMMENT_MARKER + ",\n" +
                                 indent + " * so addSerializer/addDeserializer calls are no longer available.\n" +
                                 indent + " * Move this call to a new SimpleModule and register it separately:\n" +
@@ -98,8 +94,7 @@ public class CommentOutSimpleModuleMethodCalls extends Recipe {
                                 indent + " * Note: register the custom module AFTER the original module,\n" +
                                 indent + " * as the last registered serializer for a given type wins.\n" +
                                 indent + " ";
-                        TextComment textComment = new TextComment(true, comment, prefixWhitespace, Markers.EMPTY);
-                        return m.withComments(ListUtils.concat(m.getComments(), textComment));
+                        return Comments.of(new Cursor(getCursor().getParentOrThrow(), m)).multilineComment(comment);
                     }
 
                     private boolean isOnAffectedModule(J.MethodInvocation method) {
@@ -113,16 +108,6 @@ public class CommentOutSimpleModuleMethodCalls extends Recipe {
                         }
                         for (String affectedModule : AFFECTED_MODULES) {
                             if (TypeUtils.isAssignableTo(affectedModule, type)) {
-                                return true;
-                            }
-                        }
-                        return false;
-                    }
-
-                    private boolean hasComment(List<Comment> comments) {
-                        for (Comment c : comments) {
-                            if (c instanceof TextComment &&
-                                    ((TextComment) c).getText().contains(COMMENT_MARKER)) {
                                 return true;
                             }
                         }
