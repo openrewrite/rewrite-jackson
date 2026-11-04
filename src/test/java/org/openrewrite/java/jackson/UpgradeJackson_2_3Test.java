@@ -360,6 +360,46 @@ class UpgradeJackson_2_3Test implements RewriteTest {
 
     @Issue("https://github.com/openrewrite/rewrite-jackson/issues/89")
     @Test
+    void visibilityAndDefaultTypingMigratedToBuilder() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonAutoDetect;
+              import com.fasterxml.jackson.annotation.PropertyAccessor;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  ObjectMapper create() {
+                      ObjectMapper objectMapper = new ObjectMapper();
+                      objectMapper.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
+                      objectMapper.enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL);
+                      return objectMapper;
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonAutoDetect;
+              import com.fasterxml.jackson.annotation.PropertyAccessor;
+              import tools.jackson.databind.ObjectMapper;
+              import tools.jackson.databind.json.JsonMapper;
+              import tools.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
+              import tools.jackson.databind.DefaultTyping;
+
+              class Test {
+                  ObjectMapper create() {
+                      return JsonMapper.builder()
+                              .changeDefaultVisibility(vc -> vc.withVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY))
+                              .activateDefaultTyping(BasicPolymorphicTypeValidator.builder().allowIfSubType(Object.class).build(), DefaultTyping.NON_FINAL)
+                              .build();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void mutatorsInStaticInitializerFoldedIntoBuilder() {
         rewriteRun(
           spec -> spec.parser(JavaParser.fromJavaVersion().classpath(

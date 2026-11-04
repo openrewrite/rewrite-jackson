@@ -559,6 +559,9 @@ recipeList:
       oldFullyQualifiedTypeName: com.fasterxml.jackson.core.JsonEOFException
       newFullyQualifiedTypeName: tools.jackson.core.exc.UnexpectedEndOfInputException
   - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.ObjectMapper$DefaultTyping
+      newFullyQualifiedTypeName: tools.jackson.databind.DefaultTyping
+  - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: com.fasterxml.jackson.databind.JsonMappingException
       newFullyQualifiedTypeName: tools.jackson.databind.DatabindException
   - org.openrewrite.java.ChangeType:

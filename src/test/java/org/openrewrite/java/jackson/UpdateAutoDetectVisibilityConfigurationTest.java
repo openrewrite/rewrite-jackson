@@ -89,4 +89,39 @@ class UpdateAutoDetectVisibilityConfigurationTest implements RewriteTest {
           )
         );
     }
+
+    @Test
+    void builderVisibility() {
+        rewriteRun(
+          // language=java
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonAutoDetect;
+              import com.fasterxml.jackson.annotation.PropertyAccessor;
+              import com.fasterxml.jackson.databind.json.JsonMapper;
+
+              class Test {
+                  void configure() {
+                      JsonMapper.builder()
+                        .visibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY)
+                        .build();
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonAutoDetect;
+              import com.fasterxml.jackson.annotation.PropertyAccessor;
+              import com.fasterxml.jackson.databind.json.JsonMapper;
+
+              class Test {
+                  void configure() {
+                      JsonMapper.builder()
+                        .changeDefaultVisibility(vc -> vc.withVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY))
+                        .build();
+                  }
+              }
+              """
+          )
+        );
+    }
 }
