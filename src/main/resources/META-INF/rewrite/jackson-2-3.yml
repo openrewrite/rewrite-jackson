@@ -65,6 +65,7 @@ recipeList:
       existingFullyQualifiedConstantName: com.fasterxml.jackson.core.JsonToken.FIELD_NAME
       fullyQualifiedConstantName: com.fasterxml.jackson.core.JsonToken.PROPERTY_NAME
   - org.openrewrite.java.jackson.ReplaceObjectMapperCopy
+  - org.openrewrite.java.jackson.ReplaceLaissezFaireSubTypeValidator
   - org.openrewrite.java.jackson.UseModernDateTimeSerialization
   - org.openrewrite.java.jackson.ReplaceStreamWriteCapability
   - org.openrewrite.java.jackson.AddJsonCreatorToPrivateConstructors
