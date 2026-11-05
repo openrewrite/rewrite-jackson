@@ -25,7 +25,6 @@ dependencies {
     testImplementation("org.openrewrite.gradle.tooling:model:${rewriteVersion}")
 
     testRuntimeOnly(gradleApi())
-    testRuntimeOnly("org.openrewrite:rewrite-java-21")
 }
 
 recipeDependencies {
