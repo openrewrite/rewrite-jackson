@@ -67,6 +67,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
 
     private static final String INVOCATIONS_TO_REMOVE = "INVOCATIONS_TO_REMOVE";
     private static final String JSON_INCLUDE = "com.fasterxml.jackson.annotation.JsonInclude";
+    private static final String BASIC_POLYMORPHIC_TYPE_VALIDATOR = "com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator";
     private static final String JACKSON_3_MIGRATION_GUIDE =
             "https://github.com/FasterXML/jackson/blob/main/jackson3/MIGRATING_TO_JACKSON_3.md" +
                     "#6-immutability-of-objectmapper-jsonfactory";
@@ -104,6 +105,12 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         ACTIVATE_DEFAULT_TYPING_AS_PROPERTY("activateDefaultTypingAsProperty", "activateDefaultTypingAsProperty"),
         DEACTIVATE_DEFAULT_TYPING("deactivateDefaultTyping", "deactivateDefaultTyping"),
         SET_DEFAULT_TYPING("setDefaultTyping", "setDefaultTyping"),
+        // Deprecated since 2.10 and removed in 3; Jackson 2 implements them by delegating to
+        // activateDefaultTyping*/deactivateDefaultTyping with a validator that allows every subtype.
+        // LaissezFaireSubTypeValidator is not public in Jackson 3, so an equivalent validator is built instead.
+        ENABLE_DEFAULT_TYPING("enableDefaultTyping", "activateDefaultTyping"),
+        ENABLE_DEFAULT_TYPING_AS_PROPERTY("enableDefaultTypingAsProperty", "activateDefaultTypingAsProperty"),
+        DISABLE_DEFAULT_TYPING("disableDefaultTyping", "deactivateDefaultTyping"),
 
         // Serialization settings
         SET_FILTER_PROVIDER("setFilterProvider", "filterProvider"),
@@ -684,8 +691,16 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             parser = parser.dependsOn(kotlinExtensionsStub());
                         }
 
+                        for (J.MethodInvocation setter : setters) {
+                            String setterName = setter.getName().getSimpleName();
+                            if ("enableDefaultTyping".equals(setterName) || "enableDefaultTypingAsProperty".equals(setterName)) {
+                                maybeAddImport(BASIC_POLYMORPHIC_TYPE_VALIDATOR);
+                                break;
+                            }
+                        }
+
                         JavaTemplate.Builder templateBuilder = JavaTemplate.builder(templateCode.toString())
-                                .imports(mapperFqn, JSON_INCLUDE)
+                                .imports(mapperFqn, JSON_INCLUDE, BASIC_POLYMORPHIC_TYPE_VALIDATOR)
                                 .javaParser(parser);
                         if (useKotlinFactory) {
                             templateBuilder = templateBuilder.staticImports(JACKSON_MAPPER_BUILDER_FQN);
@@ -1296,7 +1311,8 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         sb.append("        public Builder annotationIntrospector(Object ai) { return this; }\n");
         sb.append("        public Builder typeFactory(Object tf) { return this; }\n");
         sb.append("        public Builder subtypeResolver(Object sr) { return this; }\n");
-        sb.append("        public Builder visibility(Object... v) { return this; }\n");
+        sb.append("        public Builder visibility(com.fasterxml.jackson.annotation.PropertyAccessor a, com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility v) { return this; }\n");
+        sb.append("        public Builder visibility(Object v) { return this; }\n");
         sb.append("        public Builder handlerInstantiator(Object hi) { return this; }\n");
         sb.append("        public Builder propertyNamingStrategy(Object s) { return this; }\n");
         sb.append("        public Builder enumNamingStrategy(Object s) { return this; }\n");
@@ -1791,6 +1807,11 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         }
         templateCode.append("\n.").append(builderName).append("(");
         boolean first = true;
+        if (mapping == SetterToBuilderMapping.ENABLE_DEFAULT_TYPING ||
+                mapping == SetterToBuilderMapping.ENABLE_DEFAULT_TYPING_AS_PROPERTY) {
+            templateCode.append("BasicPolymorphicTypeValidator.builder().allowIfSubType(Object.class).build()");
+            first = false;
+        }
         for (Expression arg : mi.getArguments()) {
             if (arg instanceof J.Empty) {
                 continue;

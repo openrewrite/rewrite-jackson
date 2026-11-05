@@ -212,7 +212,7 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
                               .annotationIntrospector(introspector)
                               .typeFactory(TypeFactory.defaultInstance())
                               .subtypeResolver(subtypeResolver)
-                              .visibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY)
+                              .changeDefaultVisibility(vc -> vc.withVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY))
                               .handlerInstantiator(handlerInstantiator)
                               .propertyNamingStrategy(namingStrategy)
                               .accessorNaming(accessorNaming)
@@ -2286,5 +2286,84 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
               )
             );
         }
+    }
+
+    @Test
+    void enableDefaultTypingAndVisibility() {
+        rewriteRun(
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonAutoDetect;
+              import com.fasterxml.jackson.annotation.JsonTypeInfo;
+              import com.fasterxml.jackson.annotation.PropertyAccessor;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.databind.json.JsonMapper;
+
+              class Test {
+                  JsonMapper redis() {
+                      JsonMapper mapper = new JsonMapper();
+                      mapper.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
+                      mapper.enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL);
+                      return mapper;
+                  }
+
+                  JsonMapper asWrapper() {
+                      JsonMapper mapper = new JsonMapper();
+                      mapper.enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL, JsonTypeInfo.As.PROPERTY);
+                      return mapper;
+                  }
+
+                  JsonMapper asProperty() {
+                      JsonMapper mapper = new JsonMapper();
+                      mapper.enableDefaultTypingAsProperty(ObjectMapper.DefaultTyping.OBJECT_AND_NON_CONCRETE, "@class");
+                      return mapper;
+                  }
+
+                  JsonMapper defaults() {
+                      JsonMapper mapper = new JsonMapper();
+                      mapper.enableDefaultTyping();
+                      mapper.disableDefaultTyping();
+                      return mapper;
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonAutoDetect;
+              import com.fasterxml.jackson.annotation.JsonTypeInfo;
+              import com.fasterxml.jackson.annotation.PropertyAccessor;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.databind.json.JsonMapper;
+              import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
+
+              class Test {
+                  JsonMapper redis() {
+                      return JsonMapper.builder()
+                              .changeDefaultVisibility(vc -> vc.withVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY))
+                              .activateDefaultTyping(BasicPolymorphicTypeValidator.builder().allowIfSubType(Object.class).build(), ObjectMapper.DefaultTyping.NON_FINAL)
+                              .build();
+                  }
+
+                  JsonMapper asWrapper() {
+                      return JsonMapper.builder()
+                              .activateDefaultTyping(BasicPolymorphicTypeValidator.builder().allowIfSubType(Object.class).build(), ObjectMapper.DefaultTyping.NON_FINAL, JsonTypeInfo.As.PROPERTY)
+                              .build();
+                  }
+
+                  JsonMapper asProperty() {
+                      return JsonMapper.builder()
+                              .activateDefaultTypingAsProperty(BasicPolymorphicTypeValidator.builder().allowIfSubType(Object.class).build(), ObjectMapper.DefaultTyping.OBJECT_AND_NON_CONCRETE, "@class")
+                              .build();
+                  }
+
+                  JsonMapper defaults() {
+                      return JsonMapper.builder()
+                              .activateDefaultTyping(BasicPolymorphicTypeValidator.builder().allowIfSubType(Object.class).build())
+                              .deactivateDefaultTyping()
+                              .build();
+                  }
+              }
+              """
+          )
+        );
     }
 }

@@ -44,6 +44,11 @@ public class UpdateAutoDetectVisibilityConfiguration extends Recipe {
     private static final MethodMatcher MAPPER_BUILDER_DISABLE_MATCHER =
             new MethodMatcher("com.fasterxml.jackson.databind..MapperBuilder disable(..)", true);
 
+    private static final MethodMatcher MAPPER_BUILDER_VISIBILITY_MATCHER =
+            new MethodMatcher("com.fasterxml.jackson.databind..MapperBuilder visibility(" +
+                    "com.fasterxml.jackson.annotation.PropertyAccessor, " +
+                    "com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility)", true);
+
     private static final Map<String, String> AUTO_DETECT_TO_VISIBILITY;
 
     static {
@@ -57,11 +62,12 @@ public class UpdateAutoDetectVisibilityConfiguration extends Recipe {
     }
 
     @Getter
-    final String displayName = "Replace `disable(MapperFeature.AUTO_DETECT_*)` with `changeDefaultVisibility()` for Jackson 3";
+    final String displayName = "Replace `disable(MapperFeature.AUTO_DETECT_*)` and `visibility(..)` with `changeDefaultVisibility()` for Jackson 3";
 
     @Getter
     final String description = "In Jackson 3, auto-detection `MapperFeature` flags like `AUTO_DETECT_FIELDS` are removed. " +
-            "Use `changeDefaultVisibility()` on the builder instead.";
+            "Use `changeDefaultVisibility()` on the builder instead. The builder's `visibility(PropertyAccessor, Visibility)` " +
+            "was removed as well, and becomes `changeDefaultVisibility(vc -> vc.withVisibility(..))`.";
 
     @Getter
     final Set<String> tags = singleton("jackson-3");
@@ -69,11 +75,33 @@ public class UpdateAutoDetectVisibilityConfiguration extends Recipe {
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
         return Preconditions.check(
-                new UsesMethod<>(MAPPER_BUILDER_DISABLE_MATCHER),
+                Preconditions.or(
+                        new UsesMethod<>(MAPPER_BUILDER_DISABLE_MATCHER),
+                        new UsesMethod<>(MAPPER_BUILDER_VISIBILITY_MATCHER)),
                 new JavaIsoVisitor<ExecutionContext>() {
                     @Override
                     public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
                         J.MethodInvocation mi = super.visitMethodInvocation(method, ctx);
+                        if (MAPPER_BUILDER_VISIBILITY_MATCHER.matches(mi) && mi.getSelect() != null) {
+                            J.MethodInvocation result = JavaTemplate
+                                    .builder("#{any(tools.jackson.databind.json.JsonMapper$Builder)}.changeDefaultVisibility(vc -> vc.withVisibility(" +
+                                            "#{any(com.fasterxml.jackson.annotation.PropertyAccessor)}, " +
+                                            "#{any(com.fasterxml.jackson.annotation.JsonAutoDetect$Visibility)}))")
+                                    .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx,
+                                            "jackson-annotations-2",
+                                            "jackson-core-3",
+                                            "jackson-databind-3"))
+                                    .build()
+                                    .apply(
+                                            getCursor(),
+                                            mi.getCoordinates().replace(),
+                                            mi.getSelect(),
+                                            mi.getArguments().get(0),
+                                            mi.getArguments().get(1));
+                            // Keep the original receiver, so a long builder chain in front keeps its formatting
+                            result = result.getPadding().withSelect(mi.getPadding().getSelect());
+                            return fixKotlinLambdaParameterTypeAndBodySpacing(result);
+                        }
                         if (!MAPPER_BUILDER_DISABLE_MATCHER.matches(mi)) {
                             return mi;
                         }
