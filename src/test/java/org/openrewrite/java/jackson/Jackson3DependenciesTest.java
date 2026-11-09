@@ -1267,7 +1267,7 @@ class Jackson3DependenciesTest implements RewriteTest {
     }
 
     @Test
-    void keepJackson2PinsOfParentWhoseModulesAreAllOnJackson3() {
+    void keepJackson2PinsOfParentWhoseModulesAreOnJackson3OrWithoutJackson() {
         rewriteRun(
           spec -> spec.parser(JavaParser.fromJavaVersion()
             .classpathFromResources(new InMemoryExecutionContext(), "jackson-core-3", "jackson-databind-3")),
@@ -1285,7 +1285,8 @@ class Jackson3DependenciesTest implements RewriteTest {
                         <jackson.version>2.19.0</jackson.version>
                     </properties>
                     <modules>
-                        <module>child</module>
+                        <module>services</module>
+                        <module>util</module>
                     </modules>
                     <dependencyManagement>
                         <dependencies>
@@ -1299,18 +1300,7 @@ class Jackson3DependenciesTest implements RewriteTest {
                 </project>
                 """
             ),
-            mavenProject("child",
-              srcMainJava(
-                java(
-                  """
-                    import tools.jackson.databind.ObjectMapper;
-
-                    class A {
-                        ObjectMapper mapper = new ObjectMapper();
-                    }
-                    """
-                )
-              ),
+            mavenProject("services",
               pomXml(
                 //language=xml
                 """
@@ -1321,14 +1311,61 @@ class Jackson3DependenciesTest implements RewriteTest {
                           <artifactId>parent</artifactId>
                           <version>1.0.0</version>
                       </parent>
-                      <artifactId>child</artifactId>
-                      <dependencies>
-                          <dependency>
-                              <groupId>tools.jackson.core</groupId>
-                              <artifactId>jackson-databind</artifactId>
-                              <version>3.0.0</version>
-                          </dependency>
-                      </dependencies>
+                      <artifactId>services</artifactId>
+                      <packaging>pom</packaging>
+                      <modules>
+                          <module>api</module>
+                      </modules>
+                  </project>
+                  """
+              ),
+              mavenProject("api",
+                srcMainJava(
+                  java(
+                    """
+                      import tools.jackson.databind.ObjectMapper;
+
+                      class A {
+                          ObjectMapper mapper = new ObjectMapper();
+                      }
+                      """
+                  )
+                ),
+                pomXml(
+                  //language=xml
+                  """
+                    <project>
+                        <modelVersion>4.0.0</modelVersion>
+                        <parent>
+                            <groupId>org.example</groupId>
+                            <artifactId>services</artifactId>
+                            <version>1.0.0</version>
+                        </parent>
+                        <artifactId>api</artifactId>
+                        <dependencies>
+                            <dependency>
+                                <groupId>tools.jackson.core</groupId>
+                                <artifactId>jackson-databind</artifactId>
+                                <version>3.0.0</version>
+                            </dependency>
+                        </dependencies>
+                    </project>
+                    """
+                )
+              )
+            ),
+            mavenProject("util",
+              pomXml(
+                //language=xml
+                """
+                  <project>
+                      <modelVersion>4.0.0</modelVersion>
+                      <parent>
+                          <groupId>org.example</groupId>
+                          <artifactId>parent</artifactId>
+                          <version>1.0.0</version>
+                      </parent>
+                      <artifactId>util</artifactId>
                   </project>
                   """
               )
@@ -1419,6 +1456,68 @@ class Jackson3DependenciesTest implements RewriteTest {
                     .contains(">tools.jackson.core<")
                     .doesNotContain("~~(") // Resolution failure markers
                     .actual())
+              )
+            )
+          )
+        );
+    }
+
+    @Test
+    void migrateParentImportingTheJackson2Bom() {
+        rewriteRun(
+          mavenProject("parent",
+            pomXml(
+              //language=xml
+              """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>org.example</groupId>
+                    <artifactId>parent</artifactId>
+                    <version>1.0.0</version>
+                    <packaging>pom</packaging>
+                    <modules>
+                        <module>child</module>
+                    </modules>
+                    <dependencyManagement>
+                        <dependencies>
+                            <dependency>
+                                <groupId>com.fasterxml.jackson</groupId>
+                                <artifactId>jackson-bom</artifactId>
+                                <version>2.19.0</version>
+                                <scope>import</scope>
+                                <type>pom</type>
+                            </dependency>
+                        </dependencies>
+                    </dependencyManagement>
+                </project>
+                """,
+              spec -> spec.after(pom ->
+                assertThat(pom)
+                  .doesNotContain(">com.fasterxml.jackson<")
+                  .contains(">tools.jackson<")
+                  .actual())
+            ),
+            mavenProject("child",
+              pomXml(
+                //language=xml
+                """
+                  <project>
+                      <modelVersion>4.0.0</modelVersion>
+                      <parent>
+                          <groupId>org.example</groupId>
+                          <artifactId>parent</artifactId>
+                          <version>1.0.0</version>
+                      </parent>
+                      <artifactId>child</artifactId>
+                      <dependencies>
+                          <dependency>
+                              <groupId>tools.jackson.core</groupId>
+                              <artifactId>jackson-databind</artifactId>
+                              <version>3.0.0</version>
+                          </dependency>
+                      </dependencies>
+                  </project>
+                  """
               )
             )
           )
