@@ -18,6 +18,7 @@ package org.openrewrite.java.jackson;
 import lombok.Getter;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.*;
+import org.openrewrite.gradle.marker.GradleDependencyConfiguration;
 import org.openrewrite.gradle.marker.GradleProject;
 import org.openrewrite.java.dependencies.search.ModuleHasDependency;
 import org.openrewrite.java.internal.TypesInUse;
@@ -25,11 +26,11 @@ import org.openrewrite.java.marker.JavaProject;
 import org.openrewrite.java.tree.JavaSourceFile;
 import org.openrewrite.java.tree.JavaType;
 import org.openrewrite.marker.SearchResult;
+import org.openrewrite.maven.tree.Dependency;
 import org.openrewrite.maven.tree.ManagedDependency;
 import org.openrewrite.maven.tree.MavenResolutionResult;
 
 import java.util.*;
-import java.util.stream.Stream;
 
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
@@ -38,22 +39,14 @@ import static java.util.stream.Collectors.toList;
 public class ModuleStillOnJackson2 extends ScanningRecipe<ModuleStillOnJackson2.Accumulator> {
 
     private static final ModuleHasDependency HAS_JACKSON_3 = new ModuleHasDependency("tools.jackson*", "*", null, null, null, null);
-    // Direct dependencies only, as many libraries still bring Jackson 2 along.
-    // `jackson-annotations` is left out, as Jackson 3 uses it too.
-    private static final List<ModuleHasDependency> DECLARES_JACKSON_2 = Stream.of(
-                    "com.fasterxml.jackson.core:jackson-core", "com.fasterxml.jackson.core:jackson-databind",
-                    "com.fasterxml.jackson.dataformat:*", "com.fasterxml.jackson.datatype:*", "com.fasterxml.jackson.module:*",
-                    "com.fasterxml.jackson.jaxrs:*", "com.fasterxml.jackson.jakarta.rs:*", "com.fasterxml.jackson.jr:*")
-            .map(ga -> new ModuleHasDependency(ga.split(":")[0], ga.split(":")[1], null, null, true, null))
-            .collect(toList());
 
     String displayName = "Find modules still on Jackson 2";
     String description = "Marks the source files of modules that are not on Jackson 3 yet. " +
-            "A module is on Jackson 3 when it resolves Jackson 3 and neither it nor any of its child modules is still on Jackson 2, " +
-            "that is, uses Jackson 2 types or declares a Jackson 2 dependency without resolving Jackson 3. " +
-            "A parent that neither resolves Jackson 3 nor declares Jackson 2 itself, such as one with only dependency management, " +
-            "is on Jackson 3 once one of its child modules is and none is still on Jackson 2, " +
-            "unless it imports the Jackson 2 BOM. " +
+            "A module is on Jackson 3 when it resolves Jackson 3, or when it has a child module on Jackson 3 " +
+            "and neither declares a Jackson 2 dependency nor imports the Jackson 2 BOM itself. " +
+            "It is not on Jackson 3 while it or any of its child modules uses Jackson 2 types, " +
+            "or while a child module declares a Jackson 2 dependency or imports the Jackson 2 BOM without resolving Jackson 3. " +
+            "Only direct dependencies count, and `jackson-annotations` does not, as Jackson 3 uses it too. " +
             "Jackson 2 dependencies that a module on Jackson 3 still declares are left alone, as they are there on purpose, " +
             "for instance for generated sources that are not part of the LST.";
 
@@ -149,9 +142,6 @@ public class ModuleStillOnJackson2 extends ScanningRecipe<ModuleStillOnJackson2.
 
     @Override
     public TreeVisitor<?, ExecutionContext> getScanner(Accumulator acc) {
-        List<TreeVisitor<?, ExecutionContext>> jackson2Scanners = DECLARES_JACKSON_2.stream()
-                .map(declaresJackson2 -> declaresJackson2.getScanner(acc.declaringJackson2))
-                .collect(toList());
         TreeVisitor<?, ExecutionContext> jackson3Scanner = HAS_JACKSON_3.getScanner(acc.resolvingJackson3);
         return new TreeVisitor<Tree, ExecutionContext>() {
             @Override
@@ -164,9 +154,6 @@ public class ModuleStillOnJackson2 extends ScanningRecipe<ModuleStillOnJackson2.
                     return tree;
                 }
                 acc.alreadyOnJackson3 = null;
-                for (TreeVisitor<?, ExecutionContext> jackson2Scanner : jackson2Scanners) {
-                    jackson2Scanner.visit(tree, ctx);
-                }
                 jackson3Scanner.visit(tree, ctx);
                 if (tree instanceof JavaSourceFile && !acc.usingJackson2.contains(javaProject) &&
                         usesJackson2((JavaSourceFile) tree)) {
@@ -175,6 +162,11 @@ public class ModuleStillOnJackson2 extends ScanningRecipe<ModuleStillOnJackson2.
                 tree.getMarkers().findFirst(MavenResolutionResult.class).ifPresent(mrr -> {
                     acc.mavenProjects.put(mrr.getId(), javaProject);
                     acc.mavenModules.put(javaProject, mrr.getModules().stream().map(MavenResolutionResult::getId).collect(toList()));
+                    for (Dependency dependency : mrr.getPom().getRequestedDependencies()) {
+                        if (isJackson2Artifact(mrr.getPom().getValue(dependency.getGroupId()), dependency.getArtifactId())) {
+                            acc.declaringJackson2.add(javaProject);
+                        }
+                    }
                     for (ManagedDependency managed : mrr.getPom().getRequested().getDependencyManagement()) {
                         if (managed instanceof ManagedDependency.Imported &&
                                 "com.fasterxml.jackson".equals(managed.getGroupId()) && "jackson-bom".equals(managed.getArtifactId())) {
@@ -182,7 +174,16 @@ public class ModuleStillOnJackson2 extends ScanningRecipe<ModuleStillOnJackson2.
                         }
                     }
                 });
-                tree.getMarkers().findFirst(GradleProject.class).ifPresent(gp -> acc.gradlePaths.put(javaProject, gp.getPath()));
+                tree.getMarkers().findFirst(GradleProject.class).ifPresent(gp -> {
+                    acc.gradlePaths.put(javaProject, gp.getPath());
+                    for (GradleDependencyConfiguration configuration : gp.getConfigurations()) {
+                        for (Dependency dependency : configuration.getRequested()) {
+                            if (isJackson2Artifact(dependency.getGroupId(), dependency.getArtifactId())) {
+                                acc.declaringJackson2.add(javaProject);
+                            }
+                        }
+                    }
+                });
                 return tree;
             }
         };
@@ -216,6 +217,12 @@ public class ModuleStillOnJackson2 extends ScanningRecipe<ModuleStillOnJackson2.
             }
         }
         return false;
+    }
+
+    // Called with declared dependencies only, as many libraries still bring Jackson 2 along.
+    // Jackson 3 still uses `jackson-annotations`.
+    private static boolean isJackson2Artifact(@Nullable String groupId, String artifactId) {
+        return groupId != null && groupId.startsWith("com.fasterxml.jackson.") && !"jackson-annotations".equals(artifactId);
     }
 
     private static boolean isJackson2Type(JavaType.FullyQualified type) {

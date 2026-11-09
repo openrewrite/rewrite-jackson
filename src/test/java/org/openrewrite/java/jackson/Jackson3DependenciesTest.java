@@ -1368,13 +1368,23 @@ class Jackson3DependenciesTest implements RewriteTest {
                       <artifactId>util</artifactId>
                       <dependencies>
                           <dependency>
+                              <groupId>com.fasterxml.jackson.core</groupId>
+                              <artifactId>jackson-annotations</artifactId>
+                              <version>2.19.0</version>
+                          </dependency>
+                          <dependency>
                               <groupId>io.jsonwebtoken</groupId>
                               <artifactId>jjwt-jackson</artifactId>
                               <version>0.12.6</version>
                           </dependency>
                       </dependencies>
                   </project>
-                  """
+                  """,
+                spec -> spec.after(pom ->
+                  assertThat(pom)
+                    .contains(">jackson-annotations<")
+                    .doesNotContain(">2.19.0<")
+                    .actual())
               )
             )
           )
@@ -1403,6 +1413,11 @@ class Jackson3DependenciesTest implements RewriteTest {
                             <dependency>
                                 <groupId>com.fasterxml.jackson.core</groupId>
                                 <artifactId>jackson-databind</artifactId>
+                                <version>2.19.0</version>
+                            </dependency>
+                            <dependency>
+                                <groupId>com.fasterxml.jackson.datatype</groupId>
+                                <artifactId>jackson-datatype-jsr310</artifactId>
                                 <version>2.19.0</version>
                             </dependency>
                         </dependencies>
@@ -1452,15 +1467,15 @@ class Jackson3DependenciesTest implements RewriteTest {
                       <artifactId>on-jackson-2</artifactId>
                       <dependencies>
                           <dependency>
-                              <groupId>com.fasterxml.jackson.core</groupId>
-                              <artifactId>jackson-databind</artifactId>
+                              <groupId>com.fasterxml.jackson.datatype</groupId>
+                              <artifactId>jackson-datatype-jsr310</artifactId>
                           </dependency>
                       </dependencies>
                   </project>
                   """,
                 spec -> spec.after(pom ->
                   assertThat(pom)
-                    .contains(">tools.jackson.core<")
+                    .doesNotContain(">jackson-datatype-jsr310<")
                     .doesNotContain("~~(") // Resolution failure markers
                     .actual())
               )

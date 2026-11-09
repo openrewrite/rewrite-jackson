@@ -98,8 +98,10 @@ displayName: Upgrade Jackson 2.x dependencies to 3.x
 description: >-
   Upgrade Jackson Maven dependencies from 2.x to 3.x versions and update group IDs.
   Modules already on Jackson 3 are left as-is, as any Jackson 2 dependencies they still declare are there on purpose.
-  Those are the modules that resolve Jackson 3 and no longer use Jackson 2 types in their sources,
-  and parents with only dependency management that have a child module on Jackson 3 and none still on Jackson 2.
+  A module is on Jackson 3 when it resolves Jackson 3, or when it has a child module on Jackson 3
+  and neither declares a Jackson 2 dependency nor imports the Jackson 2 BOM itself.
+  It is not on Jackson 3 while it or any of its child modules uses Jackson 2 types,
+  or while a child module declares a Jackson 2 dependency directly without resolving Jackson 3.
 tags:
   - jackson-3
 preconditions:
