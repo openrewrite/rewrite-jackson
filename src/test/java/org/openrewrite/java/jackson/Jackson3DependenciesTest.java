@@ -1267,7 +1267,7 @@ class Jackson3DependenciesTest implements RewriteTest {
     }
 
     @Test
-    void keepJackson2PinsOfParentWhoseModulesAreOnJackson3OrWithoutJackson() {
+    void keepJackson2PinsOfParentWhoseModulesAreOnJackson3OrDeclareNoJackson2() {
         rewriteRun(
           spec -> spec.parser(JavaParser.fromJavaVersion()
             .classpathFromResources(new InMemoryExecutionContext(), "jackson-core-3", "jackson-databind-3")),
@@ -1366,6 +1366,13 @@ class Jackson3DependenciesTest implements RewriteTest {
                           <version>1.0.0</version>
                       </parent>
                       <artifactId>util</artifactId>
+                      <dependencies>
+                          <dependency>
+                              <groupId>io.jsonwebtoken</groupId>
+                              <artifactId>jjwt-jackson</artifactId>
+                              <version>0.12.6</version>
+                          </dependency>
+                      </dependencies>
                   </project>
                   """
               )
