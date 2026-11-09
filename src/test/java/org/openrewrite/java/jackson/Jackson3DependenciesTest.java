@@ -1265,4 +1265,163 @@ class Jackson3DependenciesTest implements RewriteTest {
           )
         );
     }
+
+    @Test
+    void keepJackson2PinsOfParentWhoseModulesAreAllOnJackson3() {
+        rewriteRun(
+          spec -> spec.parser(JavaParser.fromJavaVersion()
+            .classpathFromResources(new InMemoryExecutionContext(), "jackson-core-3", "jackson-databind-3")),
+          mavenProject("parent",
+            pomXml(
+              //language=xml
+              """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>org.example</groupId>
+                    <artifactId>parent</artifactId>
+                    <version>1.0.0</version>
+                    <packaging>pom</packaging>
+                    <properties>
+                        <jackson.version>2.19.0</jackson.version>
+                    </properties>
+                    <modules>
+                        <module>child</module>
+                    </modules>
+                    <dependencyManagement>
+                        <dependencies>
+                            <dependency>
+                                <groupId>com.fasterxml.jackson.core</groupId>
+                                <artifactId>jackson-databind</artifactId>
+                                <version>${jackson.version}</version>
+                            </dependency>
+                        </dependencies>
+                    </dependencyManagement>
+                </project>
+                """
+            ),
+            mavenProject("child",
+              srcMainJava(
+                java(
+                  """
+                    import tools.jackson.databind.ObjectMapper;
+
+                    class A {
+                        ObjectMapper mapper = new ObjectMapper();
+                    }
+                    """
+                )
+              ),
+              pomXml(
+                //language=xml
+                """
+                  <project>
+                      <modelVersion>4.0.0</modelVersion>
+                      <parent>
+                          <groupId>org.example</groupId>
+                          <artifactId>parent</artifactId>
+                          <version>1.0.0</version>
+                      </parent>
+                      <artifactId>child</artifactId>
+                      <dependencies>
+                          <dependency>
+                              <groupId>tools.jackson.core</groupId>
+                              <artifactId>jackson-databind</artifactId>
+                              <version>3.0.0</version>
+                          </dependency>
+                      </dependencies>
+                  </project>
+                  """
+              )
+            )
+          )
+        );
+    }
+
+    @Test
+    void migrateParentWhileOneOfItsModulesIsStillOnJackson2() {
+        rewriteRun(
+          mavenProject("parent",
+            pomXml(
+              //language=xml
+              """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>org.example</groupId>
+                    <artifactId>parent</artifactId>
+                    <version>1.0.0</version>
+                    <packaging>pom</packaging>
+                    <modules>
+                        <module>on-jackson-3</module>
+                        <module>on-jackson-2</module>
+                    </modules>
+                    <dependencyManagement>
+                        <dependencies>
+                            <dependency>
+                                <groupId>com.fasterxml.jackson.core</groupId>
+                                <artifactId>jackson-databind</artifactId>
+                                <version>2.19.0</version>
+                            </dependency>
+                        </dependencies>
+                    </dependencyManagement>
+                </project>
+                """,
+              spec -> spec.after(pom ->
+                assertThat(pom)
+                  .doesNotContain(">com.fasterxml.jackson.core<")
+                  .contains(">tools.jackson.core<")
+                  .actual())
+            ),
+            mavenProject("on-jackson-3",
+              pomXml(
+                //language=xml
+                """
+                  <project>
+                      <modelVersion>4.0.0</modelVersion>
+                      <parent>
+                          <groupId>org.example</groupId>
+                          <artifactId>parent</artifactId>
+                          <version>1.0.0</version>
+                      </parent>
+                      <artifactId>on-jackson-3</artifactId>
+                      <dependencies>
+                          <dependency>
+                              <groupId>tools.jackson.core</groupId>
+                              <artifactId>jackson-databind</artifactId>
+                              <version>3.0.0</version>
+                          </dependency>
+                      </dependencies>
+                  </project>
+                  """
+              )
+            ),
+            mavenProject("on-jackson-2",
+              pomXml(
+                //language=xml
+                """
+                  <project>
+                      <modelVersion>4.0.0</modelVersion>
+                      <parent>
+                          <groupId>org.example</groupId>
+                          <artifactId>parent</artifactId>
+                          <version>1.0.0</version>
+                      </parent>
+                      <artifactId>on-jackson-2</artifactId>
+                      <dependencies>
+                          <dependency>
+                              <groupId>com.fasterxml.jackson.core</groupId>
+                              <artifactId>jackson-databind</artifactId>
+                          </dependency>
+                      </dependencies>
+                  </project>
+                  """,
+                spec -> spec.after(pom ->
+                  assertThat(pom)
+                    .contains(">tools.jackson.core<")
+                    .doesNotContain("~~(") // Resolution failure markers
+                    .actual())
+              )
+            )
+          )
+        );
+    }
 }

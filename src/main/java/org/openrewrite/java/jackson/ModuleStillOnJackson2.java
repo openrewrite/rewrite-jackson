@@ -42,7 +42,9 @@ public class ModuleStillOnJackson2 extends ScanningRecipe<ModuleStillOnJackson2.
             "or still use Jackson 2 types in their own sources or those of their child modules. " +
             "Modules that already resolve Jackson 3 and no longer use Jackson 2 types are left unmarked, " +
             "as any Jackson 2 dependencies they still declare are there on purpose, " +
-            "for instance for generated sources that are not part of the LST.";
+            "for instance for generated sources that are not part of the LST. " +
+            "A parent that does not resolve Jackson 3 itself, such as one with only dependency management, " +
+            "is left unmarked once all its child modules are.";
 
     public static class Accumulator {
         final Set<JavaProject> usingJackson2 = new HashSet<>();
@@ -57,13 +59,34 @@ public class ModuleStillOnJackson2 extends ScanningRecipe<ModuleStillOnJackson2.
         Set<JavaProject> alreadyOnJackson3() {
             if (alreadyOnJackson3 == null) {
                 alreadyOnJackson3 = new HashSet<>();
-                for (JavaProject javaProject : resolvingJackson3) {
-                    if (!usingJackson2.contains(javaProject) && !anyChildUsesJackson2(javaProject)) {
+                Set<JavaProject> projects = new HashSet<>(resolvingJackson3);
+                projects.addAll(mavenModules.keySet());
+                for (JavaProject javaProject : projects) {
+                    if (isOnJackson3(javaProject)) {
                         alreadyOnJackson3.add(javaProject);
                     }
                 }
             }
             return alreadyOnJackson3;
+        }
+
+        private boolean isOnJackson3(JavaProject javaProject) {
+            if (usingJackson2.contains(javaProject)) {
+                return false;
+            }
+            if (resolvingJackson3.contains(javaProject)) {
+                return !anyChildUsesJackson2(javaProject);
+            }
+            // Any module still on Jackson 2 keeps its parent marked, so that the parent's managed versions,
+            // which the module's renamed dependencies rely on, get renamed too.
+            List<UUID> moduleIds = mavenModules.getOrDefault(javaProject, emptyList());
+            for (UUID moduleId : moduleIds) {
+                JavaProject module = mavenProjects.get(moduleId);
+                if (module == null || !isOnJackson3(module)) {
+                    return false;
+                }
+            }
+            return !moduleIds.isEmpty();
         }
 
         private boolean anyChildUsesJackson2(JavaProject javaProject) {
