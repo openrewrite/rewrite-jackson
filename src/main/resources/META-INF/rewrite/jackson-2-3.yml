@@ -24,9 +24,12 @@ description: >-
   Migrate applications to the latest Jackson 3.x release. This recipe handles package changes
   (`com.fasterxml.jackson` -> `tools.jackson`), dependency updates, core class renames, exception
   renames, and method renames (e.g., `JsonGenerator.writeObject()` -> `writePOJO()`,
-  `JsonParser.getCurrentValue()` -> `currentValue()`).
+  `JsonParser.getCurrentValue()` -> `currentValue()`). Java sources that hand Jackson 2 types to a library
+  still on Jackson 2 are left on Jackson 2.
 tags:
   - jackson-3
+preconditions:
+  - org.openrewrite.java.jackson.SourceNotTiedToJackson2Library
 recipeList:
   - org.openrewrite.java.jackson.CodehausToFasterXML  # First, so any codehaus stragglers are on the fasterxml side
   - org.openrewrite.java.jackson.IOExceptionToJacksonException  # Before any type changes, to ensure we update catches

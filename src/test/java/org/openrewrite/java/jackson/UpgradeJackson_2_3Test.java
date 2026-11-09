@@ -658,4 +658,183 @@ class UpgradeJackson_2_3Test implements RewriteTest {
           )
         );
     }
+
+    @Test
+    void keepJackson2ValuePassedToLibraryOnJackson2() {
+        rewriteRun(
+          spec -> spec.parser(JavaParser.fromJavaVersion()
+            .classpath("jackson-annotations", "jackson-core", "jackson-databind")
+            //language=java
+            .dependsOn(
+              """
+                package org.example.library;
+
+                public class JsonApiMapper {
+                    public JsonApiMapper(com.fasterxml.jackson.databind.ObjectMapper mapper) {
+                    }
+                }
+                """
+            )),
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import org.example.library.JsonApiMapper;
+
+              class ApiConfig {
+                  JsonApiMapper jsonApiMapper(ObjectMapper objectMapper) {
+                      return new JsonApiMapper(objectMapper);
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void keepJackson2AnnotationUsingLibraryDeserializerOnJackson2() {
+        rewriteRun(
+          spec -> spec.parser(JavaParser.fromJavaVersion()
+            .classpath("jackson-annotations", "jackson-core", "jackson-databind")
+            //language=java
+            .dependsOn(
+              """
+                package org.example.library;
+
+                import com.fasterxml.jackson.core.JsonParser;
+                import com.fasterxml.jackson.databind.DeserializationContext;
+                import com.fasterxml.jackson.databind.JsonDeserializer;
+                import java.time.Instant;
+
+                public class InstantDeserializer extends JsonDeserializer<Instant> {
+                    @Override
+                    public Instant deserialize(JsonParser p, DeserializationContext ctxt) {
+                        return null;
+                    }
+                }
+                """
+            )),
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+              import org.example.library.InstantDeserializer;
+
+              import java.time.Instant;
+
+              class MetadataRecord {
+                  @JsonDeserialize(using = InstantDeserializer.class)
+                  Instant createdAt;
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void migrateJackson2SubclassesDeclaredInTheSources() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonParser;
+              import com.fasterxml.jackson.core.type.TypeReference;
+              import com.fasterxml.jackson.databind.DeserializationContext;
+              import com.fasterxml.jackson.databind.JsonDeserializer;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+
+              import java.time.Instant;
+              import java.util.List;
+
+              class MetadataRecord {
+                  @JsonDeserialize(using = InstantDeserializer.class)
+                  Instant createdAt;
+
+                  List<String> tags(ObjectMapper mapper, String json) throws Exception {
+                      return mapper.readValue(json, new TypeReference<List<String>>() {
+                      });
+                  }
+
+                  static class InstantDeserializer extends JsonDeserializer<Instant> {
+                      @Override
+                      public Instant deserialize(JsonParser p, DeserializationContext ctxt) {
+                          return null;
+                      }
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonParser;
+              import tools.jackson.core.type.TypeReference;
+              import tools.jackson.databind.DeserializationContext;
+              import tools.jackson.databind.ObjectMapper;
+              import tools.jackson.databind.annotation.JsonDeserialize;
+              import tools.jackson.databind.ValueDeserializer;
+
+              import java.time.Instant;
+              import java.util.List;
+
+              class MetadataRecord {
+                  @JsonDeserialize(using = InstantDeserializer.class)
+                  Instant createdAt;
+
+                  List<String> tags(ObjectMapper mapper, String json) throws Exception {
+                      return mapper.readValue(json, new TypeReference<List<String>>() {
+                      });
+                  }
+
+                  static class InstantDeserializer extends ValueDeserializer<Instant> {
+                      @Override
+                      public Instant deserialize(JsonParser p, DeserializationContext ctxt) {
+                          return null;
+                      }
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void migrateJackson2ValuePassedToSpringWhichMovesToJackson3Too() {
+        rewriteRun(
+          spec -> spec.parser(JavaParser.fromJavaVersion()
+            .classpath("jackson-annotations", "jackson-core", "jackson-databind")
+            //language=java
+            .dependsOn(
+              """
+                package org.springframework.kafka.support.serializer;
+
+                public class JsonSerializer<T> {
+                    public JsonSerializer(com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
+                    }
+                }
+                """
+            )),
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import org.springframework.kafka.support.serializer.JsonSerializer;
+
+              class KafkaConfig {
+                  JsonSerializer<Object> serializer(ObjectMapper objectMapper) {
+                      return new JsonSerializer<>(objectMapper);
+                  }
+              }
+              """,
+            """
+              import tools.jackson.databind.ObjectMapper;
+              import org.springframework.kafka.support.serializer.JsonSerializer;
+
+              class KafkaConfig {
+                  JsonSerializer<Object> serializer(ObjectMapper objectMapper) {
+                      return new JsonSerializer<>(objectMapper);
+                  }
+              }
+              """
+          )
+        );
+    }
 }
