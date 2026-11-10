@@ -189,6 +189,60 @@ class KotlinMigrateMapperSettersToBuilderTest implements RewriteTest {
         }
 
         @Test
+        void fluentChainOnUnresolvedJacksonObjectMapper() {
+            rewriteRun(
+              spec -> spec.typeValidationOptions(TypeValidation.none()),
+              //language=kotlin
+              kotlin(
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude
+                  import com.fasterxml.jackson.databind.ObjectMapper
+                  import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+
+                  fun mapper(): ObjectMapper = jacksonObjectMapper()
+                      .setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL)
+                  """,
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude
+                  import com.fasterxml.jackson.databind.ObjectMapper
+                  import com.fasterxml.jackson.module.kotlin.jacksonMapperBuilder
+
+                  fun mapper(): ObjectMapper = jacksonMapperBuilder()
+                      .changeDefaultPropertyInclusion({ incl -> incl.withContentInclusion(JsonInclude.Include.NON_NULL).withValueInclusion(JsonInclude.Include.NON_NULL)})
+                      .build()
+                  """
+              )
+            );
+        }
+
+        @Test
+        void fluentChainOnUnresolvedJacksonObjectMapperImportedWithWhitespace() {
+            rewriteRun(
+              spec -> spec.typeValidationOptions(TypeValidation.none()),
+              //language=kotlin
+              kotlin(
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude
+                  import com.fasterxml.jackson.databind.ObjectMapper
+                  import com.fasterxml.jackson.module.kotlin . jacksonObjectMapper
+
+                  fun mapper(): ObjectMapper = jacksonObjectMapper()
+                      .setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL)
+                  """,
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude
+                  import com.fasterxml.jackson.databind.ObjectMapper
+                  import com.fasterxml.jackson.module.kotlin.jacksonMapperBuilder
+
+                  fun mapper(): ObjectMapper = jacksonMapperBuilder()
+                      .changeDefaultPropertyInclusion({ incl -> incl.withContentInclusion(JsonInclude.Include.NON_NULL).withValueInclusion(JsonInclude.Include.NON_NULL)})
+                      .build()
+                  """
+              )
+            );
+        }
+
+        @Test
         void fluentChainWithApplyBlockAtTail() {
             rewriteRun(
               spec -> spec
