@@ -417,7 +417,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         String expected = KOTLIN_EXTENSIONS_PACKAGE + "." + JACKSON_OBJECT_MAPPER_NAME;
                         for (J.Import imp : cu.getImports()) {
                             if (expected.equals(imp.getTypeName()) ||
-                                    expected.equals(imp.getQualid().toString())) {
+                                    imp.getQualid().isFullyQualifiedClassReference(expected)) {
                                 return true;
                             }
                         }
