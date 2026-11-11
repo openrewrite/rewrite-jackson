@@ -18,6 +18,7 @@ package org.openrewrite.java.jackson;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.java.JavaParser;
+import org.openrewrite.test.RecipeQualityValidation;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
@@ -36,6 +37,8 @@ class RelocatedFeatureConstantsTest implements RewriteTest {
     @Test
     void serializationFeatureToDateTimeFeature() {
         rewriteRun(
+          // the output passes a Jackson 3 constant to a Jackson 2 `ObjectMapper` method, which no overload takes
+          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           //language=java
           java(
             """
@@ -67,6 +70,8 @@ class RelocatedFeatureConstantsTest implements RewriteTest {
     @Test
     void deserializationFeatureToDateTimeFeature() {
         rewriteRun(
+          // the output passes a Jackson 3 constant to a Jackson 2 `ObjectMapper` method, which no overload takes
+          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           //language=java
           java(
             """
@@ -98,6 +103,8 @@ class RelocatedFeatureConstantsTest implements RewriteTest {
     @Test
     void serializationFeatureToEnumFeature() {
         rewriteRun(
+          // the output passes a Jackson 3 constant to a Jackson 2 `ObjectMapper` method, which no overload takes
+          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           //language=java
           java(
             """
@@ -129,6 +136,8 @@ class RelocatedFeatureConstantsTest implements RewriteTest {
     @Test
     void deserializationFeatureToEnumFeature() {
         rewriteRun(
+          // the output passes a Jackson 3 constant to a Jackson 2 `ObjectMapper` method, which no overload takes
+          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           //language=java
           java(
             """

@@ -23,6 +23,7 @@ import org.openrewrite.DocumentExample;
 import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.Issue;
 import org.openrewrite.java.JavaParser;
+import org.openrewrite.test.RecipeQualityValidation;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
@@ -117,6 +118,8 @@ class CodehausToFasterXMLTest implements RewriteTest {
         @Test
         void retainOriginalAnnotationToo() {
             rewriteRun(
+              // the `using` argument keeps the codehaus attribute's `Class<? extends JsonSerializer<?>>`, where the fasterxml one is raw
+              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               //language=java
               java(
                 """
@@ -145,6 +148,8 @@ class CodehausToFasterXMLTest implements RewriteTest {
         @Test
         void retainOtherAnnotationArguments() {
             rewriteRun(
+              // the `using` argument keeps the codehaus attribute's `Class<? extends JsonSerializer<?>>`, where the fasterxml one is raw
+              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               //language=java
               java(
                 """
@@ -205,6 +210,8 @@ class CodehausToFasterXMLTest implements RewriteTest {
             // codehaus annotation before its `using = ...` could be moved to the fasterxml side.
             // The reorder runs the transfer first.
             rewriteRun(
+              // the `using` argument keeps the codehaus attribute's `Class<? extends JsonSerializer<?>>`, where the fasterxml one is raw
+              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               //language=java
               java(
                 """
@@ -344,6 +351,12 @@ class CodehausToFasterXMLTest implements RewriteTest {
         @ParameterizedTest
         void replaceWithSetConfigCallJaxB(String codehausClass, String fasterXmlClass) {
             rewriteRun(
+              spec -> {
+                  if (fasterXmlClass.contains(".jaxb.")) {
+                      // without the jaxb module on the classpath, the parser picks other overloads than the recipe types the calls with
+                      spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build());
+                  }
+              },
               //language=java
               java(
                 """

@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.Issue;
 import org.openrewrite.java.JavaParser;
+import org.openrewrite.test.RecipeQualityValidation;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
@@ -44,6 +45,8 @@ class StdDeserializerNullConstructorTest implements RewriteTest {
     @Test
     void stdDeserializerThisNullPattern() {
         rewriteRun(
+          // the context-free template types `this(..)` as a constructor of its own stub class
+          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           //language=java
           java(
             """

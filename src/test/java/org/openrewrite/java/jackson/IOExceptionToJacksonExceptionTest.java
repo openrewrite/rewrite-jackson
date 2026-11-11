@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.java.JavaParser;
+import org.openrewrite.test.RecipeQualityValidation;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
@@ -200,6 +201,8 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
     @Test
     void multiCatchWhenMixedIOSources() {
         rewriteRun(
+          // the multi-catch parameter keeps the `IOException` type, where javac gives it the alternatives' common supertype
+          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           java(
             """
               import java.io.IOException;
@@ -343,6 +346,8 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
     @Test
     void wrapCaughtExceptionPassedOnAsIOException() {
         rewriteRun(
+          // the output's `new UncheckedIOException(new IOException(e))` has a constructor taking `JacksonException`, which the class doesn't declare
+          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           java(
             """
               import com.fasterxml.jackson.databind.ObjectMapper;
@@ -413,6 +418,8 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
     @Test
     void multiCatchWhenTryWithResourcesClosesCloseable() {
         rewriteRun(
+          // the multi-catch parameter keeps the `IOException` type, where javac gives it the alternatives' common supertype
+          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           java(
             """
               import java.io.IOException;
@@ -456,6 +463,8 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
     @Test
     void multiCatchWhenTryWithResourcesInitializerThrowsIOException() {
         rewriteRun(
+          // the multi-catch parameter keeps the `IOException` type, where javac gives it the alternatives' common supertype
+          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           java(
             """
               import java.io.IOException;
@@ -545,6 +554,8 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
     @Test
     void multiCatchWhenIOExceptionIsThrownInsideAnArgument() {
         rewriteRun(
+          // the multi-catch parameter keeps the `IOException` type, where javac gives it the alternatives' common supertype
+          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           java(
             """
               import java.io.IOException;

@@ -21,6 +21,7 @@ import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.java.tree.J;
+import org.openrewrite.test.RecipeQualityValidation;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
@@ -131,6 +132,8 @@ class ObjectCodecToReadWriteContextTest implements RewriteTest {
     @Test
     void sameNameInSiblingBlockKeepsObjectCodecType() {
         rewriteRun(
+          // the recipe types `getCodec()` as `ObjectReadContext`, where the method returns `ObjectCodec`
+          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           //language=java
           java(
             """
@@ -178,6 +181,8 @@ class ObjectCodecToReadWriteContextTest implements RewriteTest {
     @Test
     void sameNameInSiblingForLoopKeepsObjectCodecType() {
         rewriteRun(
+          // the recipe types `getCodec()` as `ObjectReadContext`, where the method returns `ObjectCodec`
+          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           //language=java
           java(
             """
@@ -221,6 +226,8 @@ class ObjectCodecToReadWriteContextTest implements RewriteTest {
     @Test
     void fieldReferencedBeforeDeclarationAndThroughThis() {
         rewriteRun(
+          // the recipe types `getCodec()` as `ObjectReadContext`, where the method returns `ObjectCodec`
+          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           //language=java
           java(
             """
@@ -261,6 +268,8 @@ class ObjectCodecToReadWriteContextTest implements RewriteTest {
     @Test
     void parenthesizedInitializer() {
         rewriteRun(
+          // the recipe types `getCodec()` as `ObjectReadContext`, where the method returns `ObjectCodec`
+          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           //language=java
           java(
             """
@@ -292,6 +301,8 @@ class ObjectCodecToReadWriteContextTest implements RewriteTest {
     @Test
     void redundantCastIsRemoved() {
         rewriteRun(
+          // the recipe types `getCodec()` as `ObjectReadContext`, where the method returns `ObjectCodec`
+          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           //language=java
           java(
             """

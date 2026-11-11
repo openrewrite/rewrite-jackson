@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.Issue;
 import org.openrewrite.java.JavaParser;
+import org.openrewrite.test.RecipeQualityValidation;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
@@ -158,6 +159,8 @@ class RemoveBuiltInModuleRegistrationsTest implements RewriteTest {
     @Test
     void replaceParameterNamesModuleWithDelegatingModeOnBuilder() {
         rewriteRun(
+          // the template types the builder chain as `MapperBuilder`, where javac gives `JsonMapper.Builder`
+          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           java(
             """
               import com.fasterxml.jackson.annotation.JsonCreator;
