@@ -1028,10 +1028,12 @@ recipeList:
   - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
       existingFullyQualifiedConstantName: com.fasterxml.jackson.core.json.JsonReadFeature.ALLOW_UNQUOTED_FIELD_NAMES
       fullyQualifiedConstantName: tools.jackson.core.json.JsonReadFeature.ALLOW_UNQUOTED_PROPERTY_NAMES
-  # JsonWriteFeature: Jackson 2 modern constants whose names changed in Jackson 3
+  # JsonWriteFeature: Jackson 2 modern constants whose names changed in Jackson 3.
+  # The new name stays in the Jackson 2 package, which PackageChanges moves afterwards. Naming the
+  # Jackson 3 type here would clash with the Jackson 2 import and leave the reference fully qualified.
   - org.openrewrite.java.ReplaceConstantWithAnotherConstant:
       existingFullyQualifiedConstantName: com.fasterxml.jackson.core.json.JsonWriteFeature.QUOTE_FIELD_NAMES
-      fullyQualifiedConstantName: tools.jackson.core.json.JsonWriteFeature.QUOTE_PROPERTY_NAMES
+      fullyQualifiedConstantName: com.fasterxml.jackson.core.json.JsonWriteFeature.QUOTE_PROPERTY_NAMES
   # JsonFactory.Feature -> TokenStreamFactory.Feature (also covers Jackson 3 renames within
   # this family). USE_THREAD_LOCAL_FOR_BUFFER_RECYCLING was removed in Jackson 3 with no
   # 1:1 replacement; we leave that one alone for the user to address.

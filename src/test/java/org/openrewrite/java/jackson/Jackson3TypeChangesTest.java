@@ -366,12 +366,13 @@ class Jackson3TypeChangesTest implements RewriteTest {
               """,
             """
               import tools.jackson.core.json.JsonReadFeature;
+              import tools.jackson.core.json.JsonWriteFeature;
               import tools.jackson.core.json.JsonFactory;
 
               class Test {
                   JsonFactory factory = JsonFactory.builder()
                           .enable(JsonReadFeature.ALLOW_JAVA_COMMENTS)
-                          .disable(tools.jackson.core.json.JsonWriteFeature.QUOTE_PROPERTY_NAMES)
+                          .disable(JsonWriteFeature.QUOTE_PROPERTY_NAMES)
                           .build();
               }
               """
