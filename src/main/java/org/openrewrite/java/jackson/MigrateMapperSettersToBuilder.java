@@ -513,7 +513,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             }
                         }
 
-                        Expression root = chainCalls.isEmpty() ? null : chainCalls.get(0).getSelect();
+                        Expression root = chainCalls.get(0).getSelect();
                         return applyBuilderTemplate(mapperFqn, setterCalls, builderEntry,
                                 root instanceof J.NewClass ? factoryArgument((J.NewClass) root) : null, suffixCalls,
                                 mi.getCoordinates().replace(), ctx);
