@@ -159,8 +159,7 @@ class KotlinMigrateMapperSettersToBuilderTest implements RewriteTest {
                 .parser(KotlinParser.builder()
                   .classpathFromResources(new InMemoryExecutionContext(),
                     "jackson-annotations-2", "jackson-core-2", "jackson-databind-2",
-                    "jackson-module-kotlin-2"))
-                .typeValidationOptions(TypeValidation.builder().methodInvocations(false).build()),
+                    "jackson-module-kotlin-2")),
               //language=kotlin
               kotlin(
                 """
@@ -191,7 +190,8 @@ class KotlinMigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void fluentChainOnUnresolvedJacksonObjectMapper() {
             rewriteRun(
-              spec -> spec.typeValidationOptions(TypeValidation.none()),
+              // Without jackson-module-kotlin, no call from jacksonObjectMapper() or jacksonMapperBuilder() on is typed
+              spec -> spec.typeValidationOptions(TypeValidation.all().methodInvocations(false)),
               //language=kotlin
               kotlin(
                 """
@@ -218,7 +218,8 @@ class KotlinMigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void fluentChainOnUnresolvedJacksonObjectMapperImportedWithWhitespace() {
             rewriteRun(
-              spec -> spec.typeValidationOptions(TypeValidation.none()),
+              // Without jackson-module-kotlin, no call from jacksonObjectMapper() or jacksonMapperBuilder() on is typed
+              spec -> spec.typeValidationOptions(TypeValidation.all().methodInvocations(false)),
               //language=kotlin
               kotlin(
                 """
@@ -249,8 +250,7 @@ class KotlinMigrateMapperSettersToBuilderTest implements RewriteTest {
                 .parser(KotlinParser.builder()
                   .classpathFromResources(new InMemoryExecutionContext(),
                     "jackson-annotations-2", "jackson-core-2", "jackson-databind-2",
-                    "jackson-module-kotlin-2"))
-                .typeValidationOptions(TypeValidation.builder().methodInvocations(false).build()),
+                    "jackson-module-kotlin-2")),
               //language=kotlin
               kotlin(
                 """
@@ -287,8 +287,7 @@ class KotlinMigrateMapperSettersToBuilderTest implements RewriteTest {
                 .parser(KotlinParser.builder()
                   .classpathFromResources(new InMemoryExecutionContext(),
                     "jackson-annotations-2", "jackson-core-2", "jackson-databind-2",
-                    "jackson-module-kotlin-2"))
-                .typeValidationOptions(TypeValidation.builder().methodInvocations(false).build()),
+                    "jackson-module-kotlin-2")),
               //language=kotlin
               kotlin(
                 """
@@ -329,8 +328,7 @@ class KotlinMigrateMapperSettersToBuilderTest implements RewriteTest {
                 .parser(KotlinParser.builder()
                   .classpathFromResources(new InMemoryExecutionContext(),
                     "jackson-annotations-2", "jackson-core-2", "jackson-databind-2",
-                    "jackson-module-kotlin-2"))
-                .typeValidationOptions(TypeValidation.builder().methodInvocations(false).build()),
+                    "jackson-module-kotlin-2")),
               //language=kotlin
               kotlin(
                 """
@@ -374,8 +372,7 @@ class KotlinMigrateMapperSettersToBuilderTest implements RewriteTest {
                 .parser(KotlinParser.builder()
                   .classpathFromResources(new InMemoryExecutionContext(),
                     "jackson-annotations-2", "jackson-core-2", "jackson-databind-2",
-                    "jackson-module-kotlin-2"))
-                .typeValidationOptions(TypeValidation.builder().methodInvocations(false).build()),
+                    "jackson-module-kotlin-2")),
               //language=kotlin
               kotlin(
                 """
@@ -423,8 +420,7 @@ class KotlinMigrateMapperSettersToBuilderTest implements RewriteTest {
                 .parser(KotlinParser.builder()
                   .classpathFromResources(new InMemoryExecutionContext(),
                     "jackson-annotations-2", "jackson-core-2", "jackson-databind-2",
-                    "jackson-module-kotlin-2"))
-                .typeValidationOptions(TypeValidation.builder().methodInvocations(false).build()),
+                    "jackson-module-kotlin-2")),
               //language=kotlin
               kotlin(
                 """
