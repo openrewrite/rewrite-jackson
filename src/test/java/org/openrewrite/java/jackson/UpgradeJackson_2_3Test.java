@@ -658,4 +658,333 @@ class UpgradeJackson_2_3Test implements RewriteTest {
           )
         );
     }
+
+    @Test
+    void keepModulePassingJackson2ToLibraryOnJackson2() {
+        rewriteRun(
+          spec -> spec.parser(JavaParser.fromJavaVersion()
+            .classpath("jackson-annotations", "jackson-core", "jackson-databind")
+            //language=java
+            .dependsOn(
+              """
+                package org.example.library;
+
+                import com.fasterxml.jackson.databind.Module;
+                import com.fasterxml.jackson.databind.ObjectMapper;
+
+                public class JsonApiMapper {
+                    public JsonApiMapper(ObjectMapper mapper) {
+                    }
+
+                    public void registerModules(Module... modules) {
+                    }
+                }
+                """
+            )),
+          mavenProject("project",
+            srcMainJava(
+              //language=java
+              java(
+                """
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+                  import com.fasterxml.jackson.databind.module.SimpleModule;
+                  import org.example.library.JsonApiMapper;
+
+                  class ApiConfig {
+                      JsonApiMapper jsonApiMapper(ObjectMapper objectMapper) {
+                          JsonApiMapper mapper = new JsonApiMapper(objectMapper);
+                          mapper.registerModules(new SimpleModule());
+                          return mapper;
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+                  import com.fasterxml.jackson.databind.module.SimpleModule;
+                  import org.example.library.JsonApiMapper;
+
+                  class ApiConfig {
+                      JsonApiMapper jsonApiMapper(ObjectMapper objectMapper) {
+                          JsonApiMapper mapper = /*~~(Keeps the module on Jackson 2, as org.example.library.JsonApiMapper is still on Jackson 2)~~>*/new JsonApiMapper(objectMapper);
+                          /*~~(Keeps the module on Jackson 2, as org.example.library.JsonApiMapper is still on Jackson 2)~~>*/mapper.registerModules(new SimpleModule());
+                          return mapper;
+                      }
+                  }
+                  """
+              ),
+              //language=java
+              java(
+                """
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+
+                  class Json {
+                      static final ObjectMapper MAPPER = new ObjectMapper();
+                  }
+                  """
+              )
+            ),
+            pomXml(
+              //language=xml
+              """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>org.example</groupId>
+                    <artifactId>example</artifactId>
+                    <version>1.0.0</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>com.fasterxml.jackson.core</groupId>
+                            <artifactId>jackson-databind</artifactId>
+                            <version>2.19.0</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>com.fasterxml.jackson.datatype</groupId>
+                            <artifactId>jackson-datatype-jsr310</artifactId>
+                            <version>2.19.0</version>
+                        </dependency>
+                    </dependencies>
+                </project>
+                """
+            )
+          )
+        );
+    }
+
+    @Test
+    void keepJackson2AnnotationUsingLibraryDeserializerOnJackson2() {
+        rewriteRun(
+          spec -> spec.parser(JavaParser.fromJavaVersion()
+            .classpath("jackson-annotations", "jackson-core", "jackson-databind")
+            //language=java
+            .dependsOn(
+              """
+                package org.example.library;
+
+                import com.fasterxml.jackson.core.JsonParser;
+                import com.fasterxml.jackson.databind.DeserializationContext;
+                import com.fasterxml.jackson.databind.JsonDeserializer;
+                import java.time.Instant;
+
+                public class InstantDeserializer extends JsonDeserializer<Instant> {
+                    @Override
+                    public Instant deserialize(JsonParser p, DeserializationContext ctxt) {
+                        return null;
+                    }
+                }
+                """
+            )),
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+              import org.example.library.InstantDeserializer;
+
+              import java.time.Instant;
+
+              class MetadataRecord {
+                  @JsonDeserialize(using = InstantDeserializer.class)
+                  Instant createdAt;
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+              import org.example.library.InstantDeserializer;
+
+              import java.time.Instant;
+
+              class MetadataRecord {
+                  @JsonDeserialize(using = /*~~(Keeps the module on Jackson 2, as org.example.library.InstantDeserializer is still on Jackson 2)~~>*/InstantDeserializer.class)
+                  Instant createdAt;
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void keepJackson2OverrideOfLibraryMethodOnJackson2() {
+        rewriteRun(
+          spec -> spec.parser(JavaParser.fromJavaVersion()
+            .classpath("jackson-annotations", "jackson-core", "jackson-databind")
+            //language=java
+            .dependsOn(
+              """
+                package org.example.library;
+
+                public interface MapperCustomizer {
+                    void customize(com.fasterxml.jackson.databind.ObjectMapper mapper);
+                }
+                """
+            )),
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import org.example.library.MapperCustomizer;
+
+              class ApiMapperCustomizer implements MapperCustomizer {
+                  @Override
+                  public void customize(ObjectMapper mapper) {
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import org.example.library.MapperCustomizer;
+
+              class ApiMapperCustomizer implements MapperCustomizer {
+                  @Override
+                  public void /*~~(Keeps the module on Jackson 2, as org.example.library.MapperCustomizer is still on Jackson 2)~~>*/customize(ObjectMapper mapper) {
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void migrateJackson2ValuesPassedToGenericMethods() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.JsonNode;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              import java.util.List;
+              import java.util.Objects;
+              import java.util.Optional;
+
+              class Nodes {
+                  Optional<ObjectMapper> collect(ObjectMapper mapper, List<JsonNode> nodes, JsonNode node) {
+                      nodes.add(node);
+                      return Optional.of(Objects.requireNonNull(mapper));
+                  }
+              }
+              """,
+            """
+              import tools.jackson.databind.JsonNode;
+              import tools.jackson.databind.ObjectMapper;
+
+              import java.util.List;
+              import java.util.Objects;
+              import java.util.Optional;
+
+              class Nodes {
+                  Optional<ObjectMapper> collect(ObjectMapper mapper, List<JsonNode> nodes, JsonNode node) {
+                      nodes.add(node);
+                      return Optional.of(Objects.requireNonNull(mapper));
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void migrateJackson2SubclassesDeclaredInTheSources() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.core.JsonParser;
+              import com.fasterxml.jackson.core.type.TypeReference;
+              import com.fasterxml.jackson.databind.DeserializationContext;
+              import com.fasterxml.jackson.databind.JsonDeserializer;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+
+              import java.time.Instant;
+              import java.util.List;
+
+              class MetadataRecord {
+                  @JsonDeserialize(using = InstantDeserializer.class)
+                  Instant createdAt;
+
+                  List<String> tags(ObjectMapper mapper, String json) throws Exception {
+                      return mapper.readValue(json, new TypeReference<List<String>>() {
+                      });
+                  }
+
+                  static class InstantDeserializer extends JsonDeserializer<Instant> {
+                      @Override
+                      public Instant deserialize(JsonParser p, DeserializationContext ctxt) {
+                          return null;
+                      }
+                  }
+              }
+              """,
+            """
+              import tools.jackson.core.JsonParser;
+              import tools.jackson.core.type.TypeReference;
+              import tools.jackson.databind.DeserializationContext;
+              import tools.jackson.databind.ObjectMapper;
+              import tools.jackson.databind.annotation.JsonDeserialize;
+              import tools.jackson.databind.ValueDeserializer;
+
+              import java.time.Instant;
+              import java.util.List;
+
+              class MetadataRecord {
+                  @JsonDeserialize(using = InstantDeserializer.class)
+                  Instant createdAt;
+
+                  List<String> tags(ObjectMapper mapper, String json) throws Exception {
+                      return mapper.readValue(json, new TypeReference<List<String>>() {
+                      });
+                  }
+
+                  static class InstantDeserializer extends ValueDeserializer<Instant> {
+                      @Override
+                      public Instant deserialize(JsonParser p, DeserializationContext ctxt) {
+                          return null;
+                      }
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void migrateJackson2ValuePassedToSpringWhichMovesToJackson3Too() {
+        rewriteRun(
+          spec -> spec.parser(JavaParser.fromJavaVersion()
+            .classpath("jackson-annotations", "jackson-core", "jackson-databind")
+            //language=java
+            .dependsOn(
+              """
+                package org.springframework.kafka.support.serializer;
+
+                public class JsonSerializer<T> {
+                    public JsonSerializer(com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
+                    }
+                }
+                """
+            )),
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import org.springframework.kafka.support.serializer.JsonSerializer;
+
+              class KafkaConfig {
+                  JsonSerializer<Object> serializer(ObjectMapper objectMapper) {
+                      return new JsonSerializer<>(objectMapper);
+                  }
+              }
+              """,
+            """
+              import tools.jackson.databind.ObjectMapper;
+              import org.springframework.kafka.support.serializer.JsonSerializer;
+
+              class KafkaConfig {
+                  JsonSerializer<Object> serializer(ObjectMapper objectMapper) {
+                      return new JsonSerializer<>(objectMapper);
+                  }
+              }
+              """
+          )
+        );
+    }
 }

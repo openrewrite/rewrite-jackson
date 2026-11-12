@@ -152,7 +152,7 @@ public class ModuleStillOnJackson2 extends ScanningRecipe<ModuleStillOnJackson2.
         return false;
     }
 
-    private static boolean isJackson2Type(JavaType.FullyQualified type) {
+    static boolean isJackson2Type(JavaType.FullyQualified type) {
         String fqn = type.getFullyQualifiedName();
         // Jackson 3 still uses the `com.fasterxml.jackson.annotation` package, so those do not tie a module to Jackson 2
         return fqn.startsWith("com.fasterxml.jackson.") && !fqn.startsWith("com.fasterxml.jackson.annotation.") ||
