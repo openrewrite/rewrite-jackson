@@ -48,6 +48,9 @@ recipeList:
       oldFullyQualifiedTypeName: org.codehaus.jackson.map.annotate.JsonSerialize$Inclusion
       newFullyQualifiedTypeName: com.fasterxml.jackson.annotation.JsonInclude$Include
   - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.map.annotate.JsonSerialize$Typing
+      newFullyQualifiedTypeName: com.fasterxml.jackson.databind.annotation.JsonSerialize$Typing
+  - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: org.codehaus.jackson.map.annotate.JsonSerialize
       newFullyQualifiedTypeName: com.fasterxml.jackson.databind.annotation.JsonSerialize
   - org.openrewrite.java.ChangeType:
