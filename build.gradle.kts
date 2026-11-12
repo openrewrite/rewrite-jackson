@@ -48,6 +48,7 @@ recipeDependencies {
     parserClasspath("org.codehaus.jackson:jackson-core-asl:1.9.13")
     parserClasspath("org.codehaus.jackson:jackson-mapper-asl:1.9.13")
 
+    testParserClasspath("com.azure:azure-core-serializer-json-jackson:1.6.7")
     testParserClasspath("com.fasterxml.jackson.datatype:jackson-datatype-joda:2.19.2")
     testParserClasspath("com.fasterxml.jackson.module:jackson-module-afterburner:2.19.2")
     testParserClasspath("org.codehaus.jackson:jackson-xc:1.9.13")
