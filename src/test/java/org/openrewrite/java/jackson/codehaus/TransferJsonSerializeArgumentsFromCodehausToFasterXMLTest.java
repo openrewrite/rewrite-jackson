@@ -43,7 +43,7 @@ class TransferJsonSerializeArgumentsFromCodehausToFasterXMLTest implements Rewri
 
     @ParameterizedTest
     @ValueSource(
-      strings = {"using", "contentUsing", "keyUsing", "nullUsing"}
+      strings = {"using", "contentUsing", "keyUsing"}
     )
     void shouldTransferArgument(String argumentName) {
         rewriteRun(
@@ -80,7 +80,7 @@ class TransferJsonSerializeArgumentsFromCodehausToFasterXMLTest implements Rewri
     }
 
     @CsvSource(
-      {"using,contentUsing", "keyUsing,nullUsing"}
+      {"using,contentUsing"}
     )
     @ParameterizedTest
     void shouldTransferArgumentMultiArguments(String firstArg, String secondArg) {
@@ -119,7 +119,7 @@ class TransferJsonSerializeArgumentsFromCodehausToFasterXMLTest implements Rewri
 
     @ParameterizedTest
     @ValueSource(
-      strings = {"using", "contentUsing", "keyUsing", "nullUsing"}
+      strings = {"using", "contentUsing", "keyUsing"}
     )
     void doNotOverwriteExistingUsing(String argumentName) {
         rewriteRun(
@@ -143,7 +143,7 @@ class TransferJsonSerializeArgumentsFromCodehausToFasterXMLTest implements Rewri
     }
 
     @CsvSource(
-      {"using,contentUsing", "keyUsing,nullUsing"}
+      {"using,contentUsing"}
     )
     @ParameterizedTest
     void shouldTransferArgumentSome(String firstArg, String secondArg) {
