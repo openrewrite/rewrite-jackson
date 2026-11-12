@@ -44,16 +44,12 @@ class TransferJsonSerializeArgumentsFromCodehausToFasterXMLTest implements Rewri
 
     @ParameterizedTest
     @ValueSource(
-      strings = {"using", "contentUsing", "keyUsing", "nullUsing"}
+      strings = {"using", "contentUsing", "keyUsing"}
     )
     void shouldTransferArgument(String argumentName) {
         rewriteRun(
-          spec -> {
-              if (!"nullUsing".equals(argumentName)) {
-                  // the transferred argument keeps the codehaus attribute's type, and neither codehaus nor fasterxml declares `nullUsing`
-                  spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build());
-              }
-          },
+          // the transferred argument keeps the codehaus attribute's type
+          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           //language=java
           java(
             """
@@ -87,12 +83,12 @@ class TransferJsonSerializeArgumentsFromCodehausToFasterXMLTest implements Rewri
     }
 
     @CsvSource(
-      {"using,contentUsing", "keyUsing,nullUsing"}
+      {"using,contentUsing"}
     )
     @ParameterizedTest
     void shouldTransferArgumentMultiArguments(String firstArg, String secondArg) {
         rewriteRun(
-          // the transferred `using`, `contentUsing` and `keyUsing` arguments keep the codehaus attributes' types
+          // the transferred `using` and `contentUsing` arguments keep the codehaus attributes' types
           spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           //language=java
           java(
@@ -128,7 +124,7 @@ class TransferJsonSerializeArgumentsFromCodehausToFasterXMLTest implements Rewri
 
     @ParameterizedTest
     @ValueSource(
-      strings = {"using", "contentUsing", "keyUsing", "nullUsing"}
+      strings = {"using", "contentUsing", "keyUsing"}
     )
     void doNotOverwriteExistingUsing(String argumentName) {
         rewriteRun(
@@ -152,12 +148,12 @@ class TransferJsonSerializeArgumentsFromCodehausToFasterXMLTest implements Rewri
     }
 
     @CsvSource(
-      {"using,contentUsing", "keyUsing,nullUsing"}
+      {"using,contentUsing"}
     )
     @ParameterizedTest
     void shouldTransferArgumentSome(String firstArg, String secondArg) {
         rewriteRun(
-          // the transferred `using`, `contentUsing` and `keyUsing` arguments keep the codehaus attributes' types
+          // the transferred `using` and `contentUsing` arguments keep the codehaus attributes' types
           spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           //language=java
           java(

@@ -37,13 +37,13 @@ import static java.util.Collections.singletonList;
 
 public class TransferJsonSerializeArgumentsFromCodehausToFasterXML extends Recipe {
 
-    private static final String[] TRANSFERABLE_ARGUMENTS = {"using", "contentUsing", "keyUsing", "nullUsing"};
+    private static final String[] TRANSFERABLE_ARGUMENTS = {"using", "contentUsing", "keyUsing"};
 
     @Getter
     final String displayName = "Transfer @JsonSerialize arguments from Codehaus to FasterXML";
 
     @Getter
-    final String description = "Transfer @JsonSerialize annotation arguments (using, contentUsing, keyUsing, nullUsing) from Codehaus " +
+    final String description = "Transfer @JsonSerialize annotation arguments (using, contentUsing, keyUsing) from Codehaus " +
             "to FasterXML. If the argument was set already, it will not be transferred.";
 
     @Override
