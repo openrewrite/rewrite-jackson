@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.Issue;
@@ -1690,16 +1691,18 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
 
 
         @ParameterizedTest
-        @CsvSource({"avro, AvroMapper", "csv, CsvMapper", "xml, XmlMapper", "yaml, YAMLMapper"})
-        void formatMapperSettersMigratedToBuilder(String format, String mapper) {
+        @ValueSource(strings = {"avro.AvroMapper", "cbor.databind.CBORMapper", "csv.CsvMapper", "ion.IonObjectMapper",
+          "smile.databind.SmileMapper", "xml.XmlMapper", "yaml.YAMLMapper"})
+        void formatMapperSettersMigratedToBuilder(String mapper) {
+            String simpleName = mapper.substring(mapper.lastIndexOf('.') + 1);
             rewriteRun(
               spec -> spec.parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
                 "jackson-annotations-2", "jackson-core-2", "jackson-databind-2",
-                "jackson-dataformat-" + format + "-2")),
+                "jackson-dataformat-" + mapper.substring(0, mapper.indexOf('.')) + "-2")),
               java(
                 """
                   import com.fasterxml.jackson.databind.Module;
-                  import com.fasterxml.jackson.dataformat.%1$s.%2$s;
+                  import com.fasterxml.jackson.dataformat.%1$s;
 
                   class A {
                       %2$s create(Module module) {
@@ -1708,10 +1711,10 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
                           return mapper;
                       }
                   }
-                  """.formatted(format, mapper),
+                  """.formatted(mapper, simpleName),
                 """
                   import com.fasterxml.jackson.databind.Module;
-                  import com.fasterxml.jackson.dataformat.%1$s.%2$s;
+                  import com.fasterxml.jackson.dataformat.%1$s;
 
                   class A {
                       %2$s create(Module module) {
@@ -1720,7 +1723,7 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
                                   .build();
                       }
                   }
-                  """.formatted(format, mapper)
+                  """.formatted(mapper, simpleName)
               )
             );
         }

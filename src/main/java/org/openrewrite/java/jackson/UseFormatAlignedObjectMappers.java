@@ -47,10 +47,10 @@ public class UseFormatAlignedObjectMappers extends Recipe {
     private static final Map<String, String> FACTORY_TO_MAPPER = new HashMap<String, String>() {{
         put("com.fasterxml.jackson.core.JsonFactory", JSON_MAPPER);
         put("com.fasterxml.jackson.dataformat.avro.AvroFactory", "com.fasterxml.jackson.dataformat.avro.AvroMapper");
-        put("com.fasterxml.jackson.dataformat.cbor.CBORFactory", "com.fasterxml.jackson.dataformat.cbor.CBORMapper");
+        put("com.fasterxml.jackson.dataformat.cbor.CBORFactory", "com.fasterxml.jackson.dataformat.cbor.databind.CBORMapper");
         put("com.fasterxml.jackson.dataformat.csv.CsvFactory", "com.fasterxml.jackson.dataformat.csv.CsvMapper");
-        put("com.fasterxml.jackson.dataformat.ion.IonFactory", "com.fasterxml.jackson.dataformat.ion.IonMapper");
-        put("com.fasterxml.jackson.dataformat.smile.SmileFactory", "com.fasterxml.jackson.dataformat.smile.SmileMapper");
+        put("com.fasterxml.jackson.dataformat.ion.IonFactory", "com.fasterxml.jackson.dataformat.ion.IonObjectMapper");
+        put("com.fasterxml.jackson.dataformat.smile.SmileFactory", "com.fasterxml.jackson.dataformat.smile.databind.SmileMapper");
         put("com.fasterxml.jackson.dataformat.xml.XmlFactory", "com.fasterxml.jackson.dataformat.xml.XmlMapper");
         put("com.fasterxml.jackson.dataformat.yaml.YAMLFactory", "com.fasterxml.jackson.dataformat.yaml.YAMLMapper");
     }};

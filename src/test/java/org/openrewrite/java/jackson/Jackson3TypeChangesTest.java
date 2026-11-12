@@ -264,6 +264,38 @@ class Jackson3TypeChangesTest implements RewriteTest {
     }
 
     @Test
+    void cborAndSmileMappersLeaveTheirDatabindPackages() {
+        rewriteRun(
+          spec -> spec
+            .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
+              "jackson-core-2", "jackson-databind-2", "jackson-dataformat-cbor-2", "jackson-dataformat-smile-2"))
+            .afterParser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
+              "jackson-core-3", "jackson-databind-3", "jackson-dataformat-cbor-3", "jackson-dataformat-smile-3")),
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.dataformat.cbor.databind.CBORMapper;
+              import com.fasterxml.jackson.dataformat.smile.databind.SmileMapper;
+
+              class Mappers {
+                  CBORMapper cbor = new CBORMapper();
+                  SmileMapper smile = new SmileMapper();
+              }
+              """,
+            """
+              import tools.jackson.dataformat.cbor.CBORMapper;
+              import tools.jackson.dataformat.smile.SmileMapper;
+
+              class Mappers {
+                  CBORMapper cbor = new CBORMapper();
+                  SmileMapper smile = new SmileMapper();
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void simpleFilterProvider() {
         rewriteRun(
           //language=java
