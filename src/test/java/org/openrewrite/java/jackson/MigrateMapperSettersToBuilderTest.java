@@ -1729,6 +1729,52 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         }
 
         @Test
+        void mapperConstructedWithFactoryBuiltFromThatFactory() {
+            rewriteRun(
+              spec -> spec.parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
+                "jackson-annotations-2", "jackson-core-2", "jackson-databind-2", "jackson-dataformat-yaml-2")),
+              java(
+                """
+                  import com.fasterxml.jackson.databind.Module;
+                  import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+                  import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+
+                  class A {
+                      YAMLMapper create(YAMLFactory factory, Module module) {
+                          YAMLMapper mapper = new YAMLMapper(factory);
+                          mapper.registerModule(module);
+                          return mapper;
+                      }
+
+                      YAMLMapper chain(YAMLFactory factory, Module module) {
+                          return (YAMLMapper) new YAMLMapper(factory).registerModule(module);
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.Module;
+                  import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+                  import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+
+                  class A {
+                      YAMLMapper create(YAMLFactory factory, Module module) {
+                          return YAMLMapper.builder(factory)
+                                  .addModule(module)
+                                  .build();
+                      }
+
+                      YAMLMapper chain(YAMLFactory factory, Module module) {
+                          return (YAMLMapper) YAMLMapper.builder(factory)
+                                  .addModule(module)
+                                  .build();
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
         void yamlMapperFluentChain() {
             rewriteRun(
               spec -> spec.parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),

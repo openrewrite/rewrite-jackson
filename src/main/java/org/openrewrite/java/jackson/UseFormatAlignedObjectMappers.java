@@ -16,15 +16,16 @@
 package org.openrewrite.java.jackson;
 
 import lombok.Getter;
+import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
 import org.openrewrite.TreeVisitor;
 import org.openrewrite.java.JavaIsoVisitor;
-import org.openrewrite.java.JavaParser;
 import org.openrewrite.java.JavaTemplate;
 import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.search.UsesType;
+import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
 
 import java.util.HashMap;
@@ -65,39 +66,47 @@ public class UseFormatAlignedObjectMappers extends Recipe {
                 if (OBJECT_MAPPER_NO_ARG.matches(nc)) {
                     maybeRemoveImport(OBJECT_MAPPER);
                     maybeAddImport(JSON_MAPPER);
-                    return replaceWithMapper(nc, JSON_MAPPER);
+                    return replaceWithMapper(nc, JSON_MAPPER, null, ctx);
                 }
 
                 if (!OBJECT_MAPPER_FACTORY.matches(nc)) {
                     return nc;
                 }
 
-                String source = String.valueOf(nc.getArguments().get(0).getType());
+                Expression factory = nc.getArguments().get(0);
+                String source = String.valueOf(factory.getType());
                 String target = FACTORY_TO_MAPPER.get(source);
                 if (target != null) {
                     maybeRemoveImport(OBJECT_MAPPER);
                     maybeRemoveImport(source);
                     maybeAddImport(target);
-                    return replaceWithMapper(nc, target);
+                    return replaceWithMapper(nc, target, isBareConstruction(factory) ? null : factory, ctx);
                 }
 
                 return nc; // unsupported factory type
             }
 
-            private J.NewClass replaceWithMapper(J.NewClass nc, String target) {
-                int lastDotIndex = target.lastIndexOf('.');
-                String packageName = target.substring(0, lastDotIndex);
-                String simpleName = target.substring(lastDotIndex + 1);
-                return JavaTemplate.builder("new " + target + "()")
-                        .javaParser(JavaParser.fromJavaVersion().dependsOn(
-                                "package " + packageName + ";\n" +
-                                        "public class " + simpleName + " extends com.fasterxml.jackson.databind.ObjectMapper {\n" +
-                                        "    public " + simpleName + "() {}\n" +
-                                        "}\n"
-                        ))
-                        .build()
-                        .apply(getCursor(), nc.getCoordinates().replace());
+            private J.NewClass replaceWithMapper(J.NewClass nc, String target, @Nullable Expression factory,
+                                                 ExecutionContext ctx) {
+                JavaTemplate template = JavaTemplate.builder("new " + target + (factory == null ? "()" : "(#{any()})"))
+                        .javaParser(MigrateMapperSettersToBuilder.templateParser(target, false, ctx))
+                        .build();
+                return factory == null ?
+                        template.apply(getCursor(), nc.getCoordinates().replace()) :
+                        template.apply(getCursor(), nc.getCoordinates().replace(), factory);
             }
         });
+    }
+
+    /**
+     * A factory constructed without arguments carries no settings for the mapper to keep.
+     */
+    private static boolean isBareConstruction(Expression factory) {
+        if (!(factory instanceof J.NewClass)) {
+            return false;
+        }
+        J.NewClass construction = (J.NewClass) factory;
+        return construction.getBody() == null &&
+               construction.getArguments().stream().allMatch(J.Empty.class::isInstance);
     }
 }

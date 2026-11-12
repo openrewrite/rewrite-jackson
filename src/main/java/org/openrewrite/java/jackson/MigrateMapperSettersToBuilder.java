@@ -40,6 +40,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
 
     private static final String OBJECT_MAPPER = "com.fasterxml.jackson.databind.ObjectMapper";
     private static final String JSON_MAPPER = "com.fasterxml.jackson.databind.json.JsonMapper";
+    private static final String JSON_FACTORY = "com.fasterxml.jackson.core.JsonFactory";
     private static final String DATAFORMAT_PACKAGE = "com.fasterxml.jackson.dataformat.";
 
     /**
@@ -264,7 +265,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         // Clean up empty init blocks after setter removal
                         doAfterVisit(removeEmptyInitBlocks());
 
-                        return applyBuilderTemplate(mapperFqn, builderSetters, null, emptyList(),
+                        return applyBuilderTemplate(mapperFqn, builderSetters, null, factoryArgument(nc), emptyList(),
                                 nc.getCoordinates().replace(), ctx);
                     }
 
@@ -512,7 +513,9 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             }
                         }
 
-                        return applyBuilderTemplate(mapperFqn, setterCalls, builderEntry, suffixCalls,
+                        Expression root = chainCalls.isEmpty() ? null : chainCalls.get(0).getSelect();
+                        return applyBuilderTemplate(mapperFqn, setterCalls, builderEntry,
+                                root instanceof J.NewClass ? factoryArgument((J.NewClass) root) : null, suffixCalls,
                                 mi.getCoordinates().replace(), ctx);
                     }
 
@@ -635,15 +638,20 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                      * Builds and applies the {@code Mapper.builder()...build()} template for a list of setter calls.
                      */
                     private J applyBuilderTemplate(String mapperFqn, List<J.MethodInvocation> setters,
-                                                   @Nullable String builderEntry,
+                                                   @Nullable String builderEntry, @Nullable Expression factory,
                                                    List<J.MethodInvocation> suffixCalls,
                                                    JavaCoordinates coordinates, ExecutionContext ctx) {
                         String simpleMapperName = mapperFqn.substring(mapperFqn.lastIndexOf('.') + 1);
-                        String entryExpr = builderEntry != null ? builderEntry : (simpleMapperName + ".builder()");
+                        String entryExpr = builderEntry != null ? builderEntry :
+                                simpleMapperName + (factory == null ? ".builder()" : ".builder(#{any()})");
                         StringBuilder templateCode = new StringBuilder(entryExpr);
                         List<Expression> templateArgs = new ArrayList<>();
                         StringBuilder declaredCode = new StringBuilder(entryExpr);
                         List<Expression> declaredArgs = new ArrayList<>();
+                        if (factory != null) {
+                            templateArgs.add(factory);
+                            declaredArgs.add(factory);
+                        }
                         boolean undeclaredSetters = false;
                         for (J.MethodInvocation setter : setters) {
                             SetterToBuilderMapping mapping = SetterToBuilderMapping.fromSetter(setter.getName().getSimpleName());
@@ -1162,7 +1170,22 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                 return entry.getValue();
             }
         }
-        return null;
+        JavaType.Method constructor = nc.getConstructorType();
+        return constructor != null && factoryArgument(nc) != null ?
+                constructor.getDeclaringType().getFullyQualifiedName() : null;
+    }
+
+    /**
+     * The factory of a mapper constructed with one, as in {@code new YAMLMapper(factory)}.
+     */
+    static @Nullable Expression factoryArgument(J.NewClass nc) {
+        JavaType.Method constructor = nc.getConstructorType();
+        if (constructor == null || constructor.getParameterTypes().size() != 1 ||
+            !ALL_MAPPERS.contains(constructor.getDeclaringType().getFullyQualifiedName()) ||
+            !TypeUtils.isAssignableTo(JSON_FACTORY, constructor.getParameterTypes().get(0))) {
+            return null;
+        }
+        return nc.getArguments().get(0);
     }
 
     /**
@@ -1277,7 +1300,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         return call.withName(call.getName().withType(type)).withMethodType(type);
     }
 
-    private static JavaParser.Builder<?, ?> templateParser(String mapperFqn, boolean kotlinFactory,
+    static JavaParser.Builder<?, ?> templateParser(String mapperFqn, boolean kotlinFactory,
                                                            ExecutionContext ctx) {
         List<String> classpath = new ArrayList<>(
                 Arrays.asList("jackson-annotations-2", "jackson-core-2", "jackson-databind-2"));

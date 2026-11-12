@@ -126,6 +126,35 @@ class UseFormatAlignedObjectMappersTest implements RewriteTest {
     }
 
     @Test
+    void configuredFactoryPassedToFormatMapper() {
+        rewriteRun(
+          spec -> spec.parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
+            "jackson-core-2", "jackson-databind-2", "jackson-dataformat-yaml-2")),
+          java(
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+              import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
+
+              class A {
+                  ObjectMapper mapper = new ObjectMapper(new YAMLFactory().enable(YAMLGenerator.Feature.MINIMIZE_QUOTES));
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+              import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
+              import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+
+              class A {
+                  ObjectMapper mapper = new YAMLMapper(new YAMLFactory().enable(YAMLGenerator.Feature.MINIMIZE_QUOTES));
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void noArgObjectMapperToJsonMapper() {
         rewriteRun(
           java(
