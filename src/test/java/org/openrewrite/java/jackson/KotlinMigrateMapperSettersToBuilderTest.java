@@ -27,7 +27,6 @@ import org.openrewrite.test.TypeValidation;
 
 import static org.openrewrite.kotlin.Assertions.kotlin;
 
-@Issue("https://github.com/moderneinc/customer-requests/issues/2079")
 class KotlinMigrateMapperSettersToBuilderTest implements RewriteTest {
 
     @Override
