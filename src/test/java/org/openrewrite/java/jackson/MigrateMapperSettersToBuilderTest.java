@@ -17,12 +17,22 @@ package org.openrewrite.java.jackson;
 
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.openrewrite.DocumentExample;
+import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.Issue;
-import org.openrewrite.test.RecipeQualityValidation;
+import org.openrewrite.java.JavaIsoVisitor;
+import org.openrewrite.java.JavaParser;
+import org.openrewrite.java.tree.J;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
+import org.openrewrite.test.TypeValidation;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.openrewrite.java.Assertions.java;
 
 class MigrateMapperSettersToBuilderTest implements RewriteTest {
@@ -30,7 +40,7 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
     @Override
     public void defaults(RecipeSpec spec) {
         spec.recipe(new MigrateMapperSettersToBuilder())
-          .parser(org.openrewrite.java.JavaParser.fromJavaVersion()
+          .parser(JavaParser.fromJavaVersion()
             .classpath("jackson-core", "jackson-databind", "jackson-annotations"));
     }
 
@@ -38,8 +48,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
     @Test
     void allSettersMigratedToBuilder() {
         rewriteRun(
-          // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           java(
             """
               import com.fasterxml.jackson.annotation.JsonAutoDetect;
@@ -240,8 +248,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
     @Test
     void singleDisable() {
         rewriteRun(
-          // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           java(
             """
               import com.fasterxml.jackson.databind.SerializationFeature;
@@ -271,14 +277,108 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         );
     }
 
+    @Test
+    void unmappedSetterKeptWithTodo() {
+        rewriteRun(
+          // the builder declares no `setMixIns`, so the call the recipe keeps behind the TODO has no type
+          spec -> spec.typeValidationOptions(TypeValidation.builder().methodInvocations(false).build()),
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonInclude;
+              import com.fasterxml.jackson.databind.json.JsonMapper;
+
+              import java.util.Map;
+
+              class A {
+                  JsonMapper create(Map<Class<?>, Class<?>> mixIns) {
+                      JsonMapper mapper = new JsonMapper();
+                      mapper.setMixIns(mixIns);
+                      mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+                      return mapper;
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonInclude;
+              import com.fasterxml.jackson.databind.json.JsonMapper;
+
+              import java.util.Map;
+
+              class A {
+                  JsonMapper create(Map<Class<?>, Class<?>> mixIns) {
+                      return JsonMapper.builder()
+                              // TODO setMixIns was removed from JsonMapper in Jackson 3.
+                              .setMixIns(mixIns)
+                              .changeDefaultPropertyInclusion(incl -> incl.withContentInclusion(JsonInclude.Include.NON_NULL).withValueInclusion(JsonInclude.Include.NON_NULL))
+                              .build();
+                  }
+              }
+              """,
+            spec -> spec.afterRecipe(cu -> assertThat(untypedCalls(cu)).containsExactly("setMixIns"))
+          )
+        );
+    }
+
+    @Test
+    void formatMapperRebuildKeepsBuilderCallsTyped() {
+        rewriteRun(
+          // Jackson 2 declares `rebuild()` on JsonMapper only, so YAMLMapper's has no type
+          spec -> spec
+            .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
+              "jackson-annotations-2", "jackson-core-2", "jackson-databind-2", "jackson-dataformat-yaml-2"))
+            .typeValidationOptions(TypeValidation.builder().methodInvocations(false).build()),
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonInclude;
+              import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+
+              class A {
+                  YAMLMapper create() {
+                      YAMLMapper mapper = new YAMLMapper();
+                      System.out.println(mapper);
+                      mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+                      return mapper;
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonInclude;
+              import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+
+              class A {
+                  YAMLMapper create() {
+                      YAMLMapper mapper = new YAMLMapper();
+                      System.out.println(mapper);
+                      mapper = mapper.rebuild()
+                              .changeDefaultPropertyInclusion(incl -> incl.withContentInclusion(JsonInclude.Include.NON_NULL).withValueInclusion(JsonInclude.Include.NON_NULL))
+                              .build();
+                      return mapper;
+                  }
+              }
+              """,
+            spec -> spec.afterRecipe(cu -> assertThat(untypedCalls(cu)).containsExactly("rebuild"))
+          )
+        );
+    }
+
+    private static List<String> untypedCalls(J.CompilationUnit cu) {
+        return new JavaIsoVisitor<List<String>>() {
+            @Override
+            public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, List<String> untyped) {
+                if (method.getMethodType() == null) {
+                    untyped.add(method.getSimpleName());
+                }
+                return super.visitMethodInvocation(method, untyped);
+            }
+        }.reduce(cu, new ArrayList<>());
+    }
+
     @Nested
     class BuilderMigration {
 
         @Test
         void multipleSetters() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -315,8 +415,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void registerModuleRenamedToAddModule() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.Module;
@@ -350,8 +448,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void transparentInitializerShapesStillFold() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.ObjectMapper;
@@ -414,8 +510,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void doNotFoldOverReferencesToChainedAssignmentAlias() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -498,8 +592,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void fieldAssignedInLambdaRelocatesIntermediateStatement() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.json.JsonMapper;
@@ -539,8 +631,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void setDateFormatRenamedToDefaultDateFormat() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.json.JsonMapper;
@@ -579,8 +669,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void commentsOnSettersPreserved() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -621,8 +709,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void blockCommentsOnSettersPreserved() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -663,8 +749,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void commentsPreservedOnFieldAssignment() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -708,8 +792,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void fluentChainCommentsPreserved() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -753,8 +835,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void mapperPassedToOtherMethod() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.SerializationFeature;
@@ -885,8 +965,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void fieldAssignedInMethod() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -927,8 +1005,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void setDateFormatWithAssignment() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.json.JsonMapper;
@@ -969,8 +1045,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void trailingSetterAfterGapOnLocal() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -1013,8 +1087,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void settersNotHoistedOutOfControlFlowOrConsumingStatements() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import java.util.Locale;
@@ -1084,8 +1156,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void trailingSettersCoalesceIntoOneRebuildChain() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -1129,8 +1199,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void thisFieldSetterCoalescesIntoRebuild() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -1169,8 +1237,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void qualifiedFieldSetterRewritten() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.SerializationFeature;
@@ -1209,8 +1275,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void finalLocalIsUnfinalizedAndRewritten() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.SerializationFeature;
@@ -1251,8 +1315,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         void finalLocalFromMethodCallCoalescesRebuildChain() {
             // Regression coverage for https://github.com/openrewrite/rewrite-jackson/issues/155
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.SerializationFeature;
@@ -1296,8 +1358,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void nonFinalLocalFromMethodCallFoldsIntoInitializer() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.SerializationFeature;
@@ -1339,8 +1399,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void finalLocalCapturedByLambdaKeepsTodoComment() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.SerializationFeature;
@@ -1458,8 +1516,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void fluentChainReturnStatement() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -1495,8 +1551,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void fluentChainFieldInitializer() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.SerializationFeature;
@@ -1524,8 +1578,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void fluentChainWithSetTimeZone() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.SerializationFeature;
@@ -1563,10 +1615,8 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void fluentChainSetDefaultPropertyInclusionWithRawInclude() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
               spec -> spec
-                .recipes(new MigrateMapperSettersToBuilder(), new UpdateSerializationInclusionConfiguration())
-                .recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
+                .recipes(new MigrateMapperSettersToBuilder(), new UpdateSerializationInclusionConfiguration()),
               java(
                 """
                   import com.fasterxml.jackson.annotation.JsonInclude;
@@ -1604,8 +1654,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void fluentChainWithTrailingNonSetterMethod() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.SerializationFeature;
@@ -1640,47 +1688,39 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
     @Nested
     class FormatAlignedMappers {
 
-        private static final String YAML_MAPPER_STUB = """
-                package com.fasterxml.jackson.dataformat.yaml;
-                public class YAMLMapper extends com.fasterxml.jackson.databind.ObjectMapper {
-                    public YAMLMapper() {}
-                    public static com.fasterxml.jackson.databind.json.JsonMapper.Builder builder() { return null; }
-                }
-                """;
 
-        @Test
-        void yamlMapperSettersMigratedToBuilder() {
+        @ParameterizedTest
+        @CsvSource({"avro, AvroMapper", "csv, CsvMapper", "xml, XmlMapper", "yaml, YAMLMapper"})
+        void formatMapperSettersMigratedToBuilder(String format, String mapper) {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.parser(org.openrewrite.java.JavaParser.fromJavaVersion()
-                .classpath("jackson-core", "jackson-databind")
-                .dependsOn(YAML_MAPPER_STUB))
-                .recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
+              spec -> spec.parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
+                "jackson-annotations-2", "jackson-core-2", "jackson-databind-2",
+                "jackson-dataformat-" + format + "-2")),
               java(
                 """
                   import com.fasterxml.jackson.databind.Module;
-                  import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+                  import com.fasterxml.jackson.dataformat.%1$s.%2$s;
 
                   class A {
-                      YAMLMapper create(Module module) {
-                          YAMLMapper mapper = new YAMLMapper();
+                      %2$s create(Module module) {
+                          %2$s mapper = new %2$s();
                           mapper.registerModule(module);
                           return mapper;
                       }
                   }
-                  """,
+                  """.formatted(format, mapper),
                 """
                   import com.fasterxml.jackson.databind.Module;
-                  import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+                  import com.fasterxml.jackson.dataformat.%1$s.%2$s;
 
                   class A {
-                      YAMLMapper create(Module module) {
-                          return YAMLMapper.builder()
+                      %2$s create(Module module) {
+                          return %2$s.builder()
                                   .addModule(module)
                                   .build();
                       }
                   }
-                  """
+                  """.formatted(format, mapper)
               )
             );
         }
@@ -1688,11 +1728,8 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void yamlMapperFluentChain() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.parser(org.openrewrite.java.JavaParser.fromJavaVersion()
-                .classpath("jackson-core", "jackson-databind")
-                .dependsOn(YAML_MAPPER_STUB))
-                .recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
+              spec -> spec.parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
+                "jackson-annotations-2", "jackson-core-2", "jackson-databind-2", "jackson-dataformat-yaml-2")),
               java(
                 """
                   import com.fasterxml.jackson.databind.SerializationFeature;
@@ -1720,49 +1757,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
               )
             );
         }
-
-        @Test
-        void xmlMapperSettersMigratedToBuilder() {
-            rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.parser(org.openrewrite.java.JavaParser.fromJavaVersion()
-                .classpath("jackson-core", "jackson-databind")
-                .dependsOn("""
-                    package com.fasterxml.jackson.dataformat.xml;
-                    public class XmlMapper extends com.fasterxml.jackson.databind.ObjectMapper {
-                        public XmlMapper() {}
-                        public static com.fasterxml.jackson.databind.json.JsonMapper.Builder builder() { return null; }
-                    }
-                    """))
-                .recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
-              java(
-                """
-                  import com.fasterxml.jackson.databind.Module;
-                  import com.fasterxml.jackson.dataformat.xml.XmlMapper;
-
-                  class A {
-                      XmlMapper create(Module module) {
-                          XmlMapper mapper = new XmlMapper();
-                          mapper.registerModule(module);
-                          return mapper;
-                      }
-                  }
-                  """,
-                """
-                  import com.fasterxml.jackson.databind.Module;
-                  import com.fasterxml.jackson.dataformat.xml.XmlMapper;
-
-                  class A {
-                      XmlMapper create(Module module) {
-                          return XmlMapper.builder()
-                                  .addModule(module)
-                                  .build();
-                      }
-                  }
-                  """
-              )
-            );
-        }
     }
 
     @Nested
@@ -1771,8 +1765,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void fluentChainAssignedToVariableFollowedBySetters() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -1814,8 +1806,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void fluentChainAsConstructorArgumentKeepsOuterSetters() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.Module;
@@ -1860,8 +1850,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void fluentChainAssignedToVariableFollowedByMultipleSetters() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -1902,8 +1890,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void fluentChainAssignedToFieldFollowedBySetters() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -1943,8 +1929,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void fluentChainFollowedBySetterThenUsedElsewhere() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -2060,8 +2044,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void registerModuleWithLocalModuleDeclaredBetween() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.JsonDeserializer;
@@ -2100,8 +2082,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void registerModuleWithLocalModuleDeclaredBetweenFluentChain() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -2144,8 +2124,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void registerModuleWithLocalModuleDeclaredBetweenAssignedToField() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.JsonDeserializer;
@@ -2192,8 +2170,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void readValueNotFoldedIntoBuilder() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import java.io.InputStream;
@@ -2236,8 +2212,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void voidWriteValueNotFoldedIntoBuilder() {
             rewriteRun(
-              // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               java(
                 """
                   import java.io.StringWriter;
@@ -2376,8 +2350,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
     @Test
     void enableDefaultTypingAndVisibility() {
         rewriteRun(
-          // the template resolves the builder calls against the recipe's stub, which declares them on the mapper's `Builder`
-          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           java(
             """
               import com.fasterxml.jackson.annotation.JsonAutoDetect;

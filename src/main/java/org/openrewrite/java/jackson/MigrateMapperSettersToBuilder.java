@@ -56,6 +56,15 @@ public class MigrateMapperSettersToBuilder extends Recipe {
             "com.fasterxml.jackson.dataformat.yaml.YAMLMapper"
     );
 
+    private static final Map<String, String> MAPPER_FQN_TO_PARSER_RESOURCE = new HashMap<>();
+
+    static {
+        MAPPER_FQN_TO_PARSER_RESOURCE.put("com.fasterxml.jackson.dataformat.avro.AvroMapper", "jackson-dataformat-avro-2");
+        MAPPER_FQN_TO_PARSER_RESOURCE.put("com.fasterxml.jackson.dataformat.csv.CsvMapper", "jackson-dataformat-csv-2");
+        MAPPER_FQN_TO_PARSER_RESOURCE.put("com.fasterxml.jackson.dataformat.xml.XmlMapper", "jackson-dataformat-xml-2");
+        MAPPER_FQN_TO_PARSER_RESOURCE.put("com.fasterxml.jackson.dataformat.yaml.YAMLMapper", "jackson-dataformat-yaml-2");
+    }
+
     private static final Map<MethodMatcher, String> MAPPER_CTORS;
 
     static {
@@ -305,15 +314,15 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             return mi;
                         }
 
-                        boolean hasMapperStub = !OBJECT_MAPPER.equals(matchedMapper);
-                        if (hasMapperStub && isTopLevelStatement(getCursor()) && isReassignableReceiver(select, getCursor())) {
+                        boolean hasBuilder = !OBJECT_MAPPER.equals(matchedMapper);
+                        if (hasBuilder && isTopLevelStatement(getCursor()) && isReassignableReceiver(select, getCursor())) {
                             J rebuilt = rewriteAsRebuildAssignment(mi, select, matchedMapper, mapping, ctx);
                             if (rebuilt != null) {
                                 return rebuilt;
                             }
                         }
 
-                        if (hasMapperStub && isTopLevelStatement(getCursor())) {
+                        if (hasBuilder && isTopLevelStatement(getCursor())) {
                             UUID declToUnfinalize = reclaimableFinalLocalDeclarationId(select, getCursor());
                             if (declToUnfinalize != null) {
                                 J rebuilt = rewriteAsRebuildAssignment(mi, select, matchedMapper, mapping, ctx);
@@ -641,13 +650,16 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                         String entryExpr = builderEntry != null ? builderEntry : (simpleMapperName + ".builder()");
                         StringBuilder templateCode = new StringBuilder(entryExpr);
                         List<Expression> templateArgs = new ArrayList<>();
-                        List<J.MethodInvocation> unknownSetters = new ArrayList<>();
+                        StringBuilder declaredCode = new StringBuilder(entryExpr);
+                        List<Expression> declaredArgs = new ArrayList<>();
+                        boolean undeclaredSetters = false;
                         for (J.MethodInvocation setter : setters) {
                             SetterToBuilderMapping mapping = SetterToBuilderMapping.fromSetter(setter.getName().getSimpleName());
                             if (mapping != null) {
                                 appendBuilderCall(setter, mapping, templateCode, templateArgs);
+                                appendBuilderCall(setter, mapping, declaredCode, declaredArgs);
                             } else {
-                                unknownSetters.add(setter);
+                                undeclaredSetters = true;
                                 String methodName = setter.getName().getSimpleName();
                                 appendComments(setter.getPrefix().getComments(), templateCode);
                                 templateCode.append(String.format("\n // TODO %s was removed from %s in Jackson 3.", methodName, simpleMapperName));
@@ -668,6 +680,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             }
                         }
                         templateCode.append("\n.build()");
+                        declaredCode.append("\n.build()");
 
                         boolean useKotlinFactory = builderEntry != null &&
                                 builderEntry.startsWith(JACKSON_MAPPER_BUILDER_NAME);
@@ -681,15 +694,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             maybeAddImport(mapperFqn);
                         }
 
-                        JavaParser.Builder<?, ?> parser = JavaParser.fromJavaVersion()
-                                .classpathFromResources(ctx,
-                                        "jackson-annotations-2",
-                                        "jackson-core-2",
-                                        "jackson-databind-2")
-                                .dependsOn(mapperStub(mapperFqn, unknownSetters));
-                        if (useKotlinFactory) {
-                            parser = parser.dependsOn(kotlinExtensionsStub());
-                        }
+                        JavaParser.Builder<?, ?> parser = templateParser(mapperFqn, useKotlinFactory, ctx);
 
                         for (J.MethodInvocation setter : setters) {
                             String setterName = setter.getName().getSimpleName();
@@ -699,15 +704,13 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                             }
                         }
 
-                        JavaTemplate.Builder templateBuilder = JavaTemplate.builder(templateCode.toString())
-                                .imports(mapperFqn, JSON_INCLUDE, BASIC_POLYMORPHIC_TYPE_VALIDATOR)
-                                .javaParser(parser);
-                        if (useKotlinFactory) {
-                            templateBuilder = templateBuilder.staticImports(JACKSON_MAPPER_BUILDER_FQN);
-                        }
-                        J built = templateBuilder
-                                .build()
+                        J built = builderTemplate(templateCode.toString(), mapperFqn, parser, useKotlinFactory)
                                 .apply(getCursor(), coordinates, templateArgs.toArray());
+                        if (undeclaredSetters && built instanceof Expression) {
+                            built = withTypesOf((Expression) built,
+                                    builderTemplate(declaredCode.toString(), mapperFqn, parser, useKotlinFactory)
+                                            .apply(getCursor(), coordinates, declaredArgs.toArray()));
+                        }
 
                         // Reattach non-setter calls that followed the known setters by swapping
                         // each suffix's select to the previous result. Keeping the original
@@ -739,40 +742,40 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                         mi.getArguments().get(0).getType())) {
                             builderName = "serializationInclusion";
                         }
-                        StringBuilder templateCode = new StringBuilder();
-                        templateCode.append("#{any(").append(mapperFqn).append(")} = #{any(")
-                                .append(mapperFqn).append(")}.rebuild()\n.").append(builderName).append("(");
-                        List<Expression> templateArgs = new ArrayList<>();
-                        templateArgs.add(select);
-                        templateArgs.add(select);
-                        boolean first = true;
+                        StringBuilder chainCode = new StringBuilder("\n.").append(builderName).append("(");
+                        List<Expression> chainArgs = new ArrayList<>();
                         for (Expression arg : mi.getArguments()) {
                             if (arg instanceof J.Empty) {
                                 continue;
                             }
-                            if (!first) {
-                                templateCode.append(", ");
+                            if (!chainArgs.isEmpty()) {
+                                chainCode.append(", ");
                             }
-                            first = false;
-                            templateCode.append("#{any()}");
-                            templateArgs.add(arg);
+                            chainCode.append("#{any()}");
+                            chainArgs.add(arg);
                         }
-                        templateCode.append(")\n.build()");
+                        chainCode.append(")\n.build()");
 
                         maybeAddImport(mapperFqn);
 
-                        JavaParser.Builder<?, ?> parser = JavaParser.fromJavaVersion()
-                                .classpathFromResources(ctx,
-                                        "jackson-annotations-2",
-                                        "jackson-core-2",
-                                        "jackson-databind-2")
-                                .dependsOn(mapperStub(mapperFqn, emptyList()));
-
-                        return JavaTemplate.builder(templateCode.toString())
-                                .imports(mapperFqn, JSON_INCLUDE)
-                                .javaParser(parser)
-                                .build()
+                        JavaParser.Builder<?, ?> parser = templateParser(mapperFqn, false, ctx);
+                        String assignee = "#{any(" + mapperFqn + ")} = ";
+                        List<Expression> declaredArgs = new ArrayList<>(singletonList(select));
+                        declaredArgs.addAll(chainArgs);
+                        List<Expression> templateArgs = new ArrayList<>(singletonList(select));
+                        templateArgs.addAll(declaredArgs);
+                        String rebuild = "#{any(" + mapperFqn + ")}.rebuild()";
+                        J.Assignment rebuilt = builderTemplate(assignee + rebuild + chainCode, mapperFqn, parser, false)
                                 .apply(getCursor(), mi.getCoordinates().replace(), templateArgs.toArray());
+                        if (JSON_MAPPER.equals(mapperFqn)) {
+                            return rebuilt;
+                        }
+                        // Jackson 2 declares `rebuild()` on JsonMapper only
+                        String simpleMapperName = mapperFqn.substring(mapperFqn.lastIndexOf('.') + 1);
+                        J.Assignment declared = builderTemplate(assignee + simpleMapperName + ".builder()" + chainCode,
+                                mapperFqn, parser, false)
+                                .apply(getCursor(), mi.getCoordinates().replace(), declaredArgs.toArray());
+                        return rebuilt.withAssignment(withTypesOf(rebuilt.getAssignment(), declared.getAssignment()));
                     }
                 }
         );
@@ -1251,126 +1254,49 @@ public class MigrateMapperSettersToBuilder extends Recipe {
         return importsJacksonObjectMapper;
     }
 
-    /**
-     * Stub for {@code com.fasterxml.jackson.module.kotlin.ExtensionsKt} so the JavaTemplate
-     * parser can resolve {@code jacksonMapperBuilder()} as a static method import. The Kotlin
-     * call site renders without the {@code ExtensionsKt} qualifier; the import is rewritten
-     * separately via {@link #maybeAddImport(String, boolean)}.
-     */
-    private static String kotlinExtensionsStub() {
-        return "package com.fasterxml.jackson.module.kotlin;\n" +
-                "public class ExtensionsKt {\n" +
-                "    public static com.fasterxml.jackson.databind.json.JsonMapper.Builder jacksonMapperBuilder() { return null; }\n" +
-                "}\n";
+    private static JavaTemplate builderTemplate(String code, String mapperFqn, JavaParser.Builder<?, ?> parser,
+                                                boolean kotlinFactory) {
+        JavaTemplate.Builder template = JavaTemplate.builder(code)
+                .imports(mapperFqn, JSON_INCLUDE, BASIC_POLYMORPHIC_TYPE_VALIDATOR)
+                .javaParser(parser);
+        return (kotlinFactory ? template.staticImports(JACKSON_MAPPER_BUILDER_FQN) : template).build();
     }
 
     /**
-     * Generates a stub class for a mapper with an inner {@code Builder} class, so the
-     * JavaTemplate parser can resolve the builder pattern. Always provides a full Builder
-     * with all known methods declared explicitly plus any unknown methods passed in.
+     * Gives each call of {@code chain} the type of its namesake in {@code declared}, the same chain without the calls
+     * Jackson 2 doesn't declare. Javac types no call after an undeclared one, and later recipes match them by type.
      */
-    private static String mapperStub(String mapperFqn, List<J.MethodInvocation> unknownSetters) {
-        int lastDot = mapperFqn.lastIndexOf('.');
-        String packageName = mapperFqn.substring(0, lastDot);
-        String simpleName = mapperFqn.substring(lastDot + 1);
-
-        StringBuilder sb = new StringBuilder();
-        sb.append("package ").append(packageName).append(";\n");
-        sb.append("public class ").append(simpleName)
-                .append(" extends com.fasterxml.jackson.databind.ObjectMapper {\n");
-        sb.append("    public ").append(simpleName).append("() {}\n");
-        sb.append("    public static Builder builder() { return null; }\n");
-        sb.append("    public Builder rebuild() { return null; }\n");
-        sb.append("    public static class Builder extends ")
-                .append("com.fasterxml.jackson.databind.cfg.MapperBuilder<")
-                .append(simpleName).append(", Builder> {\n");
-        sb.append("        protected Builder() { super(); }\n");
-
-        // Common mapped builder methods
-        sb.append("        public Builder enable(Object... f) { return this; }\n");
-        sb.append("        public Builder disable(Object... f) { return this; }\n");
-        sb.append("        public Builder configure(Object f, boolean state) { return this; }\n");
-        sb.append("        public Builder addModule(com.fasterxml.jackson.databind.Module m) { return this; }\n");
-        sb.append("        public Builder addModules(com.fasterxml.jackson.databind.Module... m) { return this; }\n");
-        sb.append("        public Builder findAndAddModules() { return this; }\n");
-        sb.append("        public Builder addMixIn(Class<?> target, Class<?> mixin) { return this; }\n");
-        sb.append("        public Builder registerSubtypes(Object... subtypes) { return this; }\n");
-        sb.append("        public Builder addHandler(Object h) { return this; }\n");
-        sb.append("        public Builder clearProblemHandlers() { return this; }\n");
-        sb.append("        public Builder activateDefaultTyping(Object... v) { return this; }\n");
-        sb.append("        public Builder activateDefaultTypingAsProperty(Object... v) { return this; }\n");
-        sb.append("        public Builder deactivateDefaultTyping() { return this; }\n");
-        sb.append("        public Builder setDefaultTyping(Object t) { return this; }\n");
-        sb.append("        public Builder filterProvider(Object fp) { return this; }\n");
-        sb.append("        public Builder serializerFactory(Object sf) { return this; }\n");
-        sb.append("        public Builder defaultPrettyPrinter(Object pp) { return this; }\n");
-        sb.append("        public Builder injectableValues(Object iv) { return this; }\n");
-        sb.append("        public Builder nodeFactory(Object nf) { return this; }\n");
-        sb.append("        public Builder constructorDetector(Object cd) { return this; }\n");
-        sb.append("        public Builder cacheProvider(Object cp) { return this; }\n");
-        sb.append("        public Builder annotationIntrospector(Object ai) { return this; }\n");
-        sb.append("        public Builder typeFactory(Object tf) { return this; }\n");
-        sb.append("        public Builder subtypeResolver(Object sr) { return this; }\n");
-        sb.append("        public Builder visibility(com.fasterxml.jackson.annotation.PropertyAccessor a, com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility v) { return this; }\n");
-        sb.append("        public Builder visibility(Object v) { return this; }\n");
-        sb.append("        public Builder handlerInstantiator(Object hi) { return this; }\n");
-        sb.append("        public Builder propertyNamingStrategy(Object s) { return this; }\n");
-        sb.append("        public Builder enumNamingStrategy(Object s) { return this; }\n");
-        sb.append("        public Builder accessorNaming(Object p) { return this; }\n");
-        sb.append("        public Builder polymorphicTypeValidator(Object v) { return this; }\n");
-        sb.append("        public Builder defaultDateFormat(Object df) { return this; }\n");
-        sb.append("        public Builder defaultTimeZone(java.util.TimeZone tz) { return this; }\n");
-        sb.append("        public Builder defaultLocale(java.util.Locale l) { return this; }\n");
-        sb.append("        public Builder defaultBase64Variant(Object v) { return this; }\n");
-        sb.append("        public Builder defaultAttributes(Object a) { return this; }\n");
-        sb.append("        public Builder defaultPropertyInclusion(Object v) { return this; }\n");
-        sb.append("        public Builder serializationInclusion(com.fasterxml.jackson.annotation.JsonInclude.Include incl) { return this; }\n");
-        sb.append("        public Builder defaultSetterInfo(Object v) { return this; }\n");
-        sb.append("        public Builder defaultMergeable(Object m) { return this; }\n");
-        sb.append("        public Builder defaultLeniency(Object l) { return this; }\n");
-
-        // Stubs for unknown methods so the template compiles
-        Set<String> addedMethods = new HashSet<>();
-        for (J.MethodInvocation mi : unknownSetters) {
-            String name = mi.getName().getSimpleName();
-            if (addedMethods.add(name)) {
-                List<Expression> callArgs = new ArrayList<>();
-                for (Expression arg : mi.getArguments()) {
-                    if (!(arg instanceof J.Empty)) {
-                        callArgs.add(arg);
-                    }
-                }
-                sb.append("        public Builder ").append(name).append("(");
-                for (int i = 0; i < callArgs.size(); i++) {
-                    if (i > 0) {
-                        sb.append(", ");
-                    }
-                    sb.append(stubTypeName(callArgs.get(i))).append(" arg").append(i);
-                }
-                sb.append(") { return this; }\n");
-            }
+    private static Expression withTypesOf(Expression chain, @Nullable Expression declared) {
+        if (!(chain instanceof J.MethodInvocation)) {
+            return chain;
         }
-
-        sb.append("        public ").append(simpleName).append(" build() { return null; }\n");
-        sb.append("    }\n");
-        sb.append("}\n");
-        return sb.toString();
+        J.MethodInvocation call = (J.MethodInvocation) chain;
+        boolean namesake = declared instanceof J.MethodInvocation &&
+                call.getSimpleName().equals(((J.MethodInvocation) declared).getSimpleName());
+        Expression select = call.getSelect();
+        if (select != null) {
+            Expression declaredSelect = namesake ? ((J.MethodInvocation) declared).getSelect() : declared;
+            call = call.withSelect(withTypesOf(select, declaredSelect));
+        }
+        if (!namesake) {
+            return call;
+        }
+        JavaType.Method type = ((J.MethodInvocation) declared).getMethodType();
+        return call.withName(call.getName().withType(type)).withMethodType(type);
     }
 
-    private static String stubTypeName(Expression arg) {
-        JavaType type = arg.getType();
-        if (type instanceof JavaType.Primitive) {
-            JavaType.Primitive p = (JavaType.Primitive) type;
-            if (p == JavaType.Primitive.Null || p == JavaType.Primitive.None) {
-                return "Object";
-            }
-            return p.getKeyword();
+    private static JavaParser.Builder<?, ?> templateParser(String mapperFqn, boolean kotlinFactory,
+                                                           ExecutionContext ctx) {
+        List<String> classpath = new ArrayList<>(
+                Arrays.asList("jackson-annotations-2", "jackson-core-2", "jackson-databind-2"));
+        String dataformat = MAPPER_FQN_TO_PARSER_RESOURCE.get(mapperFqn);
+        if (dataformat != null) {
+            classpath.add(dataformat);
         }
-        JavaType.FullyQualified fq = TypeUtils.asFullyQualified(type);
-        if (fq != null) {
-            return fq.getFullyQualifiedName();
+        if (kotlinFactory) {
+            classpath.add("jackson-module-kotlin-2");
         }
-        return "Object";
+        return JavaParser.fromJavaVersion().classpathFromResources(ctx, classpath.toArray(new String[0]));
     }
 
     /**
