@@ -40,6 +40,7 @@ public class MigrateMapperSettersToBuilder extends Recipe {
 
     private static final String OBJECT_MAPPER = "com.fasterxml.jackson.databind.ObjectMapper";
     private static final String JSON_MAPPER = "com.fasterxml.jackson.databind.json.JsonMapper";
+    private static final String DATAFORMAT_PACKAGE = "com.fasterxml.jackson.dataformat.";
 
     /**
      * All format-aligned mapper types that support the builder pattern.
@@ -48,22 +49,13 @@ public class MigrateMapperSettersToBuilder extends Recipe {
     private static final List<String> ALL_MAPPERS = Arrays.asList(
             JSON_MAPPER,
             "com.fasterxml.jackson.dataformat.avro.AvroMapper",
-            "com.fasterxml.jackson.dataformat.cbor.CBORMapper",
+            "com.fasterxml.jackson.dataformat.cbor.databind.CBORMapper",
             "com.fasterxml.jackson.dataformat.csv.CsvMapper",
-            "com.fasterxml.jackson.dataformat.ion.IonMapper",
-            "com.fasterxml.jackson.dataformat.smile.SmileMapper",
+            "com.fasterxml.jackson.dataformat.ion.IonObjectMapper",
+            "com.fasterxml.jackson.dataformat.smile.databind.SmileMapper",
             "com.fasterxml.jackson.dataformat.xml.XmlMapper",
             "com.fasterxml.jackson.dataformat.yaml.YAMLMapper"
     );
-
-    private static final Map<String, String> MAPPER_FQN_TO_PARSER_RESOURCE = new HashMap<>();
-
-    static {
-        MAPPER_FQN_TO_PARSER_RESOURCE.put("com.fasterxml.jackson.dataformat.avro.AvroMapper", "jackson-dataformat-avro-2");
-        MAPPER_FQN_TO_PARSER_RESOURCE.put("com.fasterxml.jackson.dataformat.csv.CsvMapper", "jackson-dataformat-csv-2");
-        MAPPER_FQN_TO_PARSER_RESOURCE.put("com.fasterxml.jackson.dataformat.xml.XmlMapper", "jackson-dataformat-xml-2");
-        MAPPER_FQN_TO_PARSER_RESOURCE.put("com.fasterxml.jackson.dataformat.yaml.YAMLMapper", "jackson-dataformat-yaml-2");
-    }
 
     private static final Map<MethodMatcher, String> MAPPER_CTORS;
 
@@ -1289,9 +1281,9 @@ public class MigrateMapperSettersToBuilder extends Recipe {
                                                            ExecutionContext ctx) {
         List<String> classpath = new ArrayList<>(
                 Arrays.asList("jackson-annotations-2", "jackson-core-2", "jackson-databind-2"));
-        String dataformat = MAPPER_FQN_TO_PARSER_RESOURCE.get(mapperFqn);
-        if (dataformat != null) {
-            classpath.add(dataformat);
+        if (mapperFqn.startsWith(DATAFORMAT_PACKAGE)) {
+            int start = DATAFORMAT_PACKAGE.length();
+            classpath.add("jackson-dataformat-" + mapperFqn.substring(start, mapperFqn.indexOf('.', start)) + "-2");
         }
         if (kotlinFactory) {
             classpath.add("jackson-module-kotlin-2");

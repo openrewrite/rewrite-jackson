@@ -16,6 +16,8 @@
 package org.openrewrite.java.jackson;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.java.JavaParser;
@@ -88,26 +90,37 @@ class UseFormatAlignedObjectMappersTest implements RewriteTest {
         );
     }
 
-    @Test
-    void xmlMapper() {
+    @ParameterizedTest
+    @CsvSource({
+      "avro.AvroFactory, avro.AvroMapper",
+      "cbor.CBORFactory, cbor.databind.CBORMapper",
+      "csv.CsvFactory, csv.CsvMapper",
+      "ion.IonFactory, ion.IonObjectMapper",
+      "smile.SmileFactory, smile.databind.SmileMapper",
+      "xml.XmlFactory, xml.XmlMapper",
+      "yaml.YAMLFactory, yaml.YAMLMapper"
+    })
+    void formatFactoryReplacedByFormatMapper(String factory, String mapper) {
         rewriteRun(
+          spec -> spec.parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
+            "jackson-core-2", "jackson-databind-2", "jackson-dataformat-" + factory.substring(0, factory.indexOf('.')) + "-2")),
           java(
             """
               import com.fasterxml.jackson.databind.ObjectMapper;
-              import com.fasterxml.jackson.dataformat.xml.XmlFactory;
+              import com.fasterxml.jackson.dataformat.%s;
 
               class A {
-                  ObjectMapper mapper = new ObjectMapper(new XmlFactory());
+                  ObjectMapper mapper = new ObjectMapper(new %s());
               }
-              """,
+              """.formatted(factory, factory.substring(factory.lastIndexOf('.') + 1)),
             """
               import com.fasterxml.jackson.databind.ObjectMapper;
-              import com.fasterxml.jackson.dataformat.xml.XmlMapper;
+              import com.fasterxml.jackson.dataformat.%s;
 
               class A {
-                  ObjectMapper mapper = new XmlMapper();
+                  ObjectMapper mapper = new %s();
               }
-              """
+              """.formatted(mapper, mapper.substring(mapper.lastIndexOf('.') + 1))
           )
         );
     }
