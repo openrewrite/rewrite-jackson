@@ -210,8 +210,6 @@ class CodehausToFasterXMLTest implements RewriteTest {
             // codehaus annotation before its `using = ...` could be moved to the fasterxml side.
             // The reorder runs the transfer first.
             rewriteRun(
-              // the `using` argument keeps the codehaus attribute's `Class<? extends JsonSerializer<?>>`, where the fasterxml one bounds `Class` by the raw `JsonSerializer`
-              spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               //language=java
               java(
                 """
@@ -228,6 +226,54 @@ class CodehausToFasterXMLTest implements RewriteTest {
                   import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
                   @JsonSerialize(using = JsonSerializer.None.class)
+                  class Test {
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void doublyAnnotatedCodehausAsAndTypingTransferredBeforeRemove() {
+            rewriteRun(
+              //language=java
+              java(
+                """
+                  import static org.codehaus.jackson.map.annotate.JsonSerialize.Typing.STATIC;
+
+                  @org.codehaus.jackson.map.annotate.JsonSerialize(as = String.class, keyAs = String.class, contentAs = String.class, typing = STATIC)
+                  @com.fasterxml.jackson.databind.annotation.JsonSerialize
+                  class Test {
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+
+                  import static com.fasterxml.jackson.databind.annotation.JsonSerialize.Typing.STATIC;
+
+                  @JsonSerialize(as = String.class, keyAs = String.class, contentAs = String.class, typing = STATIC)
+                  class Test {
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void doublyAnnotatedCodehausNoClassNotTransferred() {
+            rewriteRun(
+              //language=java
+              java(
+                """
+                  @org.codehaus.jackson.map.annotate.JsonSerialize(as = org.codehaus.jackson.map.annotate.NoClass.class)
+                  @com.fasterxml.jackson.databind.annotation.JsonSerialize
+                  class Test {
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+
+                  @JsonSerialize
                   class Test {
                   }
                   """

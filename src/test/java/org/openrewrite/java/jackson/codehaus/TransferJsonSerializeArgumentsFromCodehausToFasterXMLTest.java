@@ -15,12 +15,12 @@
  */
 package org.openrewrite.java.jackson.codehaus;
 
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.java.JavaParser;
-import org.openrewrite.test.RecipeQualityValidation;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
@@ -48,8 +48,6 @@ class TransferJsonSerializeArgumentsFromCodehausToFasterXMLTest implements Rewri
     )
     void shouldTransferArgument(String argumentName) {
         rewriteRun(
-          // the transferred argument keeps the codehaus attribute's type
-          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           //language=java
           java(
             """
@@ -88,8 +86,6 @@ class TransferJsonSerializeArgumentsFromCodehausToFasterXMLTest implements Rewri
     @ParameterizedTest
     void shouldTransferArgumentMultiArguments(String firstArg, String secondArg) {
         rewriteRun(
-          // the transferred `using` and `contentUsing` arguments keep the codehaus attributes' types
-          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           //language=java
           java(
             """
@@ -153,8 +149,6 @@ class TransferJsonSerializeArgumentsFromCodehausToFasterXMLTest implements Rewri
     @ParameterizedTest
     void shouldTransferArgumentSome(String firstArg, String secondArg) {
         rewriteRun(
-          // the transferred `using` and `contentUsing` arguments keep the codehaus attributes' types
-          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           //language=java
           java(
             """
@@ -183,6 +177,76 @@ class TransferJsonSerializeArgumentsFromCodehausToFasterXMLTest implements Rewri
                 private String first;
               }
               """.formatted(firstArg, secondArg)
+          )
+        );
+    }
+
+    @Test
+    void appendedArgumentFollowsTheLayoutOfExistingOnes() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import org.codehaus.jackson.map.annotate.JsonSerialize;
+
+              @JsonSerialize(as = String.class)
+              @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.fasterxml.jackson.databind.JsonSerializer.None.class)
+              class Test {
+                  @JsonSerialize(as = String.class)
+                  @com.fasterxml.jackson.databind.annotation.JsonSerialize(
+                          keyUsing = com.fasterxml.jackson.databind.JsonSerializer.None.class, // no key serializer
+                          using = com.fasterxml.jackson.databind.JsonSerializer.None.class
+                  )
+                  String field;
+
+                  @JsonSerialize(as = String.class)
+                  @com.fasterxml.jackson.databind.annotation.JsonSerialize(
+                          keyUsing = com.fasterxml.jackson.databind.JsonSerializer.None.class,
+                          /* no serializer */ using = com.fasterxml.jackson.databind.JsonSerializer.None.class
+                  )
+                  String other;
+              }
+              """,
+            """
+              import org.codehaus.jackson.map.annotate.JsonSerialize;
+
+              @JsonSerialize(as = String.class)
+              @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.fasterxml.jackson.databind.JsonSerializer.None.class, as = String.class)
+              class Test {
+                  @JsonSerialize(as = String.class)
+                  @com.fasterxml.jackson.databind.annotation.JsonSerialize(
+                          keyUsing = com.fasterxml.jackson.databind.JsonSerializer.None.class, // no key serializer
+                          using = com.fasterxml.jackson.databind.JsonSerializer.None.class,
+                          as = String.class
+                  )
+                  String field;
+
+                  @JsonSerialize(as = String.class)
+                  @com.fasterxml.jackson.databind.annotation.JsonSerialize(
+                          keyUsing = com.fasterxml.jackson.databind.JsonSerializer.None.class,
+                          /* no serializer */ using = com.fasterxml.jackson.databind.JsonSerializer.None.class,
+                          as = String.class
+                  )
+                  String other;
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void codehausAnnotationWithoutArguments() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import org.codehaus.jackson.map.annotate.JsonSerialize;
+
+              @JsonSerialize
+              @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.fasterxml.jackson.databind.JsonSerializer.None.class)
+              class Test {
+              }
+              """
           )
         );
     }
