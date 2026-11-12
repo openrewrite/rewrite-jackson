@@ -118,7 +118,7 @@ class CodehausToFasterXMLTest implements RewriteTest {
         @Test
         void retainOriginalAnnotationToo() {
             rewriteRun(
-              // the `using` argument keeps the codehaus attribute's `Class<? extends JsonSerializer<?>>`, where the fasterxml one is raw
+              // the `using` argument keeps the codehaus attribute's `Class<? extends JsonSerializer<?>>`, where the fasterxml one bounds `Class` by the raw `JsonSerializer`
               spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               //language=java
               java(
@@ -148,7 +148,7 @@ class CodehausToFasterXMLTest implements RewriteTest {
         @Test
         void retainOtherAnnotationArguments() {
             rewriteRun(
-              // the `using` argument keeps the codehaus attribute's `Class<? extends JsonSerializer<?>>`, where the fasterxml one is raw
+              // the `using` argument keeps the codehaus attribute's `Class<? extends JsonSerializer<?>>`, where the fasterxml one bounds `Class` by the raw `JsonSerializer`
               spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               //language=java
               java(
@@ -210,7 +210,7 @@ class CodehausToFasterXMLTest implements RewriteTest {
             // codehaus annotation before its `using = ...` could be moved to the fasterxml side.
             // The reorder runs the transfer first.
             rewriteRun(
-              // the `using` argument keeps the codehaus attribute's `Class<? extends JsonSerializer<?>>`, where the fasterxml one is raw
+              // the `using` argument keeps the codehaus attribute's `Class<? extends JsonSerializer<?>>`, where the fasterxml one bounds `Class` by the raw `JsonSerializer`
               spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
               //language=java
               java(

@@ -48,8 +48,12 @@ class TransferJsonSerializeArgumentsFromCodehausToFasterXMLTest implements Rewri
     )
     void shouldTransferArgument(String argumentName) {
         rewriteRun(
-          // the transferred argument keeps the codehaus attribute's type
-          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
+          spec -> {
+              if (!"nullUsing".equals(argumentName)) {
+                  // the transferred argument keeps the codehaus attribute's type, and neither codehaus nor fasterxml declares `nullUsing`
+                  spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build());
+              }
+          },
           //language=java
           java(
             """
@@ -88,7 +92,7 @@ class TransferJsonSerializeArgumentsFromCodehausToFasterXMLTest implements Rewri
     @ParameterizedTest
     void shouldTransferArgumentMultiArguments(String firstArg, String secondArg) {
         rewriteRun(
-          // the transferred arguments keep the codehaus attributes' types
+          // the transferred `using`, `contentUsing` and `keyUsing` arguments keep the codehaus attributes' types
           spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           //language=java
           java(
@@ -153,7 +157,7 @@ class TransferJsonSerializeArgumentsFromCodehausToFasterXMLTest implements Rewri
     @ParameterizedTest
     void shouldTransferArgumentSome(String firstArg, String secondArg) {
         rewriteRun(
-          // the transferred arguments keep the codehaus attributes' types
+          // the transferred `using`, `contentUsing` and `keyUsing` arguments keep the codehaus attributes' types
           spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           //language=java
           java(

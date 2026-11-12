@@ -301,7 +301,7 @@ class ObjectCodecToReadWriteContextTest implements RewriteTest {
     @Test
     void redundantCastIsRemoved() {
         rewriteRun(
-          // the recipe types `getCodec()` as `ObjectReadContext`, where the method returns `ObjectCodec`
+          // the recipe types `getCodec()` as `ObjectWriteContext`, where the method returns `ObjectCodec`
           spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           //language=java
           java(
