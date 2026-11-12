@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.java.JavaParser;
+import org.openrewrite.test.RecipeQualityValidation;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
@@ -41,6 +42,8 @@ class UseReadTreeAsValueInDeserializerTest implements RewriteTest {
     @Test
     void treeToValueInDeserializeRewrittenToReadTreeAsValue() {
         rewriteRun(
+          // the template declares the class argument as a raw `Class`, so it types the call as `Object`
+          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           //language=java
           java(
             """
@@ -90,6 +93,8 @@ class UseReadTreeAsValueInDeserializerTest implements RewriteTest {
     @Test
     void ctxtParamNameIsPreserved() {
         rewriteRun(
+          // the template declares the class argument as a raw `Class`, so it types the call as `Object`
+          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           //language=java
           java(
             """
