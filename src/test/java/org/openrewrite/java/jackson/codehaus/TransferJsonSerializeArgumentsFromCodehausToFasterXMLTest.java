@@ -20,6 +20,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.java.JavaParser;
+import org.openrewrite.test.RecipeQualityValidation;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
@@ -47,6 +48,12 @@ class TransferJsonSerializeArgumentsFromCodehausToFasterXMLTest implements Rewri
     )
     void shouldTransferArgument(String argumentName) {
         rewriteRun(
+          spec -> {
+              if (!"nullUsing".equals(argumentName)) {
+                  // the transferred argument keeps the codehaus attribute's type, and neither codehaus nor fasterxml declares `nullUsing`
+                  spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build());
+              }
+          },
           //language=java
           java(
             """
@@ -85,6 +92,8 @@ class TransferJsonSerializeArgumentsFromCodehausToFasterXMLTest implements Rewri
     @ParameterizedTest
     void shouldTransferArgumentMultiArguments(String firstArg, String secondArg) {
         rewriteRun(
+          // the transferred `using`, `contentUsing` and `keyUsing` arguments keep the codehaus attributes' types
+          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           //language=java
           java(
             """
@@ -148,6 +157,8 @@ class TransferJsonSerializeArgumentsFromCodehausToFasterXMLTest implements Rewri
     @ParameterizedTest
     void shouldTransferArgumentSome(String firstArg, String secondArg) {
         rewriteRun(
+          // the transferred `using`, `contentUsing` and `keyUsing` arguments keep the codehaus attributes' types
+          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
           //language=java
           java(
             """
