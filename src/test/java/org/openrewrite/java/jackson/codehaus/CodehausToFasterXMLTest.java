@@ -62,13 +62,13 @@ class CodehausToFasterXMLTest implements RewriteTest {
               }
               """,
             """
-              import com.fasterxml.jackson.annotation.JsonInclude.Include;
+              import com.fasterxml.jackson.annotation.JsonInclude;
               import com.fasterxml.jackson.databind.ObjectMapper;
 
               class Test {
                   private static ObjectMapper initializeObjectMapper() {
                       ObjectMapper mapper = new ObjectMapper();
-                      return mapper.setSerializationInclusion(Include.NON_NULL);
+                      return mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
                   }
               }
               """
