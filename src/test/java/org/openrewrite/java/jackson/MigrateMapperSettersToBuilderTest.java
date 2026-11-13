@@ -26,6 +26,7 @@ import org.openrewrite.Issue;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.java.tree.J;
+import org.openrewrite.test.RecipeQualityValidation;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 import org.openrewrite.test.TypeValidation;
@@ -1731,8 +1732,12 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         @Test
         void mapperConstructedWithFactoryBuiltFromThatFactory() {
             rewriteRun(
-              spec -> spec.parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
-                "jackson-annotations-2", "jackson-core-2", "jackson-databind-2", "jackson-dataformat-yaml-2")),
+              spec -> spec
+                .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
+                  "jackson-annotations-2", "jackson-core-2", "jackson-databind-2", "jackson-dataformat-yaml-2"))
+                .afterParser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
+                  "jackson-annotations-2", "jackson-core-2", "jackson-databind-2", "jackson-dataformat-yaml-2"))
+                .recipeQualityValidation(RecipeQualityValidation.builder().compilableOutput(true).build()),
               java(
                 """
                   import com.fasterxml.jackson.databind.Module;

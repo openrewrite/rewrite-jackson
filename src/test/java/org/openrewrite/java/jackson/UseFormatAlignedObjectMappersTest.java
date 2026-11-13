@@ -21,6 +21,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.java.JavaParser;
+import org.openrewrite.test.RecipeQualityValidation;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
@@ -128,8 +129,12 @@ class UseFormatAlignedObjectMappersTest implements RewriteTest {
     @Test
     void configuredFactoryPassedToFormatMapper() {
         rewriteRun(
-          spec -> spec.parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
-            "jackson-core-2", "jackson-databind-2", "jackson-dataformat-yaml-2")),
+          spec -> spec
+            .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
+              "jackson-core-2", "jackson-databind-2", "jackson-dataformat-yaml-2"))
+            .afterParser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
+              "jackson-core-2", "jackson-databind-2", "jackson-dataformat-yaml-2"))
+            .recipeQualityValidation(RecipeQualityValidation.builder().compilableOutput(true).build()),
           java(
             """
               import com.fasterxml.jackson.databind.ObjectMapper;
