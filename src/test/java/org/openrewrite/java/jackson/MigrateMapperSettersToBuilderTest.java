@@ -26,6 +26,7 @@ import org.openrewrite.Issue;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.java.tree.J;
+import org.openrewrite.test.RecipeQualityValidation;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 import org.openrewrite.test.TypeValidation;
@@ -1724,6 +1725,54 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
                       }
                   }
                   """.formatted(mapper, simpleName)
+              )
+            );
+        }
+
+        @Test
+        void mapperConstructedWithFactoryBuiltFromThatFactory() {
+            rewriteRun(
+              spec -> spec
+                .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
+                  "jackson-annotations-2", "jackson-core-2", "jackson-databind-2", "jackson-dataformat-yaml-2"))
+                .recipeQualityValidation(RecipeQualityValidation.builder().compilableOutput(true).build()),
+              java(
+                """
+                  import com.fasterxml.jackson.databind.Module;
+                  import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+                  import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+
+                  class A {
+                      YAMLMapper create(YAMLFactory factory, Module module) {
+                          YAMLMapper mapper = new YAMLMapper(factory);
+                          mapper.registerModule(module);
+                          return mapper;
+                      }
+
+                      YAMLMapper chain(YAMLFactory factory, Module module) {
+                          return (YAMLMapper) new YAMLMapper(factory).registerModule(module);
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.databind.Module;
+                  import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+                  import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+
+                  class A {
+                      YAMLMapper create(YAMLFactory factory, Module module) {
+                          return YAMLMapper.builder(factory)
+                                  .addModule(module)
+                                  .build();
+                      }
+
+                      YAMLMapper chain(YAMLFactory factory, Module module) {
+                          return (YAMLMapper) YAMLMapper.builder(factory)
+                                  .addModule(module)
+                                  .build();
+                      }
+                  }
+                  """
               )
             );
         }
