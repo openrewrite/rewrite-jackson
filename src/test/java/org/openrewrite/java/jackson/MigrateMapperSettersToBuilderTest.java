@@ -1735,8 +1735,6 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
               spec -> spec
                 .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
                   "jackson-annotations-2", "jackson-core-2", "jackson-databind-2", "jackson-dataformat-yaml-2"))
-                .afterParser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
-                  "jackson-annotations-2", "jackson-core-2", "jackson-databind-2", "jackson-dataformat-yaml-2"))
                 .recipeQualityValidation(RecipeQualityValidation.builder().compilableOutput(true).build()),
               java(
                 """
