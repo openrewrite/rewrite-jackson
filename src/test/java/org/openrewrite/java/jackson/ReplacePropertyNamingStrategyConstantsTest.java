@@ -50,10 +50,10 @@ class ReplacePropertyNamingStrategyConstantsTest implements RewriteTest {
               }
               """,
             """
-              import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
+              import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 
               class Test {
-                  SnakeCaseStrategy strategy = new SnakeCaseStrategy();
+                  PropertyNamingStrategies.SnakeCaseStrategy strategy = new PropertyNamingStrategies.SnakeCaseStrategy();
               }
               """
           )
@@ -97,10 +97,10 @@ class ReplacePropertyNamingStrategyConstantsTest implements RewriteTest {
               }
               """,
             """
-              import com.fasterxml.jackson.databind.PropertyNamingStrategies.UpperCamelCaseStrategy;
+              import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 
               class Test {
-                  UpperCamelCaseStrategy strategy = new UpperCamelCaseStrategy();
+                  PropertyNamingStrategies.UpperCamelCaseStrategy strategy = new PropertyNamingStrategies.UpperCamelCaseStrategy();
               }
               """
           )
