@@ -91,7 +91,6 @@ class UseFormatAlignedObjectMappersTest implements RewriteTest {
         );
     }
 
-    @ParameterizedTest
     @CsvSource({
       "avro.AvroFactory, avro.AvroMapper",
       "cbor.CBORFactory, cbor.databind.CBORMapper",
@@ -101,10 +100,13 @@ class UseFormatAlignedObjectMappersTest implements RewriteTest {
       "xml.XmlFactory, xml.XmlMapper",
       "yaml.YAMLFactory, yaml.YAMLMapper"
     })
+    @ParameterizedTest
     void formatFactoryReplacedByFormatMapper(String factory, String mapper) {
         rewriteRun(
           spec -> spec.parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
-            "jackson-core-2", "jackson-databind-2", "jackson-dataformat-" + factory.substring(0, factory.indexOf('.')) + "-2")),
+            "jackson-core-2",
+            "jackson-databind-2",
+            "jackson-dataformat-" + factory.substring(0, factory.indexOf('.')) + "-2")),
           java(
             """
               import com.fasterxml.jackson.databind.ObjectMapper;
@@ -131,7 +133,9 @@ class UseFormatAlignedObjectMappersTest implements RewriteTest {
         rewriteRun(
           spec -> spec
             .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
-              "jackson-core-2", "jackson-databind-2", "jackson-dataformat-yaml-2"))
+              "jackson-core-2",
+              "jackson-databind-2",
+              "jackson-dataformat-yaml-2"))
             .recipeQualityValidation(RecipeQualityValidation.builder().compilableOutput(true).build()),
           java(
             """

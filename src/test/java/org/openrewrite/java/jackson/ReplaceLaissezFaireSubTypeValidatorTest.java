@@ -30,7 +30,10 @@ class ReplaceLaissezFaireSubTypeValidatorTest implements RewriteTest {
     public void defaults(RecipeSpec spec) {
         spec.recipe(new ReplaceLaissezFaireSubTypeValidator())
           .parser(JavaParser.fromJavaVersion()
-            .classpathFromResources(new InMemoryExecutionContext(), "jackson-annotations-2", "jackson-core-2", "jackson-databind-2"));
+            .classpathFromResources(new InMemoryExecutionContext(),
+              "jackson-annotations-2",
+              "jackson-core-2",
+              "jackson-databind-2"));
     }
 
     @DocumentExample

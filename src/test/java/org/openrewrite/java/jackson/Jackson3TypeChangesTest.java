@@ -268,9 +268,15 @@ class Jackson3TypeChangesTest implements RewriteTest {
         rewriteRun(
           spec -> spec
             .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
-              "jackson-core-2", "jackson-databind-2", "jackson-dataformat-cbor-2", "jackson-dataformat-smile-2"))
+              "jackson-core-2",
+              "jackson-databind-2",
+              "jackson-dataformat-cbor-2",
+              "jackson-dataformat-smile-2"))
             .afterParser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
-              "jackson-core-3", "jackson-databind-3", "jackson-dataformat-cbor-3", "jackson-dataformat-smile-3")),
+              "jackson-core-3",
+              "jackson-databind-3",
+              "jackson-dataformat-cbor-3",
+              "jackson-dataformat-smile-3")),
           //language=java
           java(
             """

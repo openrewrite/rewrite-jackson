@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.openrewrite.DocumentExample;
 import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
@@ -40,6 +41,60 @@ class TransferJsonSerializeArgumentsFromCodehausToFasterXMLTest implements Rewri
             "jackson-annotations-2",
             "jackson-core-2",
             "jackson-databind-2"));
+    }
+
+    @DocumentExample
+    @Test
+    void appendedArgumentFollowsTheLayoutOfExistingOnes() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import org.codehaus.jackson.map.annotate.JsonSerialize;
+
+              @JsonSerialize(as = String.class)
+              @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.fasterxml.jackson.databind.JsonSerializer.None.class)
+              class Test {
+                  @JsonSerialize(as = String.class)
+                  @com.fasterxml.jackson.databind.annotation.JsonSerialize(
+                          keyUsing = com.fasterxml.jackson.databind.JsonSerializer.None.class, // no key serializer
+                          using = com.fasterxml.jackson.databind.JsonSerializer.None.class
+                  )
+                  String field;
+
+                  @JsonSerialize(as = String.class)
+                  @com.fasterxml.jackson.databind.annotation.JsonSerialize(
+                          keyUsing = com.fasterxml.jackson.databind.JsonSerializer.None.class,
+                          /* no serializer */ using = com.fasterxml.jackson.databind.JsonSerializer.None.class
+                  )
+                  String other;
+              }
+              """,
+            """
+              import org.codehaus.jackson.map.annotate.JsonSerialize;
+
+              @JsonSerialize(as = String.class)
+              @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.fasterxml.jackson.databind.JsonSerializer.None.class, as = String.class)
+              class Test {
+                  @JsonSerialize(as = String.class)
+                  @com.fasterxml.jackson.databind.annotation.JsonSerialize(
+                          keyUsing = com.fasterxml.jackson.databind.JsonSerializer.None.class, // no key serializer
+                          using = com.fasterxml.jackson.databind.JsonSerializer.None.class,
+                          as = String.class
+                  )
+                  String field;
+
+                  @JsonSerialize(as = String.class)
+                  @com.fasterxml.jackson.databind.annotation.JsonSerialize(
+                          keyUsing = com.fasterxml.jackson.databind.JsonSerializer.None.class,
+                          /* no serializer */ using = com.fasterxml.jackson.databind.JsonSerializer.None.class,
+                          as = String.class
+                  )
+                  String other;
+              }
+              """
+          )
+        );
     }
 
     @ParameterizedTest
@@ -177,59 +232,6 @@ class TransferJsonSerializeArgumentsFromCodehausToFasterXMLTest implements Rewri
                 private String first;
               }
               """.formatted(firstArg, secondArg)
-          )
-        );
-    }
-
-    @Test
-    void appendedArgumentFollowsTheLayoutOfExistingOnes() {
-        rewriteRun(
-          //language=java
-          java(
-            """
-              import org.codehaus.jackson.map.annotate.JsonSerialize;
-
-              @JsonSerialize(as = String.class)
-              @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.fasterxml.jackson.databind.JsonSerializer.None.class)
-              class Test {
-                  @JsonSerialize(as = String.class)
-                  @com.fasterxml.jackson.databind.annotation.JsonSerialize(
-                          keyUsing = com.fasterxml.jackson.databind.JsonSerializer.None.class, // no key serializer
-                          using = com.fasterxml.jackson.databind.JsonSerializer.None.class
-                  )
-                  String field;
-
-                  @JsonSerialize(as = String.class)
-                  @com.fasterxml.jackson.databind.annotation.JsonSerialize(
-                          keyUsing = com.fasterxml.jackson.databind.JsonSerializer.None.class,
-                          /* no serializer */ using = com.fasterxml.jackson.databind.JsonSerializer.None.class
-                  )
-                  String other;
-              }
-              """,
-            """
-              import org.codehaus.jackson.map.annotate.JsonSerialize;
-
-              @JsonSerialize(as = String.class)
-              @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.fasterxml.jackson.databind.JsonSerializer.None.class, as = String.class)
-              class Test {
-                  @JsonSerialize(as = String.class)
-                  @com.fasterxml.jackson.databind.annotation.JsonSerialize(
-                          keyUsing = com.fasterxml.jackson.databind.JsonSerializer.None.class, // no key serializer
-                          using = com.fasterxml.jackson.databind.JsonSerializer.None.class,
-                          as = String.class
-                  )
-                  String field;
-
-                  @JsonSerialize(as = String.class)
-                  @com.fasterxml.jackson.databind.annotation.JsonSerialize(
-                          keyUsing = com.fasterxml.jackson.databind.JsonSerializer.None.class,
-                          /* no serializer */ using = com.fasterxml.jackson.databind.JsonSerializer.None.class,
-                          as = String.class
-                  )
-                  String other;
-              }
-              """
           )
         );
     }

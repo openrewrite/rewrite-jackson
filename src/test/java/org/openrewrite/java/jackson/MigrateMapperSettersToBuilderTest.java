@@ -18,7 +18,6 @@ package org.openrewrite.java.jackson;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.InMemoryExecutionContext;
@@ -327,7 +326,10 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
           // Jackson 2 declares `rebuild()` on JsonMapper only, so YAMLMapper's has no type
           spec -> spec
             .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
-              "jackson-annotations-2", "jackson-core-2", "jackson-databind-2", "jackson-dataformat-yaml-2"))
+              "jackson-annotations-2",
+              "jackson-core-2",
+              "jackson-databind-2",
+              "jackson-dataformat-yaml-2"))
             .typeValidationOptions(TypeValidation.builder().methodInvocations(false).build()),
           java(
             """
@@ -1698,7 +1700,9 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
             String simpleName = mapper.substring(mapper.lastIndexOf('.') + 1);
             rewriteRun(
               spec -> spec.parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
-                "jackson-annotations-2", "jackson-core-2", "jackson-databind-2",
+                "jackson-annotations-2",
+                "jackson-core-2",
+                "jackson-databind-2",
                 "jackson-dataformat-" + mapper.substring(0, mapper.indexOf('.')) + "-2")),
               java(
                 """
@@ -1734,7 +1738,10 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
             rewriteRun(
               spec -> spec
                 .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
-                  "jackson-annotations-2", "jackson-core-2", "jackson-databind-2", "jackson-dataformat-yaml-2"))
+                  "jackson-annotations-2",
+                  "jackson-core-2",
+                  "jackson-databind-2",
+                  "jackson-dataformat-yaml-2"))
                 .recipeQualityValidation(RecipeQualityValidation.builder().compilableOutput(true).build()),
               java(
                 """
@@ -1781,7 +1788,10 @@ class MigrateMapperSettersToBuilderTest implements RewriteTest {
         void yamlMapperFluentChain() {
             rewriteRun(
               spec -> spec.parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
-                "jackson-annotations-2", "jackson-core-2", "jackson-databind-2", "jackson-dataformat-yaml-2")),
+                "jackson-annotations-2",
+                "jackson-core-2",
+                "jackson-databind-2",
+                "jackson-dataformat-yaml-2")),
               java(
                 """
                   import com.fasterxml.jackson.databind.SerializationFeature;
