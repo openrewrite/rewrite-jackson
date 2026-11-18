@@ -30,7 +30,9 @@ import org.openrewrite.java.tree.JavaType;
 import org.openrewrite.java.tree.TypeUtils;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
 
@@ -61,8 +63,11 @@ public class RemoveBuiltInModuleBeans extends ScanningRecipe<Set<String>> {
         return new JavaIsoVisitor<ExecutionContext>() {
             @Override
             public J.MethodDeclaration visitMethodDeclaration(J.MethodDeclaration method, ExecutionContext ctx) {
+                // A type hierarchy assembled from incompletely attributed sources can be cyclic, and then a
+                // method is its own ancestor. Stop at the first method this walk has already passed through.
+                Set<JavaType.Method> walked = Collections.newSetFromMap(new IdentityHashMap<>());
                 for (JavaType.Method overridden = TypeUtils.findOverriddenMethod(method.getMethodType()).orElse(null);
-                     overridden != null;
+                     overridden != null && walked.add(overridden);
                      overridden = TypeUtils.findOverriddenMethod(overridden).orElse(null)) {
                     referencedMethods.add(methodKey(overridden));
                 }
