@@ -34,8 +34,9 @@ name: org.openrewrite.java.jackson.CodehausClassesToFasterXML
 displayName: Migrate classes from Jackson Codehaus (legacy) to Jackson FasterXML
 description: >-
   In Jackson 2, the package and dependency coordinates moved from Codehaus to FasterXML. Moves each Jackson 1 type to
-  its Jackson 2 name, including the types Jackson 2 relocated or renamed. Types with no Jackson 2 counterpart, such as
-  `JodaSerializers` and `CustomSerializerFactory`, keep their Jackson 1 names.
+  its Jackson 2 name, including the types Jackson 2 relocated or renamed, and renames the methods Jackson 2 renamed, such
+  as `JsonNode#getTextValue()` to `textValue()`. Types with no Jackson 2 counterpart, such as `JodaSerializers` and
+  `CustomSerializerFactory`, keep their Jackson 1 names.
 tags:
   - jackson-2
 preconditions:
@@ -46,6 +47,163 @@ recipeList:
   - org.openrewrite.java.jackson.codehaus.JsonIncludeAnnotation
   - org.openrewrite.java.jackson.codehaus.ReplaceSerializationConfigAnnotationIntrospector
   - org.openrewrite.java.jackson.codehaus.RemoveDoublyAnnotatedCodehausAnnotations
+
+  # Before the type moves, while the calls still resolve to the Jackson 1 types
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonNode getFieldNames()
+      newMethodName: fieldNames
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonNode getElements()
+      newMethodName: elements
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonNode getFields()
+      newMethodName: fields
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonNode getTextValue()
+      newMethodName: textValue
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonNode getIntValue()
+      newMethodName: intValue
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonNode getLongValue()
+      newMethodName: longValue
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonNode getDoubleValue()
+      newMethodName: doubleValue
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonNode getBooleanValue()
+      newMethodName: booleanValue
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonNode getNumberValue()
+      newMethodName: numberValue
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonNode getNumberType()
+      newMethodName: numberType
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonNode getDecimalValue()
+      newMethodName: decimalValue
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonNode getBigIntegerValue()
+      newMethodName: bigIntegerValue
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonNode getBinaryValue()
+      newMethodName: binaryValue
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonNode getValueAsText()
+      newMethodName: asText
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonNode getValueAsInt(..)
+      newMethodName: asInt
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonNode getValueAsLong(..)
+      newMethodName: asLong
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonNode getValueAsDouble(..)
+      newMethodName: asDouble
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonNode getValueAsBoolean(..)
+      newMethodName: asBoolean
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonNode getPath(..)
+      newMethodName: path
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.map.ObjectMapper getJsonFactory()
+      newMethodName: getFactory
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.map.ObjectMapper defaultPrettyPrintingWriter()
+      newMethodName: writerWithDefaultPrettyPrinter
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.map.ObjectMapper prettyPrintingWriter(..)
+      newMethodName: writer
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.map.ObjectMapper filteredWriter(..)
+      newMethodName: writer
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.map.ObjectMapper schemaBasedWriter(..)
+      newMethodName: writer
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.map.ObjectMapper viewWriter(..)
+      newMethodName: writerWithView
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.map.ObjectMapper typedWriter(..)
+      newMethodName: writerFor
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.map.ObjectMapper updatingReader(..)
+      newMethodName: readerForUpdating
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.map.ObjectMapper schemaBasedReader(..)
+      newMethodName: reader
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.map.ObjectMapper withModule(..)
+      newMethodName: registerModule
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonParser enableFeature(..)
+      newMethodName: enable
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonParser disableFeature(..)
+      newMethodName: disable
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonParser setFeature(..)
+      newMethodName: configure
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonParser isFeatureEnabled(..)
+      newMethodName: isEnabled
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonGenerator enableFeature(..)
+      newMethodName: enable
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonGenerator disableFeature(..)
+      newMethodName: disable
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonGenerator setFeature(..)
+      newMethodName: configure
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonGenerator isFeatureEnabled(..)
+      newMethodName: isEnabled
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonFactory enableParserFeature(..)
+      newMethodName: enable
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonFactory disableParserFeature(..)
+      newMethodName: disable
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonFactory setParserFeature(..)
+      newMethodName: configure
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonFactory isParserFeatureEnabled(..)
+      newMethodName: isEnabled
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonFactory enableGeneratorFeature(..)
+      newMethodName: enable
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonFactory disableGeneratorFeature(..)
+      newMethodName: disable
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonFactory setGeneratorFeature(..)
+      newMethodName: configure
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonFactory isGeneratorFeatureEnabled(..)
+      newMethodName: isEnabled
 
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: org.codehaus.jackson.map.JsonSerializer

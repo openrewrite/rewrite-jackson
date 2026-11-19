@@ -125,6 +125,113 @@ class CodehausToFasterXMLTest implements RewriteTest {
     }
 
     @Test
+    void jsonNodeAccessors() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import org.codehaus.jackson.JsonNode;
+              import org.codehaus.jackson.node.ObjectNode;
+
+              import java.util.Iterator;
+
+              class Test {
+                  String read(JsonNode node, ObjectNode object) {
+                      Iterator<String> names = object.getFieldNames();
+                      int count = node.get("count").getIntValue() + node.path("total").getValueAsInt(0);
+                      return node.get("name").getTextValue() + node.getPath("id").getValueAsText() + names.next() + count;
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.JsonNode;
+              import com.fasterxml.jackson.databind.node.ObjectNode;
+
+              import java.util.Iterator;
+
+              class Test {
+                  String read(JsonNode node, ObjectNode object) {
+                      Iterator<String> names = object.fieldNames();
+                      int count = node.get("count").intValue() + node.path("total").asInt(0);
+                      return node.get("name").textValue() + node.path("id").asText() + names.next() + count;
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void streamingAndMapperTypes() {
+        rewriteRun(
+          // the calls keep the exceptions their Jackson 1 methods declare, where a parse against Jackson 2 gives that method's own
+          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder()
+            .parserTypedTrees(ParserTypes.Erasure).build()),
+          //language=java
+          java(
+            """
+              import org.codehaus.jackson.JsonFactory;
+              import org.codehaus.jackson.JsonParser;
+              import org.codehaus.jackson.annotate.JsonAutoDetect;
+              import org.codehaus.jackson.annotate.JsonMethod;
+              import org.codehaus.jackson.map.ObjectMapper;
+              import org.codehaus.jackson.map.annotate.JsonView;
+              import org.codehaus.jackson.type.JavaType;
+              import org.codehaus.jackson.type.TypeReference;
+
+              import java.util.List;
+
+              class Test {
+                  @JsonView(Test.class)
+                  String name;
+
+                  void configure(ObjectMapper mapper) throws Exception {
+                      mapper.setVisibility(JsonMethod.FIELD, JsonAutoDetect.Visibility.ANY);
+                      JsonFactory factory = mapper.getJsonFactory();
+                      factory.enableParserFeature(JsonParser.Feature.ALLOW_COMMENTS);
+                      JsonParser parser = factory.createJsonParser("{}");
+                      parser.disableFeature(JsonParser.Feature.AUTO_CLOSE_SOURCE);
+                      String json = mapper.defaultPrettyPrintingWriter().writeValueAsString(name);
+                      JavaType type = mapper.getTypeFactory().constructType(String.class);
+                      TypeReference<List<String>> reference = new TypeReference<List<String>>() {
+                      };
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonAutoDetect;
+              import com.fasterxml.jackson.annotation.JsonView;
+              import com.fasterxml.jackson.annotation.PropertyAccessor;
+              import com.fasterxml.jackson.core.JsonFactory;
+              import com.fasterxml.jackson.core.JsonParser;
+              import com.fasterxml.jackson.core.type.TypeReference;
+              import com.fasterxml.jackson.databind.JavaType;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              import java.util.List;
+
+              class Test {
+                  @JsonView(Test.class)
+                  String name;
+
+                  void configure(ObjectMapper mapper) throws Exception {
+                      mapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
+                      JsonFactory factory = mapper.getFactory();
+                      factory.enable(JsonParser.Feature.ALLOW_COMMENTS);
+                      JsonParser parser = factory.createJsonParser("{}");
+                      parser.disable(JsonParser.Feature.AUTO_CLOSE_SOURCE);
+                      String json = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(name);
+                      JavaType type = mapper.getTypeFactory().constructType(String.class);
+                      TypeReference<List<String>> reference = new TypeReference<List<String>>() {
+                      };
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void relocatedSerializerBaseClasses() {
         rewriteRun(
           //language=java
