@@ -40,6 +40,7 @@ recipeList:
   - org.openrewrite.java.jackson.UpgradeJackson_2_3_RemoveRedundantFeatureFlags
   - org.openrewrite.java.jackson.RemoveBuiltInModuleBeans
   - org.openrewrite.java.jackson.RemoveBuiltInModuleRegistrations
+  - org.openrewrite.java.jackson.CommentMutatorsInObjectMapperSubclasses  # Before the setters are folded into a builder, which a subclass has none of
   - org.openrewrite.java.jackson.MigrateMapperSettersToBuilder
   - org.openrewrite.java.jackson.MigrateFactorySettersToBuilder
   - org.openrewrite.java.jackson.UpdateSerializationInclusionConfiguration

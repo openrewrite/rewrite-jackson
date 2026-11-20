@@ -658,4 +658,50 @@ class UpgradeJackson_2_3Test implements RewriteTest {
           )
         );
     }
+
+    @Test
+    void objectMapperSubclassConfiguredInItsConstructor() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.fasterxml.jackson.annotation.JsonAutoDetect;
+              import com.fasterxml.jackson.annotation.JsonInclude;
+              import com.fasterxml.jackson.annotation.PropertyAccessor;
+              import com.fasterxml.jackson.databind.DeserializationFeature;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.databind.SerializationFeature;
+              import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
+              public class TestMapper extends ObjectMapper {
+                  private TestMapper() {
+                      registerModule(new JavaTimeModule());
+                      configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+                      configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+                      setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE);
+                      setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
+                      setSerializationInclusion(JsonInclude.Include.NON_NULL);
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonAutoDetect;
+              import com.fasterxml.jackson.annotation.JsonInclude;
+              import com.fasterxml.jackson.annotation.PropertyAccessor;
+              import tools.jackson.databind.ObjectMapper;
+
+              public class TestMapper extends ObjectMapper {
+                  private TestMapper() {
+                      // TODO Jackson 3's ObjectMapper is immutable, so a subclass can no longer configure itself. Build a configured `JsonMapper.builder()` and pass it to the `super(..)` constructor, see https://github.com/FasterXML/jackson/blob/main/jackson3/MIGRATING_TO_JACKSON_3.md#6-immutability-of-objectmapper-jsonfactory
+                      setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE);
+                      // TODO Jackson 3's ObjectMapper is immutable, so a subclass can no longer configure itself. Build a configured `JsonMapper.builder()` and pass it to the `super(..)` constructor, see https://github.com/FasterXML/jackson/blob/main/jackson3/MIGRATING_TO_JACKSON_3.md#6-immutability-of-objectmapper-jsonfactory
+                      setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
+                      // TODO Jackson 3's ObjectMapper is immutable, so a subclass can no longer configure itself. Build a configured `JsonMapper.builder()` and pass it to the `super(..)` constructor, see https://github.com/FasterXML/jackson/blob/main/jackson3/MIGRATING_TO_JACKSON_3.md#6-immutability-of-objectmapper-jsonfactory
+                      setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL);
+                  }
+              }
+              """
+          )
+        );
+    }
 }
