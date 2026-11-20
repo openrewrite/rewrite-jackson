@@ -65,7 +65,7 @@ public class CommentMutatorsInObjectMapperSubclasses extends Recipe {
             @Override
             public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
                 J.MethodInvocation m = super.visitMethodInvocation(method, ctx);
-                if (!isMutator(m) || !callsOnItself(m) || !insideObjectMapperSubclass() || alreadyCommented(m)) {
+                if (!isMutator(m) || !callsOnItself(m) || !insideObjectMapperSubclass()) {
                     return m;
                 }
                 return Comments.of(new Cursor(getCursor().getParentOrThrow(), m)).comment(" " + COMMENT);
@@ -89,10 +89,6 @@ public class CommentMutatorsInObjectMapperSubclasses extends Recipe {
                 JavaType type = value instanceof J.ClassDeclaration ? ((J.ClassDeclaration) value).getType() :
                         value instanceof J.NewClass && ((J.NewClass) value).getBody() != null ? ((J.NewClass) value).getType() : null;
                 return type != null && TypeUtils.isAssignableTo(OBJECT_MAPPER, type);
-            }
-
-            private boolean alreadyCommented(J.MethodInvocation m) {
-                return m.getComments().stream().anyMatch(c -> c.printComment(getCursor()).contains("TODO Jackson 3's ObjectMapper is immutable"));
             }
         });
     }
