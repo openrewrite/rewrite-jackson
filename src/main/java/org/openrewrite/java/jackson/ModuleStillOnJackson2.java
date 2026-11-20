@@ -18,6 +18,7 @@ package org.openrewrite.java.jackson;
 import lombok.Getter;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.*;
+import org.openrewrite.gradle.marker.GradleDependencyConfiguration;
 import org.openrewrite.gradle.marker.GradleProject;
 import org.openrewrite.java.dependencies.search.ModuleHasDependency;
 import org.openrewrite.java.internal.TypesInUse;
@@ -25,6 +26,8 @@ import org.openrewrite.java.marker.JavaProject;
 import org.openrewrite.java.tree.JavaSourceFile;
 import org.openrewrite.java.tree.JavaType;
 import org.openrewrite.marker.SearchResult;
+import org.openrewrite.maven.tree.Dependency;
+import org.openrewrite.maven.tree.ManagedDependency;
 import org.openrewrite.maven.tree.MavenResolutionResult;
 
 import java.util.*;
@@ -38,15 +41,20 @@ public class ModuleStillOnJackson2 extends ScanningRecipe<ModuleStillOnJackson2.
     private static final ModuleHasDependency HAS_JACKSON_3 = new ModuleHasDependency("tools.jackson*", "*", null, null, null, null);
 
     String displayName = "Find modules still on Jackson 2";
-    String description = "Marks the source files of modules that either do not resolve Jackson 3 yet, " +
-            "or still use Jackson 2 types in their own sources or those of their child modules. " +
-            "Modules that already resolve Jackson 3 and no longer use Jackson 2 types are left unmarked, " +
-            "as any Jackson 2 dependencies they still declare are there on purpose, " +
+    String description = "Marks the source files of modules that are not on Jackson 3 yet. " +
+            "A module is on Jackson 3 when it resolves Jackson 3, or when it has a child module on Jackson 3 " +
+            "and neither declares a Jackson 2 dependency nor imports the Jackson 2 BOM itself. " +
+            "It is not on Jackson 3 while it or any of its child modules uses Jackson 2 types, " +
+            "or while a child module declares a Jackson 2 dependency or imports the Jackson 2 BOM without resolving Jackson 3. " +
+            "Only direct dependencies count, and `jackson-annotations` does not, as Jackson 3 uses it too. " +
+            "Jackson 2 dependencies that a module on Jackson 3 still declares are left alone, as they are there on purpose, " +
             "for instance for generated sources that are not part of the LST.";
 
     public static class Accumulator {
         final Set<JavaProject> usingJackson2 = new HashSet<>();
+        final Set<JavaProject> declaringJackson2 = new HashSet<>();
         final Set<JavaProject> resolvingJackson3 = new HashSet<>();
+        final Set<JavaProject> importingJackson2Bom = new HashSet<>();
         final Map<UUID, JavaProject> mavenProjects = new HashMap<>();
         final Map<JavaProject, List<UUID>> mavenModules = new HashMap<>();
         final Map<JavaProject, String> gradlePaths = new HashMap<>(); // e.g. ":", ":app", ":libs:core"
@@ -57,8 +65,11 @@ public class ModuleStillOnJackson2 extends ScanningRecipe<ModuleStillOnJackson2.
         Set<JavaProject> alreadyOnJackson3() {
             if (alreadyOnJackson3 == null) {
                 alreadyOnJackson3 = new HashSet<>();
-                for (JavaProject javaProject : resolvingJackson3) {
-                    if (!usingJackson2.contains(javaProject) && !anyChildUsesJackson2(javaProject)) {
+                Map<JavaProject, JacksonVersion> versions = new HashMap<>();
+                Set<JavaProject> projects = new HashSet<>(mavenModules.keySet());
+                projects.addAll(gradlePaths.keySet());
+                for (JavaProject javaProject : projects) {
+                    if (jacksonVersion(javaProject, versions) == JacksonVersion.JACKSON_3) {
                         alreadyOnJackson3.add(javaProject);
                     }
                 }
@@ -66,26 +77,62 @@ public class ModuleStillOnJackson2 extends ScanningRecipe<ModuleStillOnJackson2.
             return alreadyOnJackson3;
         }
 
-        private boolean anyChildUsesJackson2(JavaProject javaProject) {
+        private JacksonVersion jacksonVersion(JavaProject javaProject, Map<JavaProject, JacksonVersion> versions) {
+            JacksonVersion version = versions.get(javaProject);
+            if (version == null) {
+                // In progress, so that a cycle of modules ends the recursion
+                versions.put(javaProject, JacksonVersion.NONE);
+                version = computeJacksonVersion(javaProject, versions);
+                versions.put(javaProject, version);
+            }
+            return version;
+        }
+
+        private JacksonVersion computeJacksonVersion(JavaProject javaProject, Map<JavaProject, JacksonVersion> versions) {
+            if (usingJackson2.contains(javaProject)) {
+                return JacksonVersion.JACKSON_2;
+            }
+            boolean anyModuleOnJackson3 = false;
+            for (JavaProject module : modules(javaProject)) {
+                JacksonVersion moduleVersion = jacksonVersion(module, versions);
+                if (moduleVersion == JacksonVersion.JACKSON_2) {
+                    return JacksonVersion.JACKSON_2;
+                }
+                anyModuleOnJackson3 |= moduleVersion == JacksonVersion.JACKSON_3;
+            }
+            if (resolvingJackson3.contains(javaProject)) {
+                return JacksonVersion.JACKSON_3;
+            }
+            // An imported Jackson 2 BOM also manages `jackson-annotations`, which Jackson 3 needs at 2.20 or later
+            if (declaringJackson2.contains(javaProject) || importingJackson2Bom.contains(javaProject)) {
+                return JacksonVersion.JACKSON_2;
+            }
+            return anyModuleOnJackson3 ? JacksonVersion.JACKSON_3 : JacksonVersion.NONE;
+        }
+
+        private List<JavaProject> modules(JavaProject javaProject) {
+            List<JavaProject> modules = new ArrayList<>();
             for (UUID moduleId : mavenModules.getOrDefault(javaProject, emptyList())) {
                 JavaProject module = mavenProjects.get(moduleId);
-                if (module != null && (usingJackson2.contains(module) || anyChildUsesJackson2(module))) {
-                    return true;
+                if (module != null) {
+                    modules.add(module);
                 }
             }
             String gradlePath = gradlePaths.get(javaProject);
-            if (gradlePath == null) {
-                return false;
-            }
-            String prefix = ":".equals(gradlePath) ? ":" : gradlePath + ":";
-            for (JavaProject project : usingJackson2) {
-                String path = gradlePaths.get(project);
-                if (path != null && path.startsWith(prefix)) {
-                    return true;
+            if (gradlePath != null) {
+                String prefix = ":".equals(gradlePath) ? ":" : gradlePath + ":";
+                for (Map.Entry<JavaProject, String> project : gradlePaths.entrySet()) {
+                    if (project.getValue().startsWith(prefix) && !project.getValue().equals(gradlePath)) {
+                        modules.add(project.getKey());
+                    }
                 }
             }
-            return false;
+            return modules;
         }
+    }
+
+    private enum JacksonVersion {
+        NONE, JACKSON_2, JACKSON_3
     }
 
     @Override
@@ -115,8 +162,28 @@ public class ModuleStillOnJackson2 extends ScanningRecipe<ModuleStillOnJackson2.
                 tree.getMarkers().findFirst(MavenResolutionResult.class).ifPresent(mrr -> {
                     acc.mavenProjects.put(mrr.getId(), javaProject);
                     acc.mavenModules.put(javaProject, mrr.getModules().stream().map(MavenResolutionResult::getId).collect(toList()));
+                    for (Dependency dependency : mrr.getPom().getRequestedDependencies()) {
+                        if (isJackson2Artifact(mrr.getPom().getValue(dependency.getGroupId()), dependency.getArtifactId())) {
+                            acc.declaringJackson2.add(javaProject);
+                        }
+                    }
+                    for (ManagedDependency managed : mrr.getPom().getRequested().getDependencyManagement()) {
+                        if (managed instanceof ManagedDependency.Imported &&
+                                "com.fasterxml.jackson".equals(managed.getGroupId()) && "jackson-bom".equals(managed.getArtifactId())) {
+                            acc.importingJackson2Bom.add(javaProject);
+                        }
+                    }
                 });
-                tree.getMarkers().findFirst(GradleProject.class).ifPresent(gp -> acc.gradlePaths.put(javaProject, gp.getPath()));
+                tree.getMarkers().findFirst(GradleProject.class).ifPresent(gp -> {
+                    acc.gradlePaths.put(javaProject, gp.getPath());
+                    for (GradleDependencyConfiguration configuration : gp.getConfigurations()) {
+                        for (Dependency dependency : configuration.getRequested()) {
+                            if (isJackson2Artifact(dependency.getGroupId(), dependency.getArtifactId())) {
+                                acc.declaringJackson2.add(javaProject);
+                            }
+                        }
+                    }
+                });
                 return tree;
             }
         };
@@ -150,6 +217,12 @@ public class ModuleStillOnJackson2 extends ScanningRecipe<ModuleStillOnJackson2.
             }
         }
         return false;
+    }
+
+    // Called with declared dependencies only, as many libraries still bring Jackson 2 along.
+    // Jackson 3 still uses `jackson-annotations`.
+    private static boolean isJackson2Artifact(@Nullable String groupId, String artifactId) {
+        return groupId != null && groupId.startsWith("com.fasterxml.jackson.") && !"jackson-annotations".equals(artifactId);
     }
 
     private static boolean isJackson2Type(JavaType.FullyQualified type) {
