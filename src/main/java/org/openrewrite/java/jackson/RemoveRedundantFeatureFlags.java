@@ -25,6 +25,8 @@ import org.openrewrite.java.search.UsesMethod;
 import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JavaType.FullyQualified;
+import org.openrewrite.properties.ChangePropertyValue;
+import org.openrewrite.properties.DeleteProperty;
 
 import java.util.Set;
 
@@ -184,8 +186,8 @@ public class RemoveRedundantFeatureFlags extends Recipe {
         String propertyKey = "spring.jackson.mapper." + featureName.split("\\.")[1];
         return Preconditions.check(
                 // Only change if it does not already have the new default value
-                new org.openrewrite.properties.ChangePropertyValue(propertyKey, String.valueOf(!newDefaultValue), null, false, false),
-                new org.openrewrite.properties.DeleteProperty(propertyKey, false).getVisitor());
+                new ChangePropertyValue(propertyKey, String.valueOf(!newDefaultValue), null, false, false),
+                new DeleteProperty(propertyKey, false).getVisitor());
     }
 
     private TreeVisitor<?, ExecutionContext> yamlVisitor() {
