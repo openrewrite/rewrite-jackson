@@ -17,10 +17,21 @@ package org.openrewrite.java.jackson;
 
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
+import org.openrewrite.ExecutionContext;
+import org.openrewrite.InMemoryExecutionContext;
+import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.JavaParser;
+import org.openrewrite.java.tree.J;
+import org.openrewrite.java.tree.JavaType;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
+import java.time.Duration;
+import java.util.HashSet;
+import java.util.List;
+
+import static java.util.Collections.singletonList;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.openrewrite.java.Assertions.java;
 
 class RemoveBuiltInModuleBeansTest implements RewriteTest {
@@ -223,4 +234,32 @@ class RemoveBuiltInModuleBeansTest implements RewriteTest {
         );
     }
 
+    @Test
+    void doesNotHangOnACyclicTypeHierarchy() {
+        // Java source cannot declare a cyclic hierarchy, but a type model assembled from incompletely
+        // attributed sources, or from a language whose tree is built on the Java one, can hold one. There
+        // `findOverriddenMethod` reports a method as its own ancestor, and walking the chain never ends.
+        JavaType.Class parent = new JavaType.Class(null, 0L, "acme.Parent",
+          JavaType.FullyQualified.Kind.Class, null, null, null, null, null, null, null);
+        JavaType.Class child = new JavaType.Class(null, 0L, "acme.Child",
+          JavaType.FullyQualified.Kind.Class, null, parent, null, null, null, null, null);
+        JavaType.Method cyclic = new JavaType.Method(null, 1L, parent, "m",
+          JavaType.Primitive.Void, (List<String>) null, (List<JavaType>) null, null, null, null, null);
+        parent.unsafeSet((List<JavaType>) null, child, null, null, null, null, singletonList(cyclic));
+
+        J.CompilationUnit cu = (J.CompilationUnit) JavaParser.fromJavaVersion().build()
+          .parse("class A { void m() {} }")
+          .findFirst()
+          .orElseThrow(IllegalStateException::new);
+        J.CompilationUnit withCyclicType = (J.CompilationUnit) new JavaIsoVisitor<ExecutionContext>() {
+            @Override
+            public J.MethodDeclaration visitMethodDeclaration(J.MethodDeclaration method, ExecutionContext ctx) {
+                return method.withMethodType(cyclic);
+            }
+        }.visitNonNull(cu, new InMemoryExecutionContext());
+
+        assertTimeoutPreemptively(Duration.ofSeconds(10), () ->
+          new RemoveBuiltInModuleBeans().getScanner(new HashSet<>())
+            .visit(withCyclicType, new InMemoryExecutionContext()));
+    }
 }
