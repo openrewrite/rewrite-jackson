@@ -234,7 +234,6 @@ class RemoveBuiltInModuleBeansTest implements RewriteTest {
         );
     }
 
-
     @Test
     void doesNotHangOnACyclicTypeHierarchy() {
         // Java source cannot declare a cyclic hierarchy, but a type model assembled from incompletely
