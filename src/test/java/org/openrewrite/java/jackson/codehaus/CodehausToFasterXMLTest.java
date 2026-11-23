@@ -22,13 +22,23 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.Issue;
+import org.openrewrite.Recipe;
+import org.openrewrite.java.ChangeType;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeQualityValidation;
 import org.openrewrite.test.RecipeQualityValidation.ParserTypes;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.stream.Stream;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.openrewrite.java.Assertions.java;
+import static org.openrewrite.xml.Assertions.xml;
 
 class CodehausToFasterXMLTest implements RewriteTest {
 
@@ -108,6 +118,292 @@ class CodehausToFasterXMLTest implements RewriteTest {
                       mapper.configure(WRAP_ROOT_VALUE, true);
                       mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
                   }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void jsonNodeAccessors() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import org.codehaus.jackson.JsonNode;
+              import org.codehaus.jackson.node.ObjectNode;
+
+              import java.util.Iterator;
+
+              class Test {
+                  String read(JsonNode node, ObjectNode object) {
+                      Iterator<String> names = object.getFieldNames();
+                      int count = node.get("count").getIntValue() + node.path("total").getValueAsInt(0);
+                      return node.get("name").getTextValue() + node.getPath("id").getValueAsText() + names.next() + count;
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.JsonNode;
+              import com.fasterxml.jackson.databind.node.ObjectNode;
+
+              import java.util.Iterator;
+
+              class Test {
+                  String read(JsonNode node, ObjectNode object) {
+                      Iterator<String> names = object.fieldNames();
+                      int count = node.get("count").intValue() + node.path("total").asInt(0);
+                      return node.get("name").textValue() + node.path("id").asText() + names.next() + count;
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void streamingAndMapperTypes() {
+        rewriteRun(
+          // the calls keep the exceptions their Jackson 1 methods declare, where a parse against Jackson 2 gives that method's own
+          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder()
+            .parserTypedTrees(ParserTypes.Erasure).build()),
+          //language=java
+          java(
+            """
+              import org.codehaus.jackson.JsonFactory;
+              import org.codehaus.jackson.JsonParser;
+              import org.codehaus.jackson.annotate.JsonAutoDetect;
+              import org.codehaus.jackson.annotate.JsonMethod;
+              import org.codehaus.jackson.map.ObjectMapper;
+              import org.codehaus.jackson.map.annotate.JsonView;
+              import org.codehaus.jackson.type.JavaType;
+              import org.codehaus.jackson.type.TypeReference;
+
+              import java.util.List;
+
+              class Test {
+                  @JsonView(Test.class)
+                  String name;
+
+                  void configure(ObjectMapper mapper) throws Exception {
+                      mapper.setVisibility(JsonMethod.FIELD, JsonAutoDetect.Visibility.ANY);
+                      JsonFactory factory = mapper.getJsonFactory();
+                      factory.enableParserFeature(JsonParser.Feature.ALLOW_COMMENTS);
+                      JsonParser parser = factory.createJsonParser("{}");
+                      parser.disableFeature(JsonParser.Feature.AUTO_CLOSE_SOURCE);
+                      String json = mapper.defaultPrettyPrintingWriter().writeValueAsString(name);
+                      JavaType type = mapper.getTypeFactory().constructType(String.class);
+                      TypeReference<List<String>> reference = new TypeReference<List<String>>() {
+                      };
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.annotation.JsonAutoDetect;
+              import com.fasterxml.jackson.annotation.JsonView;
+              import com.fasterxml.jackson.annotation.PropertyAccessor;
+              import com.fasterxml.jackson.core.JsonFactory;
+              import com.fasterxml.jackson.core.JsonParser;
+              import com.fasterxml.jackson.core.type.TypeReference;
+              import com.fasterxml.jackson.databind.JavaType;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              import java.util.List;
+
+              class Test {
+                  @JsonView(Test.class)
+                  String name;
+
+                  void configure(ObjectMapper mapper) throws Exception {
+                      mapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
+                      JsonFactory factory = mapper.getFactory();
+                      factory.enable(JsonParser.Feature.ALLOW_COMMENTS);
+                      JsonParser parser = factory.createJsonParser("{}");
+                      parser.disable(JsonParser.Feature.AUTO_CLOSE_SOURCE);
+                      String json = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(name);
+                      JavaType type = mapper.getTypeFactory().constructType(String.class);
+                      TypeReference<List<String>> reference = new TypeReference<List<String>>() {
+                      };
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void relocatedSerializerBaseClasses() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import org.codehaus.jackson.map.deser.StdDeserializer;
+              import org.codehaus.jackson.map.ser.std.SerializerBase;
+
+              class Money {
+                  abstract static class Serializer extends SerializerBase<Money> {
+                      Serializer() {
+                          super(Money.class);
+                      }
+                  }
+
+                  abstract static class Deserializer extends StdDeserializer<Money> {
+                      Deserializer() {
+                          super(Money.class);
+                      }
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
+              import com.fasterxml.jackson.databind.ser.std.StdSerializer;
+
+              class Money {
+                  abstract static class Serializer extends StdSerializer<Money> {
+                      Serializer() {
+                          super(Money.class);
+                      }
+                  }
+
+                  abstract static class Deserializer extends StdDeserializer<Money> {
+                      Deserializer() {
+                          super(Money.class);
+                      }
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void nestedTypesRelocatedOutOfTheirOuterType() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import org.codehaus.jackson.map.deser.std.StdDeserializer;
+              import org.codehaus.jackson.map.ser.StdSerializers;
+
+              class Test {
+                  StdDeserializer.BigDecimalDeserializer deserializer = new StdDeserializer.BigDecimalDeserializer();
+                  StdSerializers.BooleanSerializer serializer = new StdSerializers.BooleanSerializer(true);
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.deser.std.NumberDeserializers;
+              import com.fasterxml.jackson.databind.ser.std.BooleanSerializer;
+
+              class Test {
+                  NumberDeserializers.BigDecimalDeserializer deserializer = new NumberDeserializers.BigDecimalDeserializer();
+                  BooleanSerializer serializer = new BooleanSerializer(true);
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void wildcardImport() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import org.codehaus.jackson.map.*;
+
+              class Test {
+                  ObjectMapper mapper;
+                  JsonSerializer<String> serializer;
+                  TypeSerializer typeSerializer;
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.JsonSerializer;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.databind.jsontype.TypeSerializer;
+
+              class Test {
+                  ObjectMapper mapper;
+                  JsonSerializer<String> serializer;
+                  TypeSerializer typeSerializer;
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void everyTargetTypeExistsInJackson2() throws Exception {
+        List<String> types = targetTypes(RewriteTest.fromRuntimeClasspath("org.openrewrite.java.jackson.CodehausClassesToFasterXML"))
+          .toList();
+        assertThat(types).hasSizeGreaterThan(300);
+        List<Path> jars = JavaParser.dependenciesFromResources(new InMemoryExecutionContext(),
+          "jackson-annotations-2", "jackson-core-2", "jackson-databind-2");
+        URL[] jackson2 = new URL[jars.size()];
+        for (var i = 0; i < jars.size(); i++) {
+            jackson2[i] = jars.get(i).toUri().toURL();
+        }
+        try (var loader = new URLClassLoader(jackson2, null)) {
+            assertThat(types).filteredOn(type -> loader.getResource(type.replace('.', '/') + ".class") == null).isEmpty();
+        }
+    }
+
+    private static Stream<String> targetTypes(Recipe recipe) {
+        if (recipe instanceof Recipe.DelegatingRecipe delegatingRecipe) {
+            return targetTypes(delegatingRecipe.getDelegate());
+        }
+        // the jaxb module is not on the test classpath
+        return recipe instanceof ChangeType changeType ?
+          Stream.of(changeType.getNewFullyQualifiedTypeName()).filter(type -> !type.contains(".module.jaxb.")) :
+          recipe.getRecipeList().stream().flatMap(CodehausToFasterXMLTest::targetTypes);
+    }
+
+    @Test
+    void springXmlBeanClass() {
+        rewriteRun(
+          //language=xml
+          xml(
+            """
+              <beans xsi:schemaLocation="www.springframework.org/schema/beans">
+                  <bean id="objectMapper" class="org.codehaus.jackson.map.ObjectMapper"/>
+                  <bean id="jsonFactory" class="org.codehaus.jackson.JsonFactory"/>
+              </beans>
+              """,
+            """
+              <beans xsi:schemaLocation="www.springframework.org/schema/beans">
+                  <bean id="objectMapper" class="com.fasterxml.jackson.databind.ObjectMapper"/>
+                  <bean id="jsonFactory" class="com.fasterxml.jackson.core.JsonFactory"/>
+              </beans>
+              """
+          )
+        );
+    }
+
+    @Test
+    void typesWithoutJackson2CounterpartKeepTheirNames() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import org.codehaus.jackson.map.ObjectMapper;
+              import org.codehaus.jackson.map.ext.JodaSerializers;
+              import org.codehaus.jackson.map.ser.CustomSerializerFactory;
+
+              class Test {
+                  ObjectMapper mapper = new ObjectMapper();
+                  CustomSerializerFactory factory = new CustomSerializerFactory();
+                  Class<?> serializers = JodaSerializers.class;
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import org.codehaus.jackson.map.ext.JodaSerializers;
+              import org.codehaus.jackson.map.ser.CustomSerializerFactory;
+
+              class Test {
+                  ObjectMapper mapper = new ObjectMapper();
+                  CustomSerializerFactory factory = new CustomSerializerFactory();
+                  Class<?> serializers = JodaSerializers.class;
               }
               """
           )
