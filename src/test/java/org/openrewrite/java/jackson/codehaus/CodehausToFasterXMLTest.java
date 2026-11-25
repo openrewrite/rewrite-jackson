@@ -707,6 +707,42 @@ class CodehausToFasterXMLTest implements RewriteTest {
     @Nested
     class ClassAnnotations {
         @Test
+        void doublyAnnotatedWithJackson1AndJackson2TypeInfo() {
+            rewriteRun(
+              //language=java
+              java(
+                """
+                  @org.codehaus.jackson.annotate.JsonTypeInfo(use = org.codehaus.jackson.annotate.JsonTypeInfo.Id.NAME)
+                  @org.codehaus.jackson.annotate.JsonSubTypes({@org.codehaus.jackson.annotate.JsonSubTypes.Type(value = Cat.class)})
+                  @com.fasterxml.jackson.annotation.JsonTypeInfo(use = com.fasterxml.jackson.annotation.JsonTypeInfo.Id.NAME)
+                  @com.fasterxml.jackson.annotation.JsonSubTypes({@com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = Cat.class)})
+                  class Animal {
+                      @org.codehaus.jackson.annotate.JsonIgnore
+                      @com.fasterxml.jackson.annotation.JsonIgnore
+                      String secret;
+                  }
+                  class Cat extends Animal {
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.annotation.JsonIgnore;
+                  import com.fasterxml.jackson.annotation.JsonSubTypes;
+                  import com.fasterxml.jackson.annotation.JsonTypeInfo;
+
+                  @JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
+                  @JsonSubTypes({@JsonSubTypes.Type(value = Cat.class)})
+                  class Animal {
+                      @JsonIgnore
+                      String secret;
+                  }
+                  class Cat extends Animal {
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
         void retainOriginalAnnotationToo() {
             rewriteRun(
               // the `using` argument keeps the codehaus attribute's `Class<? extends JsonSerializer<?>>`, where the fasterxml one bounds `Class` by the raw `JsonSerializer`

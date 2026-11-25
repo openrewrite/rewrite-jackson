@@ -25,6 +25,8 @@ import org.openrewrite.java.*;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.service.AnnotationService;
 import org.openrewrite.java.tree.J;
+import org.openrewrite.java.tree.JavaType;
+import org.openrewrite.java.tree.TypeUtils;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -41,12 +43,15 @@ public class RemoveDoublyAnnotatedCodehausAnnotations extends Recipe {
     final String displayName = "Remove Codehaus Jackson annotations if doubly annotated";
 
     @Getter
-    final String description = "Remove Codehaus Jackson annotations if they are doubly annotated with Jackson annotations from the `com.fasterxml.jackson` package.";
+    final String description = "Remove Codehaus Jackson annotations if they are doubly annotated with Jackson annotations from the `com.fasterxml.jackson` package, " +
+                               "such as a Jackson 1 `@JsonTypeInfo` beside the Jackson 2 `@JsonTypeInfo` of the same element, which would otherwise become a repeated annotation.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
         return Preconditions.check(
-                new UsesType<>(COM_FASTERXML_JACKSON_DATABIND_ANNOTATION_JSON_SERIALIZE, false),
+                Preconditions.or(
+                        new UsesType<>(COM_FASTERXML_JACKSON_DATABIND_ANNOTATION_JSON_SERIALIZE, false),
+                        Preconditions.and(new UsesType<>("org.codehaus.jackson..*", false), new UsesType<>("com.fasterxml.jackson..*", false))),
                 new JavaVisitor<ExecutionContext>() {
                     @Override
                     public J preVisit(@NonNull J tree, ExecutionContext ctx) {
@@ -64,6 +69,12 @@ public class RemoveDoublyAnnotatedCodehausAnnotations extends Recipe {
                             }
                         };
                         doAfterVisit(new RemoveAnnotationVisitor(removeCodehausMatcher));
+                        for (J.Annotation codehaus : doubleAnnotated.keySet()) {
+                            JavaType.FullyQualified type = TypeUtils.asFullyQualified(codehaus.getType());
+                            if (type != null && !ORG_CODEHAUS_JACKSON_MAP_ANNOTATE_JSON_SERIALIZE.equals(type.getFullyQualifiedName())) {
+                                maybeRemoveImport(type.getFullyQualifiedName());
+                            }
+                        }
                         maybeRemoveImport(ORG_CODEHAUS_JACKSON_MAP_ANNOTATE_JSON_SERIALIZE + ".Inclusion.*");
                         maybeRemoveImport(ORG_CODEHAUS_JACKSON_MAP_ANNOTATE_JSON_SERIALIZE + ".Typing.*");
                         doAfterVisit(ShortenFullyQualifiedTypeReferences.modifyOnly(tree));
@@ -85,8 +96,28 @@ public class RemoveDoublyAnnotatedCodehausAnnotations extends Recipe {
                         .filter(MATCHER_FASTERXML::matches)
                         .findFirst()
                         .ifPresent(fasterxml -> doublyAnnotated.put(annotation, fasterxml));
+            } else {
+                // Any other Jackson 1 annotation beside the Jackson 2 annotation of the same name, which Jackson 2 reads
+                JavaType.FullyQualified type = TypeUtils.asFullyQualified(annotation.getType());
+                Object annotated = getCursor().getParentTreeCursor().getValue();
+                if (type != null && type.getFullyQualifiedName().startsWith("org.codehaus.jackson.") &&
+                    (annotated instanceof J.ClassDeclaration || annotated instanceof J.MethodDeclaration ||
+                     annotated instanceof J.VariableDeclarations)) {
+                    service(AnnotationService.class)
+                            .getAllAnnotations(getCursor().getParentOrThrow())
+                            .stream()
+                            .filter(other -> isJackson2Counterpart(other, type))
+                            .findFirst()
+                            .ifPresent(fasterxml -> doublyAnnotated.put(annotation, fasterxml));
+                }
             }
             return a;
         }
+    }
+
+    private static boolean isJackson2Counterpart(J.Annotation annotation, JavaType.FullyQualified jackson1) {
+        JavaType.FullyQualified type = TypeUtils.asFullyQualified(annotation.getType());
+        return type != null && type.getFullyQualifiedName().startsWith("com.fasterxml.jackson.") &&
+               type.getClassName().equals(jackson1.getClassName());
     }
 }
