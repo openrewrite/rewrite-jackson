@@ -161,6 +161,18 @@ recipeList:
       methodPattern: org.codehaus.jackson.map.ObjectMapper withModule(..)
       newMethodName: registerModule
   - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.map.ObjectMapper readValue(org.codehaus.jackson.JsonNode, java.lang.Class)
+      newMethodName: treeToValue
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.map.ObjectMapper readValue(org.codehaus.jackson.JsonNode, org.codehaus.jackson.type.JavaType)
+      newMethodName: treeToValue
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.map.ObjectMapper readValue(org.codehaus.jackson.JsonNode, org.codehaus.jackson.type.TypeReference)
+      newMethodName: convertValue
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
       methodPattern: org.codehaus.jackson.JsonParser enableFeature(..)
       newMethodName: enable
   - org.openrewrite.java.ChangeMethodName:
@@ -208,6 +220,15 @@ recipeList:
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: org.codehaus.jackson.JsonFactory isGeneratorFeatureEnabled(..)
       newMethodName: isEnabled
+  # Jackson 2 dropped createJsonGenerator(File, JsonEncoding) and deprecated the other createJson* methods
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonFactory createJsonParser(..)
+      newMethodName: createParser
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonFactory createJsonGenerator(..)
+      newMethodName: createGenerator
+      matchOverrides: true
 
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: org.codehaus.jackson.map.JsonSerializer

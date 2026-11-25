@@ -23,9 +23,15 @@ import org.openrewrite.*;
 import org.openrewrite.java.dependencies.AddDependency;
 import org.openrewrite.java.dependencies.ChangeDependency;
 import org.openrewrite.java.dependencies.search.DoesNotIncludeDependency;
+import org.openrewrite.java.search.UsesType;
+import org.openrewrite.java.tree.JavaSourceFile;
+import org.openrewrite.java.marker.JavaProject;
+import org.openrewrite.marker.SearchResult;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+
+import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
 
 @Value
 @EqualsAndHashCode(callSuper = false)
@@ -106,9 +112,13 @@ public class CodehausDependencyToFasterXML extends Recipe {
             recipes.add(new ChangeDependency(CODEHAUS, artifact[0], artifact[1], artifact[2], newVersion,
                     null, null, null));
         }
+        // jackson-databind brings jackson-core and jackson-annotations, so a module that needs it needs neither added
+        List<String> databind = Arrays.asList(USAGES[0]).subList(2, USAGES[0].length);
         for (String[] usage : USAGES) {
+            boolean broughtByDatabind = "jackson-core".equals(usage[1]) || "jackson-annotations".equals(usage[1]);
             for (int i = 2; i < usage.length; i++) {
-                recipes.add(new AddJackson2Dependency(usage[0], usage[1], newVersion, usage[i]));
+                recipes.add(new AddJackson2Dependency(usage[0], usage[1], newVersion, usage[i],
+                        broughtByDatabind ? databind : emptyList()));
             }
         }
         return recipes;
@@ -116,22 +126,26 @@ public class CodehausDependencyToFasterXML extends Recipe {
 
     /**
      * Adds the Jackson 2 artifact where the types it is for are used, and leaves alone the build files that already
-     * declare it, where {@link AddDependency} would move the declared version to the newest release.
+     * declare it, where {@link AddDependency} would move the declared version to the newest release, and the modules
+     * that use one of the types of an artifact that brings it, where it would be added to a narrower scope than that
+     * artifact brings it in, such as the test scope when only tests use it directly, and so hide it from the main code.
      */
     @Getter
     @EqualsAndHashCode(callSuper = false, exclude = "delegate")
-    static class AddJackson2Dependency extends ScanningRecipe<AddDependency.Accumulator> {
+    static class AddJackson2Dependency extends ScanningRecipe<AddJackson2Dependency.Accumulator> {
         private final String groupId;
         private final String artifactId;
         private final String version;
         private final String onlyIfUsing;
+        private final List<String> notIfUsing;
         private final transient AddDependency delegate;
 
-        AddJackson2Dependency(String groupId, String artifactId, String version, String onlyIfUsing) {
+        AddJackson2Dependency(String groupId, String artifactId, String version, String onlyIfUsing, List<String> notIfUsing) {
             this.groupId = groupId;
             this.artifactId = artifactId;
             this.version = version;
             this.onlyIfUsing = onlyIfUsing;
+            this.notIfUsing = notIfUsing;
             this.delegate = new AddDependency(groupId, artifactId, version, null, onlyIfUsing,
                     null, "com.fasterxml.jackson*", null, null, null, null, null, null, true);
         }
@@ -145,21 +159,57 @@ public class CodehausDependencyToFasterXML extends Recipe {
             return String.format("`%s:%s` if using `%s`", groupId, artifactId, onlyIfUsing);
         }
 
-        @Override
-        public AddDependency.Accumulator getInitialValue(ExecutionContext ctx) {
-            return delegate.getInitialValue(ctx);
+        static class Accumulator {
+            AddDependency.@Nullable Accumulator delegate;
+            final Set<JavaProject> excluded = new HashSet<>();
         }
 
         @Override
-        public TreeVisitor<?, ExecutionContext> getScanner(AddDependency.Accumulator acc) {
-            return delegate.getScanner(acc);
+        public Accumulator getInitialValue(ExecutionContext ctx) {
+            Accumulator acc = new Accumulator();
+            acc.delegate = delegate.getInitialValue(ctx);
+            return acc;
         }
 
         @Override
-        public TreeVisitor<?, ExecutionContext> getVisitor(AddDependency.Accumulator acc) {
+        public TreeVisitor<?, ExecutionContext> getScanner(Accumulator acc) {
+            TreeVisitor<?, ExecutionContext> scanner = delegate.getScanner(requireNonNull(acc.delegate));
+            return new TreeVisitor<Tree, ExecutionContext>() {
+                @Override
+                public @Nullable Tree visit(@Nullable Tree tree, ExecutionContext ctx) {
+                    scanner.visit(tree, ctx);
+                    if (tree instanceof JavaSourceFile) {
+                        tree.getMarkers().findFirst(JavaProject.class).ifPresent(project -> {
+                            if (!acc.excluded.contains(project)) {
+                                for (String type : notIfUsing) {
+                                    if (new UsesType<>(type, false).visit(tree, ctx) != tree) {
+                                        acc.excluded.add(project);
+                                        break;
+                                    }
+                                }
+                            }
+                        });
+                    }
+                    return tree;
+                }
+            };
+        }
+
+        @Override
+        public TreeVisitor<?, ExecutionContext> getVisitor(Accumulator acc) {
+            TreeVisitor<?, ExecutionContext> notExcluded = new TreeVisitor<Tree, ExecutionContext>() {
+                @Override
+                public @Nullable Tree visit(@Nullable Tree tree, ExecutionContext ctx) {
+                    if (tree instanceof SourceFile &&
+                        !tree.getMarkers().findFirst(JavaProject.class).map(acc.excluded::contains).orElse(false)) {
+                        return SearchResult.found(tree);
+                    }
+                    return tree;
+                }
+            };
             return Preconditions.check(
-                    new DoesNotIncludeDependency(groupId, artifactId, null, true, null, null).getVisitor(),
-                    delegate.getVisitor(acc));
+                    Preconditions.and(notExcluded, new DoesNotIncludeDependency(groupId, artifactId, null, true, null, null).getVisitor()),
+                    delegate.getVisitor(requireNonNull(acc.delegate)));
         }
     }
 }

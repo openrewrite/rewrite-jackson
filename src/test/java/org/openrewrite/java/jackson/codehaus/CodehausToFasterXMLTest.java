@@ -228,7 +228,7 @@ class CodehausToFasterXMLTest implements RewriteTest {
                       mapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
                       JsonFactory factory = mapper.getFactory();
                       factory.enable(JsonParser.Feature.ALLOW_COMMENTS);
-                      JsonParser parser = factory.createJsonParser("{}");
+                      JsonParser parser = factory.createParser("{}");
                       parser.disable(JsonParser.Feature.AUTO_CLOSE_SOURCE);
                       String json = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(name);
                       JavaType type = mapper.getTypeFactory().constructType(String.class);
@@ -381,6 +381,47 @@ class CodehausToFasterXMLTest implements RewriteTest {
         return recipe instanceof ChangeType changeType ?
           Stream.of(changeType.getNewFullyQualifiedTypeName()) :
           recipe.getRecipeList().stream().flatMap(CodehausToFasterXMLTest::targetTypes);
+    }
+
+    @Test
+    void treeReadsAndFactoryMethodsWithJackson2Names() {
+        rewriteRun(
+          // the renamed treeToValue keeps the JsonNode parameter of Jackson 1's readValue, where Jackson 2's takes a TreeNode
+          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
+          //language=java
+          java(
+            """
+              import java.io.File;
+
+              import org.codehaus.jackson.JsonEncoding;
+              import org.codehaus.jackson.JsonGenerator;
+              import org.codehaus.jackson.JsonNode;
+              import org.codehaus.jackson.map.ObjectMapper;
+
+              class Test {
+                  String[] read(ObjectMapper mapper, JsonNode node, File file) throws Exception {
+                      JsonGenerator generator = mapper.getJsonFactory().createJsonGenerator(file, JsonEncoding.UTF8);
+                      return mapper.readValue(node, String[].class);
+                  }
+              }
+              """,
+            """
+              import java.io.File;
+
+              import com.fasterxml.jackson.core.JsonEncoding;
+              import com.fasterxml.jackson.core.JsonGenerator;
+              import com.fasterxml.jackson.databind.JsonNode;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  String[] read(ObjectMapper mapper, JsonNode node, File file) throws Exception {
+                      JsonGenerator generator = mapper.getFactory().createGenerator(file, JsonEncoding.UTF8);
+                      return mapper.treeToValue(node, String[].class);
+                  }
+              }
+              """
+          )
+        );
     }
 
     @Test
