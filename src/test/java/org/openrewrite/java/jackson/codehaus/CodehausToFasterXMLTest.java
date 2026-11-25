@@ -50,9 +50,19 @@ class CodehausToFasterXMLTest implements RewriteTest {
             "jackson-core-asl",
             "jackson-mapper-asl",
             "jackson-xc",
+            "jackson-jaxrs-1",
+            "jackson-smile",
+            "jackson-mrbean",
             "jackson-annotations-2",
             "jackson-core-2",
-            "jackson-databind-2"));
+            "jackson-databind-2",
+            "jackson-jaxrs-base",
+            "jackson-jaxrs-json-provider",
+            "jackson-module-jaxb-annotations",
+            "jackson-dataformat-smile-2",
+            "jackson-module-mrbean",
+            "jackson-datatype-joda",
+            "joda-time"));
     }
 
     @DocumentExample
@@ -334,11 +344,27 @@ class CodehausToFasterXMLTest implements RewriteTest {
 
     @Test
     void everyTargetTypeExistsInJackson2() throws Exception {
-        List<String> types = targetTypes(RewriteTest.fromRuntimeClasspath("org.openrewrite.java.jackson.CodehausClassesToFasterXML"))
-          .toList();
-        assertThat(types).hasSizeGreaterThan(300);
-        List<Path> jars = JavaParser.dependenciesFromResources(new InMemoryExecutionContext(),
-          "jackson-annotations-2", "jackson-core-2", "jackson-databind-2");
+        assertTargetTypesExist("org.openrewrite.java.jackson.CodehausClassesToFasterXML", 300,
+          "jackson-annotations-2", "jackson-core-2", "jackson-databind-2", "jackson-module-jaxb-annotations");
+    }
+
+    @Test
+    void everyCompanionModuleTargetTypeExistsInJackson2() throws Exception {
+        assertTargetTypesExist("org.openrewrite.java.jackson.CodehausModulesToFasterXML", 25,
+          "jackson-jaxrs-base", "jackson-jaxrs-json-provider", "jackson-module-jaxb-annotations",
+          "jackson-dataformat-smile-2", "jackson-module-mrbean");
+    }
+
+    @Test
+    void everyJodaTargetTypeExistsInJackson2() throws Exception {
+        assertTargetTypesExist("org.openrewrite.java.jackson.codehaus.MigrateJodaSerializers", 9,
+          "jackson-datatype-joda");
+    }
+
+    private static void assertTargetTypesExist(String recipe, int atLeast, String... artifacts) throws Exception {
+        List<String> types = targetTypes(RewriteTest.fromRuntimeClasspath(recipe)).toList();
+        assertThat(types).hasSizeGreaterThanOrEqualTo(atLeast);
+        List<Path> jars = JavaParser.dependenciesFromResources(new InMemoryExecutionContext(), artifacts);
         URL[] jackson2 = new URL[jars.size()];
         for (var i = 0; i < jars.size(); i++) {
             jackson2[i] = jars.get(i).toUri().toURL();
@@ -352,10 +378,165 @@ class CodehausToFasterXMLTest implements RewriteTest {
         if (recipe instanceof Recipe.DelegatingRecipe delegatingRecipe) {
             return targetTypes(delegatingRecipe.getDelegate());
         }
-        // the jaxb module is not on the test classpath
         return recipe instanceof ChangeType changeType ?
-          Stream.of(changeType.getNewFullyQualifiedTypeName()).filter(type -> !type.contains(".module.jaxb.")) :
+          Stream.of(changeType.getNewFullyQualifiedTypeName()) :
           recipe.getRecipeList().stream().flatMap(CodehausToFasterXMLTest::targetTypes);
+    }
+
+    @Test
+    void companionModuleTypes() {
+        rewriteRun(
+          // the ObjectMapper move keeps the void that Jackson 1's registerModule returns, where Jackson 2's returns the mapper
+          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
+          //language=java
+          java(
+            """
+              import org.codehaus.jackson.jaxrs.JacksonJsonProvider;
+              import org.codehaus.jackson.jaxrs.JsonMappingExceptionMapper;
+              import org.codehaus.jackson.map.ObjectMapper;
+              import org.codehaus.jackson.mrbean.MrBeanModule;
+              import org.codehaus.jackson.smile.SmileFactory;
+              import org.codehaus.jackson.smile.SmileGenerator;
+
+              class Test {
+                  void configure() {
+                      ObjectMapper mapper = new ObjectMapper();
+                      mapper.registerModule(new MrBeanModule());
+                      JacksonJsonProvider provider = new JacksonJsonProvider(mapper);
+                      Class<?> mapperClass = JsonMappingExceptionMapper.class;
+                      SmileFactory smile = new SmileFactory();
+                      smile.configure(SmileGenerator.Feature.WRITE_HEADER, true);
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.dataformat.smile.SmileFactory;
+              import com.fasterxml.jackson.dataformat.smile.SmileGenerator;
+              import com.fasterxml.jackson.jaxrs.base.JsonMappingExceptionMapper;
+              import com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider;
+              import com.fasterxml.jackson.module.mrbean.MrBeanModule;
+
+              class Test {
+                  void configure() {
+                      ObjectMapper mapper = new ObjectMapper();
+                      mapper.registerModule(new MrBeanModule());
+                      JacksonJsonProvider provider = new JacksonJsonProvider(mapper);
+                      Class<?> mapperClass = JsonMappingExceptionMapper.class;
+                      SmileFactory smile = new SmileFactory();
+                      smile.configure(SmileGenerator.Feature.WRITE_HEADER, true);
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void jodaSerializersInAnnotations() {
+        rewriteRun(
+          // the annotation attributes keep the type arguments of the Jackson 1 JsonSerializer and JsonDeserializer
+          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder()
+            .parserTypedTrees(ParserTypes.Erasure).build()),
+          //language=java
+          java(
+            """
+              import org.codehaus.jackson.map.annotate.JsonDeserialize;
+              import org.codehaus.jackson.map.annotate.JsonSerialize;
+              import org.codehaus.jackson.map.ext.JodaDeserializers.LocalDateDeserializer;
+              import org.codehaus.jackson.map.ext.JodaSerializers.DateTimeSerializer;
+              import org.codehaus.jackson.map.ext.JodaSerializers.LocalDateSerializer;
+              import org.joda.time.DateTime;
+              import org.joda.time.LocalDate;
+
+              class Classified {
+                  @JsonSerialize(using = DateTimeSerializer.class)
+                  private DateTime created;
+
+                  @JsonSerialize(using = LocalDateSerializer.class)
+                  @JsonDeserialize(using = LocalDateDeserializer.class)
+                  private LocalDate day;
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+              import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+              import com.fasterxml.jackson.datatype.joda.deser.LocalDateDeserializer;
+              import com.fasterxml.jackson.datatype.joda.ser.DateTimeSerializer;
+              import com.fasterxml.jackson.datatype.joda.ser.LocalDateSerializer;
+              import org.joda.time.DateTime;
+              import org.joda.time.LocalDate;
+
+              class Classified {
+                  @JsonSerialize(using = DateTimeSerializer.class)
+                  private DateTime created;
+
+                  @JsonSerialize(using = LocalDateSerializer.class)
+                  @JsonDeserialize(using = LocalDateDeserializer.class)
+                  private LocalDate day;
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void customSerializerFactoryToSimpleModule() {
+        rewriteRun(
+          // the ObjectMapper move keeps the void that Jackson 1's registerModule returns, and the calls keep the exceptions
+          // their Jackson 1 methods declare
+          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
+          //language=java
+          java(
+            """
+              import java.io.IOException;
+              import java.util.Date;
+
+              import org.codehaus.jackson.JsonGenerator;
+              import org.codehaus.jackson.map.JsonSerializer;
+              import org.codehaus.jackson.map.ObjectMapper;
+              import org.codehaus.jackson.map.SerializerProvider;
+              import org.codehaus.jackson.map.ser.CustomSerializerFactory;
+
+              class CustomObjectMapper extends ObjectMapper {
+                  CustomObjectMapper() {
+                      CustomSerializerFactory factory = new CustomSerializerFactory();
+                      factory.addGenericMapping(Date.class, new JsonSerializer<Date>() {
+                          @Override
+                          public void serialize(Date value, JsonGenerator gen, SerializerProvider provider) throws IOException {
+                              gen.writeNumber(value.getTime());
+                          }
+                      });
+                      this.setSerializerFactory(factory);
+                  }
+              }
+              """,
+            """
+              import java.io.IOException;
+              import java.util.Date;
+
+              import com.fasterxml.jackson.core.JsonGenerator;
+              import com.fasterxml.jackson.core.Version;
+              import com.fasterxml.jackson.databind.JsonSerializer;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.databind.SerializerProvider;
+              import com.fasterxml.jackson.databind.module.SimpleModule;
+
+              class CustomObjectMapper extends ObjectMapper {
+                  CustomObjectMapper() {
+                      SimpleModule factory = new SimpleModule("CustomObjectMapper", Version.unknownVersion());
+                      factory.addSerializer(Date.class, new JsonSerializer<Date>() {
+                          @Override
+                          public void serialize(Date value, JsonGenerator gen, SerializerProvider provider) throws IOException {
+                              gen.writeNumber(value.getTime());
+                          }
+                      });
+                      this.registerModule(factory);
+                  }
+              }
+              """
+          )
+        );
     }
 
     @Test
@@ -380,7 +561,7 @@ class CodehausToFasterXMLTest implements RewriteTest {
     }
 
     @Test
-    void typesWithoutJackson2CounterpartKeepTheirNames() {
+    void typesWithoutJackson2CounterpartKeepTheirNamesAndAreMarked() {
         rewriteRun(
           //language=java
           java(
@@ -402,8 +583,8 @@ class CodehausToFasterXMLTest implements RewriteTest {
 
               class Test {
                   ObjectMapper mapper = new ObjectMapper();
-                  CustomSerializerFactory factory = new CustomSerializerFactory();
-                  Class<?> serializers = JodaSerializers.class;
+                  /*~~(Jackson 2 has no CustomSerializerFactory: add the serializers to a com.fasterxml.jackson.databind.module.SimpleModule with addSerializer and register it with ObjectMapper.registerModule)~~>*/CustomSerializerFactory factory = new /*~~(Jackson 2 has no CustomSerializerFactory: add the serializers to a com.fasterxml.jackson.databind.module.SimpleModule with addSerializer and register it with ObjectMapper.registerModule)~~>*/CustomSerializerFactory();
+                  Class<?> serializers = /*~~(Jackson 2 handles Joda types in jackson-datatype-joda: register com.fasterxml.jackson.datatype.joda.JodaModule with ObjectMapper.registerModule, or name its serializers in com.fasterxml.jackson.datatype.joda.ser and .deser)~~>*/JodaSerializers.class;
               }
               """
           )
