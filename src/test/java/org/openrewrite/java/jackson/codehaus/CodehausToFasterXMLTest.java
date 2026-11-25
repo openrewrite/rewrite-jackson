@@ -581,6 +581,45 @@ class CodehausToFasterXMLTest implements RewriteTest {
     }
 
     @Test
+    void jodaSerializersOnCustomSerializerFactoryToJodaModule() {
+        rewriteRun(
+          // the ObjectMapper move keeps the void that Jackson 1's registerModule returns
+          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
+          //language=java
+          java(
+            """
+              import org.codehaus.jackson.map.ObjectMapper;
+              import org.codehaus.jackson.map.ext.JodaSerializers;
+              import org.codehaus.jackson.map.ser.CustomSerializerFactory;
+              import org.joda.time.DateTime;
+
+              class JsonConfig {
+                  ObjectMapper mapper() {
+                      ObjectMapper mapper = new ObjectMapper();
+                      CustomSerializerFactory factory = new CustomSerializerFactory();
+                      factory.addSpecificMapping(DateTime.class, new JodaSerializers.DateTimeSerializer());
+                      mapper.setSerializerFactory(factory);
+                      return mapper;
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.ObjectMapper;
+              import com.fasterxml.jackson.datatype.joda.JodaModule;
+
+              class JsonConfig {
+                  ObjectMapper mapper() {
+                      ObjectMapper mapper = new ObjectMapper();
+                      mapper.registerModule(new JodaModule());
+                      return mapper;
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void springXmlBeanClass() {
         rewriteRun(
           //language=xml

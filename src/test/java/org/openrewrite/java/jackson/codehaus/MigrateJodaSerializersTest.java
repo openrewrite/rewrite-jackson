@@ -99,4 +99,211 @@ class MigrateJodaSerializersTest implements RewriteTest {
           )
         );
     }
+
+    @Test
+    void moduleOfOnlyJodaSerializersIsReplacedByJodaModule() {
+        rewriteRun(
+          // JodaModule is a Jackson 2 module, registered on a Jackson 1 mapper until CodehausClassesToFasterXML moves it
+          spec -> spec.typeValidationOptions(TypeValidation.none()),
+          mavenProject("my-app",
+            srcMainJava(
+              //language=java
+              java(
+                """
+                  import org.codehaus.jackson.Version;
+                  import org.codehaus.jackson.map.ObjectMapper;
+                  import org.codehaus.jackson.map.ext.JodaDeserializers;
+                  import org.codehaus.jackson.map.ext.JodaSerializers;
+                  import org.codehaus.jackson.map.module.SimpleModule;
+                  import org.joda.time.DateTime;
+
+                  class JsonConfig {
+                      ObjectMapper mapper() {
+                          ObjectMapper mapper = new ObjectMapper();
+                          SimpleModule module = new SimpleModule("joda", Version.unknownVersion());
+                          module.addSerializer(DateTime.class, new JodaSerializers.DateTimeSerializer());
+                          module.addDeserializer(DateTime.class, new JodaDeserializers.DateTimeDeserializer());
+                          mapper.registerModule(module);
+                          return mapper;
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.datatype.joda.JodaModule;
+                  import org.codehaus.jackson.map.ObjectMapper;
+
+                  class JsonConfig {
+                      ObjectMapper mapper() {
+                          ObjectMapper mapper = new ObjectMapper();
+                          mapper.registerModule(new JodaModule());
+                          return mapper;
+                      }
+                  }
+                  """
+              )
+            ),
+            //language=xml
+            pomXml(
+              """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>com.mycompany.app</groupId>
+                    <artifactId>my-app</artifactId>
+                    <version>1</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.codehaus.jackson</groupId>
+                            <artifactId>jackson-mapper-asl</artifactId>
+                            <version>1.9.13</version>
+                        </dependency>
+                    </dependencies>
+                </project>
+                """,
+              spec -> spec.after(pom -> {
+                  assertThat(pom).contains("<artifactId>jackson-datatype-joda</artifactId>");
+                  return pom;
+              })
+            )
+          )
+        );
+    }
+
+    @Test
+    void jodaSerializersMoveOutOfModuleWithOtherSerializers() {
+        rewriteRun(
+          spec -> spec.typeValidationOptions(TypeValidation.none()),
+          mavenProject("my-app",
+            srcMainJava(
+              //language=java
+              java(
+                """
+                  import org.codehaus.jackson.JsonGenerator;
+                  import org.codehaus.jackson.map.JsonSerializer;
+                  import org.codehaus.jackson.map.SerializerProvider;
+
+                  public class StringUnicodeSerializer extends JsonSerializer<String> {
+                      @Override
+                      public void serialize(String value, JsonGenerator gen, SerializerProvider provider) {
+                      }
+                  }
+                  """
+              ),
+              //language=java
+              java(
+                """
+                  import org.codehaus.jackson.Version;
+                  import org.codehaus.jackson.map.ObjectMapper;
+                  import org.codehaus.jackson.map.ext.JodaSerializers.LocalDateSerializer;
+                  import org.codehaus.jackson.map.module.SimpleModule;
+                  import org.joda.time.LocalDate;
+
+                  class JsonConfig {
+                      void configure(ObjectMapper mapper) {
+                          SimpleModule module = new SimpleModule("custom", Version.unknownVersion());
+                          module.addSerializer(String.class, new StringUnicodeSerializer());
+                          module.addSerializer(LocalDate.class, new LocalDateSerializer());
+                          mapper.registerModule(module);
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.datatype.joda.JodaModule;
+                  import org.codehaus.jackson.Version;
+                  import org.codehaus.jackson.map.ObjectMapper;
+                  import org.codehaus.jackson.map.module.SimpleModule;
+
+                  class JsonConfig {
+                      void configure(ObjectMapper mapper) {
+                          SimpleModule module = new SimpleModule("custom", Version.unknownVersion());
+                          module.addSerializer(String.class, new StringUnicodeSerializer());
+                          mapper.registerModule(module);
+                          mapper.registerModule(new JodaModule());
+                      }
+                  }
+                  """
+              )
+            ),
+            //language=xml
+            pomXml(
+              """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>com.mycompany.app</groupId>
+                    <artifactId>my-app</artifactId>
+                    <version>1</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.codehaus.jackson</groupId>
+                            <artifactId>jackson-mapper-asl</artifactId>
+                            <version>1.9.13</version>
+                        </dependency>
+                    </dependencies>
+                </project>
+                """,
+              spec -> spec.after(pom -> {
+                  assertThat(pom).contains("<artifactId>jackson-datatype-joda</artifactId>");
+                  return pom;
+              })
+            )
+          )
+        );
+    }
+
+    @Test
+    void moduleRegisteredElsewhereKeepsSerializerTypeChange() {
+        rewriteRun(
+          spec -> spec.typeValidationOptions(TypeValidation.none()),
+          mavenProject("my-app",
+            srcMainJava(
+              //language=java
+              java(
+                """
+                  import org.codehaus.jackson.map.ext.JodaSerializers;
+                  import org.codehaus.jackson.map.module.SimpleModule;
+                  import org.joda.time.DateTime;
+
+                  class JsonConfig {
+                      void configure(SimpleModule module) {
+                          module.addSerializer(DateTime.class, new JodaSerializers.DateTimeSerializer());
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.datatype.joda.ser.DateTimeSerializer;
+                  import org.codehaus.jackson.map.module.SimpleModule;
+                  import org.joda.time.DateTime;
+
+                  class JsonConfig {
+                      void configure(SimpleModule module) {
+                          module.addSerializer(DateTime.class, new DateTimeSerializer());
+                      }
+                  }
+                  """
+              )
+            ),
+            //language=xml
+            pomXml(
+              """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>com.mycompany.app</groupId>
+                    <artifactId>my-app</artifactId>
+                    <version>1</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.codehaus.jackson</groupId>
+                            <artifactId>jackson-mapper-asl</artifactId>
+                            <version>1.9.13</version>
+                        </dependency>
+                    </dependencies>
+                </project>
+                """,
+              spec -> spec.after(pom -> {
+                  assertThat(pom).contains("<artifactId>jackson-datatype-joda</artifactId>");
+                  return pom;
+              })
+            )
+          )
+        );
+    }
 }

@@ -26,6 +26,7 @@ import org.openrewrite.java.dependencies.search.DoesNotIncludeDependency;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.JavaSourceFile;
 import org.openrewrite.java.marker.JavaProject;
+import org.openrewrite.java.marker.JavaSourceSet;
 import org.openrewrite.marker.SearchResult;
 
 import java.util.*;
@@ -127,12 +128,16 @@ public class CodehausDependencyToFasterXML extends Recipe {
     /**
      * Adds the Jackson 2 artifact where the types it is for are used, and leaves alone the build files that already
      * declare it, where {@link AddDependency} would move the declared version to the newest release, and the modules
-     * that use one of the types of an artifact that brings it, where it would be added to a narrower scope than that
-     * artifact brings it in, such as the test scope when only tests use it directly, and so hide it from the main code.
+     * where an artifact that brings it is added to every source set that uses its types, where it would be added to a
+     * narrower scope than that artifact brings it in, such as the test scope when only tests use it directly, and so
+     * hide it from the main code. An artifact used in the main source set is available to every source set; one used
+     * only in another source set, such as the tests, is available to that source set alone.
      */
     @Getter
     @EqualsAndHashCode(callSuper = false, exclude = "delegate")
     static class AddJackson2Dependency extends ScanningRecipe<AddJackson2Dependency.Accumulator> {
+        private static final String MAIN = "main";
+
         private final String groupId;
         private final String artifactId;
         private final String version;
@@ -161,7 +166,28 @@ public class CodehausDependencyToFasterXML extends Recipe {
 
         static class Accumulator {
             AddDependency.@Nullable Accumulator delegate;
-            final Set<JavaProject> excluded = new HashSet<>();
+
+            /**
+             * The source sets of each project that use the types this artifact is for.
+             */
+            final Map<JavaProject, Set<String>> using = new HashMap<>();
+
+            /**
+             * The source sets of each project that use the types of an artifact that brings this one.
+             */
+            final Map<JavaProject, Set<String>> broughtIn = new HashMap<>();
+
+            boolean isExcluded(JavaProject project) {
+                Set<String> usedIn = using.get(project);
+                Set<String> bringingIn = broughtIn.get(project);
+                if (usedIn == null || bringingIn == null) {
+                    return false;
+                }
+                if (bringingIn.contains(MAIN)) {
+                    return true;
+                }
+                return bringingIn.containsAll(usedIn);
+            }
         }
 
         @Override
@@ -178,17 +204,22 @@ public class CodehausDependencyToFasterXML extends Recipe {
                 @Override
                 public @Nullable Tree visit(@Nullable Tree tree, ExecutionContext ctx) {
                     scanner.visit(tree, ctx);
-                    if (tree instanceof JavaSourceFile) {
-                        tree.getMarkers().findFirst(JavaProject.class).ifPresent(project -> {
-                            if (!acc.excluded.contains(project)) {
-                                for (String type : notIfUsing) {
-                                    if (new UsesType<>(type, false).visit(tree, ctx) != tree) {
-                                        acc.excluded.add(project);
-                                        break;
-                                    }
+                    if (tree instanceof JavaSourceFile && !notIfUsing.isEmpty()) {
+                        JavaProject project = tree.getMarkers().findFirst(JavaProject.class).orElse(null);
+                        if (project != null) {
+                            String sourceSet = tree.getMarkers().findFirst(JavaSourceSet.class)
+                                    .map(JavaSourceSet::getName)
+                                    .orElse(MAIN);
+                            if (new UsesType<>(onlyIfUsing, true).visit(tree, ctx) != tree) {
+                                acc.using.computeIfAbsent(project, p -> new HashSet<>()).add(sourceSet);
+                            }
+                            for (String type : notIfUsing) {
+                                if (new UsesType<>(type, false).visit(tree, ctx) != tree) {
+                                    acc.broughtIn.computeIfAbsent(project, p -> new HashSet<>()).add(sourceSet);
+                                    break;
                                 }
                             }
-                        });
+                        }
                     }
                     return tree;
                 }
@@ -201,7 +232,7 @@ public class CodehausDependencyToFasterXML extends Recipe {
                 @Override
                 public @Nullable Tree visit(@Nullable Tree tree, ExecutionContext ctx) {
                     if (tree instanceof SourceFile &&
-                        !tree.getMarkers().findFirst(JavaProject.class).map(acc.excluded::contains).orElse(false)) {
+                        !tree.getMarkers().findFirst(JavaProject.class).map(acc::isExcluded).orElse(false)) {
                         return SearchResult.found(tree);
                     }
                     return tree;

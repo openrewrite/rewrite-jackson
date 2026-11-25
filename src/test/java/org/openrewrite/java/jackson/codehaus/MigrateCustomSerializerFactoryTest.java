@@ -223,4 +223,54 @@ class MigrateCustomSerializerFactoryTest implements RewriteTest {
           )
         );
     }
+
+    @Test
+    void onlyRegistrationOfMigratedFactoryIsRewritten() {
+        rewriteRun(
+          java(STRING_SERIALIZER),
+          //language=java
+          java(
+            """
+              import org.codehaus.jackson.map.ObjectMapper;
+              import org.codehaus.jackson.map.SerializerFactory;
+              import org.codehaus.jackson.map.ser.CustomSerializerFactory;
+
+              class JsonUtil {
+                  void configure(ObjectMapper mapper, ObjectMapper otherMapper, CustomSerializerFactory sharedFactory) {
+                      CustomSerializerFactory serializerFactory = new CustomSerializerFactory();
+                      serializerFactory.addSpecificMapping(String.class, new StringUnicodeSerializer());
+                      mapper.setSerializerFactory(serializerFactory);
+                      otherMapper.setSerializerFactory(createFactory());
+                      otherMapper.setSerializerFactory(sharedFactory);
+                  }
+
+                  SerializerFactory createFactory() {
+                      return new CustomSerializerFactory();
+                  }
+              }
+              """,
+            """
+              import org.codehaus.jackson.Version;
+              import org.codehaus.jackson.map.ObjectMapper;
+              import org.codehaus.jackson.map.SerializerFactory;
+              import org.codehaus.jackson.map.module.SimpleModule;
+              import org.codehaus.jackson.map.ser.CustomSerializerFactory;
+
+              class JsonUtil {
+                  void configure(ObjectMapper mapper, ObjectMapper otherMapper, CustomSerializerFactory sharedFactory) {
+                      SimpleModule serializerFactory = new SimpleModule("JsonUtil", Version.unknownVersion());
+                      serializerFactory.addSerializer(String.class, new StringUnicodeSerializer());
+                      mapper.registerModule(serializerFactory);
+                      otherMapper.setSerializerFactory(createFactory());
+                      otherMapper.setSerializerFactory(sharedFactory);
+                  }
+
+                  SerializerFactory createFactory() {
+                      return new CustomSerializerFactory();
+                  }
+              }
+              """
+          )
+        );
+    }
 }

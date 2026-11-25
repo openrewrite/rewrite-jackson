@@ -107,8 +107,7 @@ public class MigrateCustomSerializerFactory extends Recipe {
                         if (isVariable(method.getSelect(), name) &&
                             (ADD_SPECIFIC_MAPPING.matches(method) || ADD_GENERIC_MAPPING.matches(method))) {
                             rewritable++;
-                        } else if (SET_SERIALIZER_FACTORY.matches(method) && method.getArguments().size() == 1 &&
-                                   isVariable(method.getArguments().get(0), name)) {
+                        } else if (isRegistration(method, name)) {
                             rewritable++;
                             registered = true;
                         }
@@ -161,7 +160,7 @@ public class MigrateCustomSerializerFactory extends Recipe {
                                     .withSelect(retype((J.Identifier) method.getSelect(), simpleModule, moduleVariable))
                                     .withName(method.getName().withSimpleName("addSerializer").withType(addSerializer))
                                     .withMethodType(addSerializer);
-                        } else if (SET_SERIALIZER_FACTORY.matches(method)) {
+                        } else if (isRegistration(method, name)) {
                             JavaType.Method registerModule = registerModule(method.getMethodType());
                             if (registerModule == null) {
                                 return null;
@@ -178,6 +177,11 @@ public class MigrateCustomSerializerFactory extends Recipe {
                 return b.withStatements(newStatements);
             }
         });
+    }
+
+    private static boolean isRegistration(J.MethodInvocation method, String name) {
+        return SET_SERIALIZER_FACTORY.matches(method) && method.getArguments().size() == 1 &&
+               isVariable(method.getArguments().get(0), name);
     }
 
     private static boolean isVariable(@Nullable Expression expression, String name) {

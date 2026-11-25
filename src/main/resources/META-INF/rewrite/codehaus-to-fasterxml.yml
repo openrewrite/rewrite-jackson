@@ -1566,13 +1566,16 @@ name: org.openrewrite.java.jackson.codehaus.MigrateJodaSerializers
 displayName: Migrate Jackson Codehaus (legacy) Joda serializers to `jackson-datatype-joda`
 description: >-
   Jackson 1 handled Joda types in `jackson-mapper-asl`, through `JodaSerializers` and `JodaDeserializers`. Jackson 2
-  moved that support to the `jackson-datatype-joda` module. Moves each Jackson 1 Joda serializer and deserializer, such as
-  the one named in `@JsonSerialize(using = JodaSerializers.DateTimeSerializer.class)`, to its counterpart in
-  `jackson-datatype-joda`, and adds that module where they are used. `FindJackson1TypesWithoutJackson2Equivalent` marks
-  the other references to `JodaSerializers` and `JodaDeserializers`, where registering `JodaModule` takes their place.
+  moved that support to the `jackson-datatype-joda` module. Where the Jackson 1 Joda serializers are added to a
+  `SimpleModule` registered on a mapper, registers `JodaModule` on that mapper instead. Moves each other Jackson 1 Joda
+  serializer and deserializer, such as the one named in `@JsonSerialize(using = JodaSerializers.DateTimeSerializer.class)`,
+  to its counterpart in `jackson-datatype-joda`, and adds that module where they are used.
+  `FindJackson1TypesWithoutJackson2Equivalent` marks the other references to `JodaSerializers` and `JodaDeserializers`,
+  where registering `JodaModule` takes their place.
 tags:
   - jackson-2
 recipeList:
+  - org.openrewrite.java.jackson.codehaus.MigrateJodaModuleRegistration
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: org.codehaus.jackson.map.ext.JodaSerializers$DateMidnightSerializer
       newFullyQualifiedTypeName: com.fasterxml.jackson.datatype.joda.ser.DateMidnightSerializer

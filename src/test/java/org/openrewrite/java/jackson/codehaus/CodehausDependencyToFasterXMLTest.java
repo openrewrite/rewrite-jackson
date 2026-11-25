@@ -571,6 +571,79 @@ class CodehausDependencyToFasterXMLTest implements RewriteTest {
     }
 
     @Test
+    void mainCodeKeepsArtifactsThatTestScopedDatabindWouldBring() {
+        rewriteRun(
+          spec -> spec.recipe(new CodehausDependencyToFasterXML("2.14.x")),
+          mavenProject("my-app",
+            //language=java
+            srcMainJava(java(
+              """
+                import org.codehaus.jackson.annotate.JsonIgnore;
+                import org.codehaus.jackson.JsonParser;
+
+                class Dto {
+                    @JsonIgnore
+                    String name;
+                    JsonParser parser;
+                }
+                """
+            )),
+            //language=java
+            srcTestJava(java(MAPPER_USER)),
+            //language=xml
+            pomXml(
+              """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>com.mycompany.app</groupId>
+                    <artifactId>my-app</artifactId>
+                    <version>1</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.apache.avro</groupId>
+                            <artifactId>avro</artifactId>
+                            <version>1.7.7</version>
+                        </dependency>
+                    </dependencies>
+                </project>
+                """,
+              """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>com.mycompany.app</groupId>
+                    <artifactId>my-app</artifactId>
+                    <version>1</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>com.fasterxml.jackson.core</groupId>
+                            <artifactId>jackson-annotations</artifactId>
+                            <version>2.14.3</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>com.fasterxml.jackson.core</groupId>
+                            <artifactId>jackson-core</artifactId>
+                            <version>2.14.3</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.avro</groupId>
+                            <artifactId>avro</artifactId>
+                            <version>1.7.7</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>com.fasterxml.jackson.core</groupId>
+                            <artifactId>jackson-databind</artifactId>
+                            <version>2.14.3</version>
+                            <scope>test</scope>
+                        </dependency>
+                    </dependencies>
+                </project>
+                """
+            )
+          )
+        );
+    }
+
+    @Test
     void testScopeWhenOnlyTestsUseJackson1() {
         rewriteRun(
           spec -> spec.recipe(new CodehausDependencyToFasterXML("2.14.x")),

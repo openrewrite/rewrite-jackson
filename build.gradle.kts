@@ -49,10 +49,12 @@ recipeDependencies {
     parserClasspath("tools.jackson.core:jackson-core:$jackson3")
     parserClasspath("tools.jackson.core:jackson-databind:$jackson3")
 
+    // Needed by the template parser of MigrateJodaModuleRegistration to resolve JodaModule
+    parserClasspath("com.fasterxml.jackson.datatype:jackson-datatype-joda:2.19.2")
+
     parserClasspath("org.codehaus.jackson:jackson-core-asl:1.9.13")
     parserClasspath("org.codehaus.jackson:jackson-mapper-asl:1.9.13")
 
-    testParserClasspath("com.fasterxml.jackson.datatype:jackson-datatype-joda:2.19.2")
     testParserClasspath("com.fasterxml.jackson.jaxrs:jackson-jaxrs-base:2.19.2")
     testParserClasspath("com.fasterxml.jackson.jaxrs:jackson-jaxrs-json-provider:2.19.2")
     testParserClasspath("com.fasterxml.jackson.module:jackson-module-jaxb-annotations:2.19.2")
