@@ -21,6 +21,7 @@ import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
+import org.openrewrite.test.TypeValidation;
 
 import static org.openrewrite.java.Assertions.java;
 
@@ -76,6 +77,59 @@ class FindJackson1TypesWithoutJackson2EquivalentTest implements RewriteTest {
 
               class Test {
                   ObjectMapper mapper = new ObjectMapper();
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void marksDependencyClassBuiltOnJackson1() {
+        rewriteRun(
+          // a Jackson 2 SimpleModule takes no Jackson 1 deserializer, which is the compile error the marker explains
+          spec -> spec.typeValidationOptions(TypeValidation.none()).parser(JavaParser.fromJavaVersion()
+            .classpathFromResources(new InMemoryExecutionContext(), "jackson-core-asl", "jackson-mapper-asl", "jackson-databind-2", "jackson-core-2")
+            //language=java
+            .dependsOn(
+              """
+                package com.acme.lib;
+                public class Route {}
+                """,
+              """
+                package com.acme.lib;
+                import org.codehaus.jackson.JsonParser;
+                import org.codehaus.jackson.map.DeserializationContext;
+                import org.codehaus.jackson.map.JsonDeserializer;
+                public class RouteDeserializer extends JsonDeserializer<Route> {
+                    @Override
+                    public Route deserialize(JsonParser p, DeserializationContext ctxt) {
+                        return null;
+                    }
+                }
+                """
+            )),
+          //language=java
+          java(
+            """
+              import com.acme.lib.Route;
+              import com.acme.lib.RouteDeserializer;
+              import com.fasterxml.jackson.databind.module.SimpleModule;
+
+              class Test {
+                  void configure(SimpleModule module) {
+                      module.addDeserializer(Route.class, new RouteDeserializer());
+                  }
+              }
+              """,
+            """
+              import com.acme.lib.Route;
+              import com.acme.lib.RouteDeserializer;
+              import com.fasterxml.jackson.databind.module.SimpleModule;
+
+              class Test {
+                  void configure(SimpleModule module) {
+                      module.addDeserializer(Route.class, /*~~(com.acme.lib.RouteDeserializer is built on Jackson 1 (it extends org.codehaus.jackson.map.JsonDeserializer), and Jackson 2 can't use it: upgrade the dependency that declares it to a version built on Jackson 2, or replace it with a class of your own)~~>*/new RouteDeserializer());
+                  }
               }
               """
           )

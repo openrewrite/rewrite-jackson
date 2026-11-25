@@ -20,13 +20,17 @@ import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
+import org.openrewrite.Tree;
 import org.openrewrite.TreeVisitor;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.J;
+import org.openrewrite.java.tree.JavaSourceFile;
 import org.openrewrite.java.tree.JavaType;
 import org.openrewrite.java.tree.TypeUtils;
 import org.openrewrite.marker.SearchResult;
+
+import java.util.*;
 
 public class FindJackson1TypesWithoutJackson2Equivalent extends Recipe {
 
@@ -36,11 +40,26 @@ public class FindJackson1TypesWithoutJackson2Equivalent extends Recipe {
     @Getter
     final String description = "Marks each reference to a Jackson 1 (`org.codehaus.jackson`) type that is left after the " +
                                "migration to Jackson 2, which are the types Jackson 2 dropped without a counterpart of the " +
-                               "same name, and names the Jackson 2 mechanism to use in its place.";
+                               "same name, and names the Jackson 2 mechanism to use in its place. Also marks each " +
+                               "instance created of a class from a dependency that is still built on Jackson 1, which " +
+                               "Jackson 2 can't use.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
-        return Preconditions.check(new UsesType<>("org.codehaus.jackson..*", false), new JavaIsoVisitor<ExecutionContext>() {
+        return Preconditions.check(Preconditions.or(new UsesType<>("org.codehaus.jackson..*", false), new UsesJackson1Subtype()), new JavaIsoVisitor<ExecutionContext>() {
+            @Override
+            public J.NewClass visitNewClass(J.NewClass newClass, ExecutionContext ctx) {
+                J.NewClass n = super.visitNewClass(newClass, ctx);
+                JavaType.FullyQualified type = TypeUtils.asFullyQualified(n.getType());
+                String jackson1 = type == null || isJackson1(type) ? null : jackson1Supertype(type);
+                if (jackson1 != null && n.getBody() == null) {
+                    return SearchResult.found(n, type.getFullyQualifiedName() + " is built on Jackson 1 (it extends " + jackson1 +
+                                                 "), and Jackson 2 can't use it: upgrade the dependency that declares it to a " +
+                                                 "version built on Jackson 2, or replace it with a class of your own");
+                }
+                return n;
+            }
+
             @Override
             public J.Import visitImport(J.Import _import, ExecutionContext ctx) {
                 return _import;
@@ -71,6 +90,53 @@ public class FindJackson1TypesWithoutJackson2Equivalent extends Recipe {
                 return identifier;
             }
         });
+    }
+
+    private static boolean isJackson1(JavaType.FullyQualified type) {
+        return type.getFullyQualifiedName().startsWith("org.codehaus.jackson.");
+    }
+
+    /**
+     * The Jackson 1 type a type extends or implements, if any. After the migration only a type declared in a dependency
+     * still does, since the migration moved the supertypes of the types in the sources to Jackson 2.
+     */
+    private static @Nullable String jackson1Supertype(JavaType.FullyQualified type) {
+        Set<String> seen = new HashSet<>();
+        Deque<JavaType.FullyQualified> queue = new ArrayDeque<>();
+        queue.add(type);
+        while (!queue.isEmpty()) {
+            JavaType.FullyQualified next = queue.poll();
+            if (!seen.add(next.getFullyQualifiedName())) {
+                continue;
+            }
+            if (next != type && isJackson1(next)) {
+                return next.getFullyQualifiedName();
+            }
+            if (next.getSupertype() != null) {
+                queue.add(next.getSupertype());
+            }
+            queue.addAll(next.getInterfaces());
+        }
+        return null;
+    }
+
+    /**
+     * Finds the source files that use a type built on Jackson 1, such as one from a dependency that still is.
+     */
+    private static class UsesJackson1Subtype extends JavaIsoVisitor<ExecutionContext> {
+        @Override
+        public @Nullable J visit(@Nullable Tree tree, ExecutionContext ctx) {
+            if (tree instanceof JavaSourceFile) {
+                for (JavaType type : ((JavaSourceFile) tree).getTypesInUse().getTypesInUse()) {
+                    JavaType.FullyQualified fq = TypeUtils.asFullyQualified(type);
+                    if (fq != null && !isJackson1(fq) && jackson1Supertype(fq) != null) {
+                        return SearchResult.found((JavaSourceFile) tree);
+                    }
+                }
+                return (J) tree;
+            }
+            return super.visit(tree, ctx);
+        }
     }
 
     /**
