@@ -54,6 +54,18 @@ recipeList:
 
   # Before the type moves, while the calls still resolve to the Jackson 1 types
   - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.map.ObjectMapper setDeserializationConfig(org.codehaus.jackson.map.DeserializationConfig)
+      newMethodName: setConfig
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.map.ObjectMapper setSerializationConfig(org.codehaus.jackson.map.SerializationConfig)
+      newMethodName: setConfig
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.map.MapperConfig withAnnotationIntrospector(org.codehaus.jackson.map.AnnotationIntrospector)
+      newMethodName: with
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
       methodPattern: org.codehaus.jackson.JsonNode getFieldNames()
       newMethodName: fieldNames
       matchOverrides: true

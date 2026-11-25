@@ -644,6 +644,98 @@ class CodehausDependencyToFasterXMLTest implements RewriteTest {
     }
 
     @Test
+    void jackson1RemovedWhereJackson2CounterpartIsAlreadyDeclared() {
+        rewriteRun(
+          spec -> spec.recipe(new CodehausDependencyToFasterXML("2.x")),
+          mavenProject("my-app",
+            //language=java
+            srcMainJava(java(MAPPER_USER)),
+            //language=xml
+            pomXml(
+              """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>com.mycompany.app</groupId>
+                    <artifactId>my-app</artifactId>
+                    <version>1</version>
+                    <properties>
+                        <jackson.version>2.5.4</jackson.version>
+                        <jackson1.version>1.9.13</jackson1.version>
+                    </properties>
+                    <dependencyManagement>
+                        <dependencies>
+                            <dependency>
+                                <groupId>com.fasterxml.jackson.core</groupId>
+                                <artifactId>jackson-databind</artifactId>
+                                <version>${jackson.version}</version>
+                            </dependency>
+                            <dependency>
+                                <groupId>com.fasterxml.jackson.jaxrs</groupId>
+                                <artifactId>jackson-jaxrs-json-provider</artifactId>
+                                <version>${jackson.version}</version>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.codehaus.jackson</groupId>
+                                <artifactId>jackson-mapper-asl</artifactId>
+                                <version>${jackson1.version}</version>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.codehaus.jackson</groupId>
+                                <artifactId>jackson-jaxrs</artifactId>
+                                <version>${jackson1.version}</version>
+                            </dependency>
+                        </dependencies>
+                    </dependencyManagement>
+                    <dependencies>
+                        <dependency>
+                            <groupId>com.fasterxml.jackson.core</groupId>
+                            <artifactId>jackson-databind</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.codehaus.jackson</groupId>
+                            <artifactId>jackson-mapper-asl</artifactId>
+                        </dependency>
+                    </dependencies>
+                </project>
+                """,
+              """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>com.mycompany.app</groupId>
+                    <artifactId>my-app</artifactId>
+                    <version>1</version>
+                    <properties>
+                        <jackson.version>2.5.4</jackson.version>
+                        <jackson1.version>1.9.13</jackson1.version>
+                    </properties>
+                    <dependencyManagement>
+                        <dependencies>
+                            <dependency>
+                                <groupId>com.fasterxml.jackson.core</groupId>
+                                <artifactId>jackson-databind</artifactId>
+                                <version>${jackson.version}</version>
+                            </dependency>
+                            <dependency>
+                                <groupId>com.fasterxml.jackson.jaxrs</groupId>
+                                <artifactId>jackson-jaxrs-json-provider</artifactId>
+                                <version>${jackson.version}</version>
+                            </dependency>
+                        </dependencies>
+                    </dependencyManagement>
+                    <dependencies>
+                        <dependency>
+                            <groupId>com.fasterxml.jackson.core</groupId>
+                            <artifactId>jackson-databind</artifactId>
+                        </dependency>
+                    </dependencies>
+                </project>
+                """
+            )
+          )
+        );
+    }
+
+    @Test
     void testScopeWhenOnlyTestsUseJackson1() {
         rewriteRun(
           spec -> spec.recipe(new CodehausDependencyToFasterXML("2.14.x")),
@@ -723,6 +815,43 @@ class CodehausDependencyToFasterXMLTest implements RewriteTest {
                 dependencies {
                     implementation "com.fasterxml.jackson.core:jackson-databind:2.14.3"
                     implementation 'org.apache.avro:avro:1.7.7'
+                }
+                """
+            )
+          )
+        );
+    }
+
+    @Test
+    void gradleJackson1RemovedWhereJackson2CounterpartIsAlreadyDeclared() {
+        rewriteRun(
+          spec -> spec.recipe(new CodehausDependencyToFasterXML("2.x")).beforeRecipe(withToolingApi()),
+          mavenProject("my-app",
+            //language=java
+            srcMainJava(java(MAPPER_USER)),
+            //language=groovy
+            buildGradle(
+              """
+                plugins {
+                    id 'java-library'
+                }
+                repositories {
+                    mavenCentral()
+                }
+                dependencies {
+                    implementation 'com.fasterxml.jackson.core:jackson-databind:2.5.4'
+                    implementation 'org.codehaus.jackson:jackson-mapper-asl:1.9.13'
+                }
+                """,
+              """
+                plugins {
+                    id 'java-library'
+                }
+                repositories {
+                    mavenCentral()
+                }
+                dependencies {
+                    implementation 'com.fasterxml.jackson.core:jackson-databind:2.5.4'
                 }
                 """
             )

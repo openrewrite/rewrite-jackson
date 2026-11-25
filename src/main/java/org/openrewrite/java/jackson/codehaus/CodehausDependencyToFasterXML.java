@@ -20,6 +20,9 @@ import lombok.Getter;
 import lombok.Value;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.*;
+import org.openrewrite.gradle.IsBuildGradle;
+import org.openrewrite.gradle.marker.GradleDependencyConfiguration;
+import org.openrewrite.gradle.marker.GradleProject;
 import org.openrewrite.java.dependencies.AddDependency;
 import org.openrewrite.java.dependencies.ChangeDependency;
 import org.openrewrite.java.dependencies.search.DoesNotIncludeDependency;
@@ -28,10 +31,14 @@ import org.openrewrite.java.tree.JavaSourceFile;
 import org.openrewrite.java.marker.JavaProject;
 import org.openrewrite.java.marker.JavaSourceSet;
 import org.openrewrite.marker.SearchResult;
+import org.openrewrite.maven.MavenIsoVisitor;
+import org.openrewrite.xml.tree.Content;
+import org.openrewrite.xml.tree.Xml;
 
 import java.util.*;
 
 import static java.util.Collections.emptyList;
+import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
 
 @Value
@@ -108,6 +115,7 @@ public class CodehausDependencyToFasterXML extends Recipe {
     @Override
     public List<Recipe> getRecipeList() {
         List<Recipe> recipes = new ArrayList<>();
+        recipes.add(new RemoveJackson1WhereJackson2Declared());
         String newVersion = version == null ? "2.x" : version;
         for (String[] artifact : ARTIFACTS) {
             recipes.add(new ChangeDependency(CODEHAUS, artifact[0], artifact[1], artifact[2], newVersion,
@@ -123,6 +131,137 @@ public class CodehausDependencyToFasterXML extends Recipe {
             }
         }
         return recipes;
+    }
+
+    /**
+     * Removes a Jackson 1 dependency from a {@code <dependencies>} section of a POM that already declares its Jackson 2
+     * counterpart in a scope at least as broad, or from a Gradle configuration that is or extends one that declares it,
+     * where changing it would give the build a second declaration of the Jackson 2 artifact and move the one already
+     * there, and the version property of the Jackson 1 one, to the newest release.
+     */
+    static class RemoveJackson1WhereJackson2Declared extends Recipe {
+        @Getter
+        final String displayName = "Remove Jackson 1 dependencies whose Jackson 2 counterpart is already declared";
+
+        @Getter
+        final String description = "Removes a Jackson 1 dependency, or managed dependency, from a POM section or Gradle " +
+                                   "configuration that already has the Jackson 2 artifact that replaces it, which keeps that " +
+                                   "declaration and its version.";
+
+        @Override
+        public TreeVisitor<?, ExecutionContext> getVisitor() {
+            TreeVisitor<?, ExecutionContext> maven = mavenVisitor();
+            return new TreeVisitor<Tree, ExecutionContext>() {
+                @Override
+                public @Nullable Tree visit(@Nullable Tree tree, ExecutionContext ctx) {
+                    if (tree instanceof Xml.Document) {
+                        return maven.visit(tree, ctx);
+                    }
+                    if (tree instanceof SourceFile && IsBuildGradle.matches(((SourceFile) tree).getSourcePath())) {
+                        GradleProject project = tree.getMarkers().findFirst(GradleProject.class).orElse(null);
+                        if (project != null) {
+                            Tree t = tree;
+                            for (String[] removal : gradleRemovals(project)) {
+                                t = new org.openrewrite.gradle.RemoveDependency(CODEHAUS, removal[0], removal[1]).getVisitor().visit(t, ctx);
+                            }
+                            return t;
+                        }
+                    }
+                    return tree;
+                }
+            };
+        }
+
+        /**
+         * The Jackson 1 artifact and configuration of each dependency declared in a configuration that is, or extends,
+         * one that declares its Jackson 2 counterpart.
+         */
+        private static List<String[]> gradleRemovals(GradleProject project) {
+            List<String[]> removals = new ArrayList<>();
+            for (GradleDependencyConfiguration configuration : project.getConfigurations()) {
+                for (org.openrewrite.maven.tree.Dependency dependency : configuration.getRequested()) {
+                    String jackson2 = CODEHAUS.equals(dependency.getGroupId()) && dependency.getClassifier() == null ?
+                            jackson2Counterpart(dependency.getArtifactId()) : null;
+                    if (jackson2 == null) {
+                        continue;
+                    }
+                    List<GradleDependencyConfiguration> covering = new ArrayList<>(configuration.allExtendsFrom());
+                    covering.add(configuration);
+                    for (GradleDependencyConfiguration c : covering) {
+                        if (c.getRequested().stream().anyMatch(d -> jackson2.equals(d.getGroupId() + ":" + d.getArtifactId()))) {
+                            removals.add(new String[]{dependency.getArtifactId(), configuration.getName()});
+                            break;
+                        }
+                    }
+                }
+            }
+            return removals;
+        }
+
+        private static TreeVisitor<?, ExecutionContext> mavenVisitor() {
+            return new MavenIsoVisitor<ExecutionContext>() {
+                @Override
+                public Xml.Tag visitTag(Xml.Tag tag, ExecutionContext ctx) {
+                    Xml.Tag t = super.visitTag(tag, ctx);
+                    if (!"dependencies".equals(t.getName()) || t.getContent() == null) {
+                        return t;
+                    }
+                    Map<String, Set<String>> declared = new HashMap<>();
+                    for (Xml.Tag dependency : t.getChildren("dependency")) {
+                        declared.computeIfAbsent(coordinates(dependency), k -> new HashSet<>()).add(scope(dependency));
+                    }
+                    List<Content> kept = new ArrayList<>(t.getContent().size());
+                    boolean removed = false;
+                    for (Content content : t.getContent()) {
+                        if (content instanceof Xml.Tag && "dependency".equals(((Xml.Tag) content).getName())) {
+                            Xml.Tag dependency = (Xml.Tag) content;
+                            String jackson2 = jackson2Counterpart(dependency);
+                            Set<String> jackson2Scopes = jackson2 == null ? emptySet() : declared.getOrDefault(jackson2, emptySet());
+                            if (jackson2Scopes.stream().anyMatch(scope -> holds(scope, scope(dependency)))) {
+                                removed = true;
+                                continue;
+                            }
+                        }
+                        kept.add(content);
+                    }
+                    return removed ? t.withContent(kept) : t;
+                }
+            };
+        }
+
+        private static String coordinates(Xml.Tag dependency) {
+            return dependency.getChildValue("groupId").orElse("") + ":" + dependency.getChildValue("artifactId").orElse("");
+        }
+
+        private static String scope(Xml.Tag dependency) {
+            return dependency.getChildValue("scope").orElse("compile");
+        }
+
+        private static @Nullable String jackson2Counterpart(Xml.Tag dependency) {
+            if (!CODEHAUS.equals(dependency.getChildValue("groupId").orElse(null)) ||
+                dependency.getChildValue("classifier").isPresent()) {
+                return null;
+            }
+            return jackson2Counterpart(dependency.getChildValue("artifactId").orElse(null));
+        }
+
+        private static @Nullable String jackson2Counterpart(@Nullable String artifactId) {
+            for (String[] artifact : ARTIFACTS) {
+                if (artifact[0].equals(artifactId)) {
+                    return artifact[1] + ":" + artifact[2];
+                }
+            }
+            return null;
+        }
+    }
+
+    /**
+     * Whether the classpath of a Maven scope holds the dependencies of another: compile holds every other scope, and
+     * provided and runtime each hold test.
+     */
+    private static boolean holds(String broad, String narrow) {
+        return broad.equals(narrow) || "compile".equals(broad) ||
+               "test".equals(narrow) && ("provided".equals(broad) || "runtime".equals(broad));
     }
 
     /**

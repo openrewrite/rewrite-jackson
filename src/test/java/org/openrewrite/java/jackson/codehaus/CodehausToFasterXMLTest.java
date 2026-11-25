@@ -425,6 +425,39 @@ class CodehausToFasterXMLTest implements RewriteTest {
     }
 
     @Test
+    void configWithAnnotationIntrospectorSetOnMapper() {
+        rewriteRun(
+          // the renamed methods keep the parameter and return types of Jackson 1's setDeserializationConfig and withAnnotationIntrospector
+          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(false).build()),
+          //language=java
+          java(
+            """
+              import org.codehaus.jackson.map.AnnotationIntrospector;
+              import org.codehaus.jackson.map.ObjectMapper;
+
+              class Test {
+                  void configure(ObjectMapper mapper, AnnotationIntrospector introspector) {
+                      mapper.setDeserializationConfig(mapper.getDeserializationConfig().withAnnotationIntrospector(introspector));
+                      mapper.setSerializationConfig(mapper.getSerializationConfig().withAnnotationIntrospector(introspector));
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.AnnotationIntrospector;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  void configure(ObjectMapper mapper, AnnotationIntrospector introspector) {
+                      mapper.setConfig(mapper.getDeserializationConfig().with(introspector));
+                      mapper.setConfig(mapper.getSerializationConfig().with(introspector));
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void companionModuleTypes() {
         rewriteRun(
           // the ObjectMapper move keeps the void that Jackson 1's registerModule returns, where Jackson 2's returns the mapper
