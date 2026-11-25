@@ -88,30 +88,26 @@ public class MigrateJodaModuleRegistration extends Recipe {
 
                     private J.@Nullable Block migrate(J.Block b, String module, Set<String> mappersWithJodaModule, ExecutionContext ctx) {
                         List<Statement> statements = b.getStatements();
-                        J.MethodInvocation registration = null;
+                        List<J.MethodInvocation> registrations = new ArrayList<>();
                         int jodaAdds = 0;
-                        int registrations = 0;
                         J.VariableDeclarations declaration = null;
                         for (Statement statement : statements) {
                             if (module.equals(jodaAddedTo(statement))) {
                                 jodaAdds++;
                             } else if (isRegistration(statement, module)) {
-                                registrations++;
-                                if (registration == null) {
-                                    registration = (J.MethodInvocation) statement;
-                                }
+                                registrations.add((J.MethodInvocation) statement);
                             } else if (declaration == null && declares(statement, module)) {
                                 declaration = (J.VariableDeclarations) statement;
                             }
                         }
-                        if (registration == null) {
+                        if (registrations.isEmpty()) {
                             return null;
                         }
 
-                        // The module can go when the Joda serializers and its registration are all that use it
+                        // The module can go when the Joda serializers and its registrations are all that use it
                         Cursor blockCursor = new Cursor(getCursor().getParentOrThrow(), b);
                         boolean dropModule = false;
-                        if (declaration != null && registrations == 1) {
+                        if (declaration != null) {
                             AtomicInteger references = new AtomicInteger();
                             JavaIsoVisitor<AtomicInteger> referenceCounter = new JavaIsoVisitor<AtomicInteger>() {
                                 @Override
@@ -127,20 +123,8 @@ public class MigrateJodaModuleRegistration extends Recipe {
                                     referenceCounter.visit(statement, references, blockCursor);
                                 }
                             }
-                            dropModule = references.get() == jodaAdds + registrations;
+                            dropModule = references.get() == jodaAdds + registrations.size();
                         }
-
-                        Expression argument = registration.getArguments().get(0);
-                        J.NewClass jodaModule = JavaTemplate.builder("new JodaModule()")
-                                .imports(JODA_MODULE)
-                                .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx,
-                                        "jackson-datatype-joda", "jackson-databind-2", "jackson-core-2", "jackson-annotations-2"))
-                                .build()
-                                .apply(new Cursor(new Cursor(blockCursor, registration), argument), argument.getCoordinates().replace());
-                        jodaModule = jodaModule.withPrefix(argument.getPrefix());
-                        J.MethodInvocation registerJodaModule = registration.withArguments(singletonList(jodaModule));
-                        String mapper = registration.getSelect() == null ? "this" :
-                                registration.getSelect().printTrimmed(new Cursor(blockCursor, registration));
 
                         List<Statement> newStatements = new ArrayList<>(statements.size());
                         for (Statement statement : statements) {
@@ -148,7 +132,11 @@ public class MigrateJodaModuleRegistration extends Recipe {
                                 removeImportsOf(statement);
                                 continue;
                             }
-                            if (statement == registration) {
+                            if (statement instanceof J.MethodInvocation && registrations.contains(statement)) {
+                                J.MethodInvocation registration = (J.MethodInvocation) statement;
+                                J.MethodInvocation registerJodaModule = registerJodaModule(registration, blockCursor, ctx);
+                                String mapper = registration.getSelect() == null ? "this" :
+                                        registration.getSelect().printTrimmed(new Cursor(blockCursor, registration));
                                 if (dropModule) {
                                     if (mappersWithJodaModule.add(mapper)) {
                                         newStatements.add(registerJodaModule);
@@ -165,6 +153,17 @@ public class MigrateJodaModuleRegistration extends Recipe {
                         }
                         maybeAddImport(JODA_MODULE);
                         return b.withStatements(newStatements);
+                    }
+
+                    private J.MethodInvocation registerJodaModule(J.MethodInvocation registration, Cursor blockCursor, ExecutionContext ctx) {
+                        Expression argument = registration.getArguments().get(0);
+                        J.NewClass jodaModule = JavaTemplate.builder("new JodaModule()")
+                                .imports(JODA_MODULE)
+                                .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx,
+                                        "jackson-datatype-joda", "jackson-databind-2", "jackson-core-2", "jackson-annotations-2"))
+                                .build()
+                                .apply(new Cursor(new Cursor(blockCursor, registration), argument), argument.getCoordinates().replace());
+                        return registration.withArguments(singletonList(jodaModule.withPrefix(argument.getPrefix())));
                     }
 
                     private void removeImportsOf(Statement statement) {

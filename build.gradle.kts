@@ -69,7 +69,17 @@ recipeDependencies {
     testParserClasspath("tools.jackson.dataformat:jackson-dataformat-smile:$jackson3")
 }
 
+// An older Jackson 2 than the parser's, which tests compile the migrated code against where a build keeps its version
+val jackson212: Configuration by configurations.creating
+dependencies {
+    jackson212("com.fasterxml.jackson.core:jackson-databind:2.12.7")
+}
+
 tasks.withType<Test>().configureEach {
     // Fails a test whose recipe gives the code it writes other types than a parser gives that code
     systemProperty("org.openrewrite.test.parserTypedTrees", true)
+    inputs.files(jackson212)
+    jvmArgumentProviders.add(CommandLineArgumentProvider {
+        listOf("-Djackson212.classpath=${jackson212.asPath}")
+    })
 }

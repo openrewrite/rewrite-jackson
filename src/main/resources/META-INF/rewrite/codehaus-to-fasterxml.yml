@@ -51,6 +51,7 @@ recipeList:
   - org.openrewrite.java.jackson.codehaus.JsonIncludeAnnotation
   - org.openrewrite.java.jackson.codehaus.ReplaceSerializationConfigAnnotationIntrospector
   - org.openrewrite.java.jackson.codehaus.RemoveDoublyAnnotatedCodehausAnnotations
+  - org.openrewrite.java.jackson.codehaus.MigrateReadValueOfTreeAsJavaType
 
   # Before the type moves, while the calls still resolve to the Jackson 1 types
   - org.openrewrite.java.ChangeMethodName:
@@ -167,6 +168,15 @@ recipeList:
       methodPattern: org.codehaus.jackson.map.ObjectMapper updatingReader(..)
       newMethodName: readerForUpdating
   - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.map.ObjectMapper reader(org.codehaus.jackson.type.JavaType)
+      newMethodName: readerFor
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.map.ObjectMapper reader(java.lang.Class)
+      newMethodName: readerFor
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.map.ObjectMapper reader(org.codehaus.jackson.type.TypeReference)
+      newMethodName: readerFor
+  - org.openrewrite.java.ChangeMethodName:
       methodPattern: org.codehaus.jackson.map.ObjectMapper schemaBasedReader(..)
       newMethodName: reader
   - org.openrewrite.java.ChangeMethodName:
@@ -174,10 +184,6 @@ recipeList:
       newMethodName: registerModule
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: org.codehaus.jackson.map.ObjectMapper readValue(org.codehaus.jackson.JsonNode, java.lang.Class)
-      newMethodName: treeToValue
-      matchOverrides: true
-  - org.openrewrite.java.ChangeMethodName:
-      methodPattern: org.codehaus.jackson.map.ObjectMapper readValue(org.codehaus.jackson.JsonNode, org.codehaus.jackson.type.JavaType)
       newMethodName: treeToValue
       matchOverrides: true
   - org.openrewrite.java.ChangeMethodName:

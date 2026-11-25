@@ -169,6 +169,141 @@ class MigrateJodaSerializersTest implements RewriteTest {
     }
 
     @Test
+    void jodaModuleIsRegisteredOnEveryMapperTheModuleWasRegisteredOn() {
+        rewriteRun(
+          spec -> spec.typeValidationOptions(TypeValidation.none()),
+          mavenProject("my-app",
+            srcMainJava(
+              //language=java
+              java(
+                """
+                  import org.codehaus.jackson.Version;
+                  import org.codehaus.jackson.map.ObjectMapper;
+                  import org.codehaus.jackson.map.ext.JodaSerializers;
+                  import org.codehaus.jackson.map.module.SimpleModule;
+                  import org.joda.time.DateTime;
+
+                  class JsonConfig {
+                      void configure(ObjectMapper first, ObjectMapper second) {
+                          SimpleModule module = new SimpleModule("joda", Version.unknownVersion());
+                          module.addSerializer(DateTime.class, new JodaSerializers.DateTimeSerializer());
+                          first.registerModule(module);
+                          second.registerModule(module);
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.datatype.joda.JodaModule;
+                  import org.codehaus.jackson.map.ObjectMapper;
+
+                  class JsonConfig {
+                      void configure(ObjectMapper first, ObjectMapper second) {
+                          first.registerModule(new JodaModule());
+                          second.registerModule(new JodaModule());
+                      }
+                  }
+                  """
+              )
+            ),
+            //language=xml
+            pomXml(
+              """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>com.mycompany.app</groupId>
+                    <artifactId>my-app</artifactId>
+                    <version>1</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.codehaus.jackson</groupId>
+                            <artifactId>jackson-mapper-asl</artifactId>
+                            <version>1.9.13</version>
+                        </dependency>
+                    </dependencies>
+                </project>
+                """,
+              spec -> spec.after(pom -> {
+                  assertThat(pom).contains("<artifactId>jackson-datatype-joda</artifactId>");
+                  return pom;
+              })
+            )
+          )
+        );
+    }
+
+    @Test
+    void jodaModuleIsRegisteredBesideEveryRegistrationOfAModuleWithOtherSerializers() {
+        rewriteRun(
+          spec -> spec.typeValidationOptions(TypeValidation.none()),
+          mavenProject("my-app",
+            srcMainJava(
+              //language=java
+              java(
+                """
+                  import org.codehaus.jackson.Version;
+                  import org.codehaus.jackson.map.ObjectMapper;
+                  import org.codehaus.jackson.map.ext.JodaSerializers;
+                  import org.codehaus.jackson.map.module.SimpleModule;
+                  import org.codehaus.jackson.map.ser.std.ToStringSerializer;
+                  import org.joda.time.DateTime;
+
+                  class JsonConfig {
+                      void configure(ObjectMapper first, ObjectMapper second) {
+                          SimpleModule module = new SimpleModule("joda", Version.unknownVersion());
+                          module.addSerializer(DateTime.class, new JodaSerializers.DateTimeSerializer());
+                          module.addSerializer(Long.class, ToStringSerializer.instance);
+                          first.registerModule(module);
+                          second.registerModule(module);
+                      }
+                  }
+                  """,
+                """
+                  import com.fasterxml.jackson.datatype.joda.JodaModule;
+                  import org.codehaus.jackson.Version;
+                  import org.codehaus.jackson.map.ObjectMapper;
+                  import org.codehaus.jackson.map.module.SimpleModule;
+                  import org.codehaus.jackson.map.ser.std.ToStringSerializer;
+
+                  class JsonConfig {
+                      void configure(ObjectMapper first, ObjectMapper second) {
+                          SimpleModule module = new SimpleModule("joda", Version.unknownVersion());
+                          module.addSerializer(Long.class, ToStringSerializer.instance);
+                          first.registerModule(module);
+                          first.registerModule(new JodaModule());
+                          second.registerModule(module);
+                          second.registerModule(new JodaModule());
+                      }
+                  }
+                  """
+              )
+            ),
+            //language=xml
+            pomXml(
+              """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>com.mycompany.app</groupId>
+                    <artifactId>my-app</artifactId>
+                    <version>1</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.codehaus.jackson</groupId>
+                            <artifactId>jackson-mapper-asl</artifactId>
+                            <version>1.9.13</version>
+                        </dependency>
+                    </dependencies>
+                </project>
+                """,
+              spec -> spec.after(pom -> {
+                  assertThat(pom).contains("<artifactId>jackson-datatype-joda</artifactId>");
+                  return pom;
+              })
+            )
+          )
+        );
+    }
+
+    @Test
     void jodaSerializersMoveOutOfModuleWithOtherSerializers() {
         rewriteRun(
           spec -> spec.typeValidationOptions(TypeValidation.none()),

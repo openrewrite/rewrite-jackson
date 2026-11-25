@@ -68,6 +68,65 @@ class FindJackson1TypesWithoutJackson2EquivalentTest implements RewriteTest {
     }
 
     @Test
+    void noDependencyAdviceForClassDeclaredInSourcesAfterItsSuperclassMoves() {
+        rewriteRun(
+          // the migration, which ends with this recipe
+          spec -> spec.recipeFromResources("org.openrewrite.java.jackson.CodehausToFasterXML"),
+          //language=java
+          java(
+            """
+              import java.lang.reflect.Type;
+
+              import org.codehaus.jackson.type.TypeReference;
+
+              class Codec {
+                  static class TypeTokenBasedReference<T> extends TypeReference<T> {
+                      final Type type;
+
+                      TypeTokenBasedReference(Type type) {
+                          this.type = type;
+                      }
+
+                      @Override
+                      public Type getType() {
+                          return type;
+                      }
+                  }
+
+                  Object reference(Type type) {
+                      return new TypeTokenBasedReference<Object>(type);
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.core.type.TypeReference;
+
+              import java.lang.reflect.Type;
+
+              class Codec {
+                  static class TypeTokenBasedReference<T> extends TypeReference<T> {
+                      final Type type;
+
+                      TypeTokenBasedReference(Type type) {
+                          this.type = type;
+                      }
+
+                      @Override
+                      public Type getType() {
+                          return type;
+                      }
+                  }
+
+                  Object reference(Type type) {
+                      return new TypeTokenBasedReference<Object>(type);
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void noJackson1TypesNoMarkers() {
         rewriteRun(
           //language=java

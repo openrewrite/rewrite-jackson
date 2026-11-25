@@ -24,7 +24,9 @@ import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.Issue;
 import org.openrewrite.Recipe;
 import org.openrewrite.java.ChangeType;
+import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.JavaParser;
+import org.openrewrite.java.tree.J;
 import org.openrewrite.test.RecipeQualityValidation;
 import org.openrewrite.test.RecipeQualityValidation.ParserTypes;
 import org.openrewrite.test.RecipeSpec;
@@ -33,6 +35,7 @@ import org.openrewrite.test.RewriteTest;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -420,6 +423,61 @@ class CodehausToFasterXMLTest implements RewriteTest {
                   }
               }
               """
+          )
+        );
+    }
+
+    @Test
+    void treeReadAsJavaTypeCompilesAgainstJackson212() {
+        rewriteRun(
+          // ChangeType leaves Jackson 1's JsonProcessingException among the exceptions the method type says it throws
+          spec -> spec.recipeQualityValidation(RecipeQualityValidation.builder().parserTypedTrees(ParserTypes.Erasure).build()),
+          //language=java
+          java(
+            """
+              import org.codehaus.jackson.JsonNode;
+              import org.codehaus.jackson.map.ObjectMapper;
+              import org.codehaus.jackson.type.JavaType;
+
+              class Test {
+                  Object read(ObjectMapper mapper, JsonNode node) throws java.io.IOException {
+                      JavaType type = mapper.getTypeFactory().constructType(String.class);
+                      return mapper.readValue(node, type);
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.JavaType;
+              import com.fasterxml.jackson.databind.JsonNode;
+              import com.fasterxml.jackson.databind.ObjectMapper;
+
+              class Test {
+                  Object read(ObjectMapper mapper, JsonNode node) throws java.io.IOException {
+                      JavaType type = mapper.getTypeFactory().constructType(String.class);
+                      return mapper.readerFor(type).readValue(node);
+                  }
+              }
+              """,
+            spec -> spec.after(actual -> {
+                // Jackson 2.12 has no treeToValue(TreeNode, JavaType), which came in 2.13
+                List<Path> jackson212 = Stream.of(System.getProperty("jackson212.classpath").split(java.io.File.pathSeparator))
+                  .map(Path::of)
+                  .toList();
+                J.CompilationUnit cu = (J.CompilationUnit) JavaParser.fromJavaVersion().classpath(jackson212).build()
+                  .parse(actual).findFirst().orElseThrow();
+                List<String> untyped = new ArrayList<>();
+                new JavaIsoVisitor<List<String>>() {
+                    @Override
+                    public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, List<String> found) {
+                        if (method.getMethodType() == null) {
+                            found.add(method.toString());
+                        }
+                        return super.visitMethodInvocation(method, found);
+                    }
+                }.visit(cu, untyped);
+                assertThat(untyped).isEmpty();
+                return actual;
+            })
           )
         );
     }

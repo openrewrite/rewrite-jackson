@@ -326,6 +326,12 @@ public class CodehausDependencyToFasterXML extends Recipe {
              */
             final Map<JavaProject, Set<String>> broughtIn = new HashMap<>();
 
+            /**
+             * The Maven scope and the Gradle configuration of each project's own Jackson 1 declarations, as the build
+             * files were before they changed, where they are to be kept for the Jackson 2 artifact.
+             */
+            final Map<JavaProject, String[]> declaredScopes = new HashMap<>();
+
             boolean isExcluded(JavaProject project) {
                 Set<String> usedIn = using.get(project);
                 Set<String> bringingIn = broughtIn.get(project);
@@ -353,6 +359,17 @@ public class CodehausDependencyToFasterXML extends Recipe {
                 @Override
                 public @Nullable Tree visit(@Nullable Tree tree, ExecutionContext ctx) {
                     scanner.visit(tree, ctx);
+                    if (tree instanceof Xml.Document ||
+                        tree instanceof SourceFile && IsBuildGradle.matches(((SourceFile) tree).getSourcePath())) {
+                        SourceFile buildFile = (SourceFile) tree;
+                        buildFile.getMarkers().findFirst(JavaProject.class).ifPresent(project -> {
+                            String scope = declaredMavenScope(buildFile);
+                            String configuration = declaredGradleConfiguration(buildFile);
+                            if (scope != null || configuration != null) {
+                                acc.declaredScopes.put(project, new String[]{scope, configuration});
+                            }
+                        });
+                    }
                     if (tree instanceof JavaSourceFile && !notIfUsing.isEmpty()) {
                         JavaProject project = tree.getMarkers().findFirst(JavaProject.class).orElse(null);
                         if (project != null) {
@@ -394,9 +411,18 @@ public class CodehausDependencyToFasterXML extends Recipe {
                     if (!(tree instanceof SourceFile)) {
                         return tree;
                     }
-                    String alignedVersion = alignedVersion((SourceFile) tree);
-                    return byVersion.computeIfAbsent(alignedVersion,
-                                    v -> addDependency(v).getVisitor(requireNonNull(acc.delegate)))
+                    SourceFile sourceFile = (SourceFile) tree;
+                    if (declaresInGradle(sourceFile)) {
+                        return tree;
+                    }
+                    String alignedVersion = alignedVersion(sourceFile);
+                    String[] declared = sourceFile.getMarkers().findFirst(JavaProject.class)
+                            .map(acc.declaredScopes::get)
+                            .orElse(null);
+                    String mavenScope = declared == null ? null : declared[0];
+                    String gradleConfiguration = declared == null ? null : declared[1];
+                    return byVersion.computeIfAbsent(alignedVersion + "|" + mavenScope + "|" + gradleConfiguration,
+                                    v -> addDependency(alignedVersion, mavenScope, gradleConfiguration).getVisitor(requireNonNull(acc.delegate)))
                             .visit(tree, ctx);
                 }
             };
@@ -405,18 +431,100 @@ public class CodehausDependencyToFasterXML extends Recipe {
                     add);
         }
 
-        private AddDependency addDependency(String version) {
-            return new AddDependency(groupId, artifactId, version, null, onlyIfUsing,
-                    null, null, null, null, null, null, null, null, true);
+        private AddDependency addDependency(@Nullable String version) {
+            return addDependency(version, null, null);
         }
+
+        private AddDependency addDependency(@Nullable String version, @Nullable String scope, @Nullable String configuration) {
+            return new AddDependency(groupId, artifactId, version, null, onlyIfUsing,
+                    null, null, null, configuration, scope, null, null, null, true);
+        }
+
+        /**
+         * Whether a Gradle build file already declares the artifact, in any configuration, where {@link AddDependency}
+         * would move a declaration without a version, which a platform decides, to the newest release.
+         */
+        private boolean declaresInGradle(SourceFile sourceFile) {
+            GradleProject gradle = sourceFile.getMarkers().findFirst(GradleProject.class).orElse(null);
+            if (gradle == null) {
+                return false;
+            }
+            for (GradleDependencyConfiguration configuration : gradle.getConfigurations()) {
+                if (configuration.findRequestedDependency(groupId, artifactId) != null) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /**
+         * The scope of the module's own Jackson 1 declarations, where none of them is on the classpath its consumers
+         * see: {@code provided}, or {@code test} when they are all in the test scope. The Jackson 2 artifact replacing
+         * them belongs in that scope too, rather than in the one usage would put it in, which would make the module's
+         * consumers pull it in. Null, so that usage decides, where Jackson 1 comes transitively or is declared in any
+         * other scope.
+         */
+        private static @Nullable String declaredMavenScope(SourceFile sourceFile) {
+            MavenResolutionResult maven = sourceFile.getMarkers().findFirst(MavenResolutionResult.class).orElse(null);
+            if (maven == null) {
+                return null;
+            }
+            String declared = null;
+            for (org.openrewrite.maven.tree.Dependency d : maven.getPom().getRequestedDependencies()) {
+                if (!CODEHAUS.equals(d.getGroupId())) {
+                    continue;
+                }
+                String scope = d.getScope() == null ? "compile" : d.getScope();
+                if (!"provided".equals(scope) && !"test".equals(scope)) {
+                    return null;
+                }
+                if (declared == null || "provided".equals(scope)) {
+                    declared = scope;
+                }
+            }
+            return declared;
+        }
+
+        /**
+         * The configuration of the module's own Jackson 1 declarations, where they are all in one configuration that
+         * only compiles against them, such as {@code compileOnly}, for the same reason as {@link #declaredMavenScope}.
+         */
+        private static @Nullable String declaredGradleConfiguration(SourceFile sourceFile) {
+            GradleProject gradle = sourceFile.getMarkers().findFirst(GradleProject.class).orElse(null);
+            if (gradle == null) {
+                return null;
+            }
+            String declared = null;
+            for (GradleDependencyConfiguration configuration : gradle.getConfigurations()) {
+                if (configuration.isCanBeResolved()) {
+                    // A classpath lists what the configurations it extends declare
+                    continue;
+                }
+                for (org.openrewrite.maven.tree.Dependency d : configuration.getRequested()) {
+                    if (!CODEHAUS.equals(d.getGroupId())) {
+                        continue;
+                    }
+                    String name = configuration.getName();
+                    if (!COMPILE_ONLY_CONFIGURATIONS.contains(name) || declared != null && !declared.equals(name)) {
+                        return null;
+                    }
+                    declared = name;
+                }
+            }
+            return declared;
+        }
+
+        private static final Set<String> COMPILE_ONLY_CONFIGURATIONS = new HashSet<>(Arrays.asList(
+                "compileOnly", "compileOnlyApi", "testCompileOnly", "providedCompile", "provided"));
 
         /**
          * The version to add the artifact at: that of the Jackson 2 artifacts the build file already declares, as it is
          * written there, or the version option when it declares none. {@code jackson-annotations} doesn't share their
          * versions: since 2.20 it is versioned 2.20, 2.21 and so on, without their patch number, it has no
          * micro-patches such as 2.12.7.1, and before 2.10 it had only the first release of each minor version.
+         * Null, for no version, where a Gradle build takes its Jackson 2 versions from the Jackson BOM.
          */
-        private String alignedVersion(SourceFile sourceFile) {
+        private @Nullable String alignedVersion(SourceFile sourceFile) {
             String[] others = null;
             String[] annotations = null;
             MavenResolutionResult maven = sourceFile.getMarkers().findFirst(MavenResolutionResult.class).orElse(null);
@@ -436,6 +544,9 @@ public class CodehausDependencyToFasterXML extends Recipe {
             }
             GradleProject gradle = sourceFile.getMarkers().findFirst(GradleProject.class).orElse(null);
             if (gradle != null) {
+                if (hasJacksonPlatform(gradle)) {
+                    return null;
+                }
                 for (GradleDependencyConfiguration configuration : gradle.getConfigurations()) {
                     for (org.openrewrite.maven.tree.Dependency d : configuration.getRequested()) {
                         if (isJackson2(d.getGroupId(), d.getArtifactId()) && d.getVersion() != null &&
@@ -478,6 +589,28 @@ public class CodehausDependencyToFasterXML extends Recipe {
             } catch (NumberFormatException e) {
                 return version;
             }
+        }
+
+        /**
+         * Whether the main compile classpath takes its Jackson 2 versions from the Jackson BOM, as a {@code platform} or
+         * {@code enforcedPlatform}, in which case the artifact is added without a version, so that the platform
+         * keeps deciding it.
+         */
+        private static boolean hasJacksonPlatform(GradleProject gradle) {
+            GradleDependencyConfiguration classpath = gradle.getConfiguration("compileClasspath");
+            if (classpath == null) {
+                return false;
+            }
+            List<GradleDependencyConfiguration> configurations = new ArrayList<>(classpath.allExtendsFrom());
+            configurations.add(classpath);
+            for (GradleDependencyConfiguration configuration : configurations) {
+                for (org.openrewrite.maven.tree.Dependency d : configuration.getRequested()) {
+                    if ("com.fasterxml.jackson".equals(d.getGroupId()) && "jackson-bom".equals(d.getArtifactId())) {
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         private static String[] newer(String @Nullable [] current, String[] found) {

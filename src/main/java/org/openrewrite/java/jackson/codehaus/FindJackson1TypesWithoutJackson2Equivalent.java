@@ -19,7 +19,7 @@ import lombok.Getter;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
-import org.openrewrite.Recipe;
+import org.openrewrite.ScanningRecipe;
 import org.openrewrite.Tree;
 import org.openrewrite.TreeVisitor;
 import org.openrewrite.java.JavaIsoVisitor;
@@ -32,7 +32,7 @@ import org.openrewrite.marker.SearchResult;
 
 import java.util.*;
 
-public class FindJackson1TypesWithoutJackson2Equivalent extends Recipe {
+public class FindJackson1TypesWithoutJackson2Equivalent extends ScanningRecipe<Set<String>> {
 
     @Getter
     final String displayName = "Find Jackson Codehaus (legacy) types without a Jackson 2 equivalent";
@@ -45,13 +45,37 @@ public class FindJackson1TypesWithoutJackson2Equivalent extends Recipe {
                                "Jackson 2 can't use.";
 
     @Override
-    public TreeVisitor<?, ExecutionContext> getVisitor() {
+    public Set<String> getInitialValue(ExecutionContext ctx) {
+        return new HashSet<>();
+    }
+
+    /**
+     * Collects the classes the sources declare, which are no dependency's, whatever their type attribution says they
+     * extend: a supertype the migration moved to Jackson 2 in the declaration can still be Jackson 1 in the type of an
+     * expression that creates an instance of the class.
+     */
+    @Override
+    public TreeVisitor<?, ExecutionContext> getScanner(Set<String> declared) {
+        return new JavaIsoVisitor<ExecutionContext>() {
+            @Override
+            public J.ClassDeclaration visitClassDeclaration(J.ClassDeclaration classDecl, ExecutionContext ctx) {
+                if (classDecl.getType() != null) {
+                    declared.add(classDecl.getType().getFullyQualifiedName());
+                }
+                return super.visitClassDeclaration(classDecl, ctx);
+            }
+        };
+    }
+
+    @Override
+    public TreeVisitor<?, ExecutionContext> getVisitor(Set<String> declared) {
         return Preconditions.check(Preconditions.or(new UsesType<>("org.codehaus.jackson..*", false), new UsesJackson1Subtype()), new JavaIsoVisitor<ExecutionContext>() {
             @Override
             public J.NewClass visitNewClass(J.NewClass newClass, ExecutionContext ctx) {
                 J.NewClass n = super.visitNewClass(newClass, ctx);
                 JavaType.FullyQualified type = TypeUtils.asFullyQualified(n.getType());
-                String jackson1 = type == null || isJackson1(type) ? null : jackson1Supertype(type);
+                String jackson1 = type == null || isJackson1(type) || declared.contains(type.getFullyQualifiedName()) ?
+                        null : jackson1Supertype(type);
                 if (jackson1 != null && n.getBody() == null) {
                     return SearchResult.found(n, type.getFullyQualifiedName() + " is built on Jackson 1 (it extends " + jackson1 +
                                                  "), and Jackson 2 can't use it: upgrade the dependency that declares it to a " +

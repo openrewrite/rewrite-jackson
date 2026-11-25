@@ -787,6 +787,143 @@ class CodehausDependencyToFasterXMLTest implements RewriteTest {
     }
 
     @Test
+    void addedArtifactKeepsProvidedScopeOfJackson1() {
+        rewriteRun(
+          spec -> spec.recipe(new CodehausDependencyToFasterXML("2.14.x")),
+          mavenProject("my-app",
+            //language=java
+            srcMainJava(java(
+              """
+                import org.codehaus.jackson.annotate.JsonIgnore;
+
+                class Bean {
+                    @JsonIgnore
+                    String secret;
+                }
+                """
+            )),
+            //language=xml
+            pomXml(
+              """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>com.mycompany.app</groupId>
+                    <artifactId>my-app</artifactId>
+                    <version>1</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.codehaus.jackson</groupId>
+                            <artifactId>jackson-core-asl</artifactId>
+                            <version>1.9.13</version>
+                            <scope>provided</scope>
+                        </dependency>
+                    </dependencies>
+                </project>
+                """,
+              """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>com.mycompany.app</groupId>
+                    <artifactId>my-app</artifactId>
+                    <version>1</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>com.fasterxml.jackson.core</groupId>
+                            <artifactId>jackson-annotations</artifactId>
+                            <version>2.14.3</version>
+                            <scope>provided</scope>
+                        </dependency>
+                        <dependency>
+                            <groupId>com.fasterxml.jackson.core</groupId>
+                            <artifactId>jackson-core</artifactId>
+                            <version>2.14.3</version>
+                            <scope>provided</scope>
+                        </dependency>
+                    </dependencies>
+                </project>
+                """
+            )
+          )
+        );
+    }
+
+    @Test
+    void gradleAddedArtifactKeepsCompileOnlyConfigurationOfJackson1() {
+        rewriteRun(
+          spec -> spec.recipe(new CodehausDependencyToFasterXML("2.14.x")).beforeRecipe(withToolingApi()),
+          mavenProject("my-app",
+            //language=java
+            srcMainJava(java(MAPPER_USER)),
+            //language=groovy
+            buildGradle(
+              """
+                plugins {
+                    id 'java-library'
+                }
+                repositories {
+                    mavenCentral()
+                }
+                dependencies {
+                    compileOnly 'org.codehaus.jackson:jackson-core-asl:1.9.13'
+                }
+                """,
+              """
+                plugins {
+                    id 'java-library'
+                }
+                repositories {
+                    mavenCentral()
+                }
+                dependencies {
+                    compileOnly 'com.fasterxml.jackson.core:jackson-core:2.14.3'
+                    compileOnly "com.fasterxml.jackson.core:jackson-databind:2.14.3"
+                }
+                """
+            )
+          )
+        );
+    }
+
+    @Test
+    void gradleAddedArtifactTakesVersionFromJacksonPlatform() {
+        rewriteRun(
+          spec -> spec.recipe(new CodehausDependencyToFasterXML("2.x")).beforeRecipe(withToolingApi()),
+          mavenProject("my-app",
+            //language=java
+            srcMainJava(java(MAPPER_USER)),
+            //language=groovy
+            buildGradle(
+              """
+                plugins {
+                    id 'java-library'
+                }
+                repositories {
+                    mavenCentral()
+                }
+                dependencies {
+                    implementation platform('com.fasterxml.jackson:jackson-bom:2.12.7')
+                    implementation 'org.apache.avro:avro:1.7.7'
+                }
+                """,
+              """
+                plugins {
+                    id 'java-library'
+                }
+                repositories {
+                    mavenCentral()
+                }
+                dependencies {
+                    implementation platform('com.fasterxml.jackson:jackson-bom:2.12.7')
+                    implementation "com.fasterxml.jackson.core:jackson-databind"
+                    implementation 'org.apache.avro:avro:1.7.7'
+                }
+                """
+            )
+          )
+        );
+    }
+
+    @Test
     void gradleTransitiveJackson1() {
         rewriteRun(
           spec -> spec.recipe(new CodehausDependencyToFasterXML("2.14.x")).beforeRecipe(withToolingApi()),
