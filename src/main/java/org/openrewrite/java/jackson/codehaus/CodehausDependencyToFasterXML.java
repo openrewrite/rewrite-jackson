@@ -121,9 +121,13 @@ public class CodehausDependencyToFasterXML extends Recipe {
             recipes.add(new ChangeDependency(CODEHAUS, artifact[0], artifact[1], artifact[2], newVersion,
                     null, null, null));
         }
-        // jackson-databind brings jackson-core and jackson-annotations, so a module that needs it needs neither added
+        // jackson-databind brings jackson-core and jackson-annotations, so a module that needs it needs neither added.
+        // They are added before it: once a POM of a multi-module build is given jackson-databind in the test scope,
+        // AddDependency no longer adds jackson-annotations to its compile scope.
         List<String> databind = Arrays.asList(USAGES[0]).subList(2, USAGES[0].length);
-        for (String[] usage : USAGES) {
+        List<String[]> usages = new ArrayList<>(Arrays.asList(USAGES).subList(1, USAGES.length));
+        usages.add(2, USAGES[0]);
+        for (String[] usage : usages) {
             boolean broughtByDatabind = "jackson-core".equals(usage[1]) || "jackson-annotations".equals(usage[1]);
             for (int i = 2; i < usage.length; i++) {
                 recipes.add(new AddJackson2Dependency(usage[0], usage[1], newVersion, usage[i],
@@ -290,8 +294,11 @@ public class CodehausDependencyToFasterXML extends Recipe {
             this.version = version;
             this.onlyIfUsing = onlyIfUsing;
             this.notIfUsing = notIfUsing;
+            // Since 2.20 jackson-annotations is versioned 2.20, 2.21 and so on, without the patch number of the other
+            // Jackson 2 artifacts, so it can't take their version. Each of its releases works with every 2.x databind.
             this.delegate = new AddDependency(groupId, artifactId, version, null, onlyIfUsing,
-                    null, "com.fasterxml.jackson*", null, null, null, null, null, null, true);
+                    null, "jackson-annotations".equals(artifactId) ? null : "com.fasterxml.jackson*",
+                    null, null, null, null, null, null, true);
         }
 
         private final String displayName = "Add a Jackson 2 dependency where its types are used";

@@ -27,6 +27,7 @@ import org.openrewrite.test.RewriteTest;
 import java.util.List;
 import java.util.regex.Pattern;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.openrewrite.gradle.Assertions.buildGradle;
 import static org.openrewrite.gradle.toolingapi.Assertions.withToolingApi;
 import static org.openrewrite.java.Assertions.java;
@@ -854,6 +855,139 @@ class CodehausDependencyToFasterXMLTest implements RewriteTest {
                     implementation 'com.fasterxml.jackson.core:jackson-databind:2.5.4'
                 }
                 """
+            )
+          )
+        );
+    }
+
+    @Test
+    void mainAnnotationsWithTestOnlyDatabindAndJaxrs() {
+        rewriteRun(
+          spec -> spec.recipe(new CodehausDependencyToFasterXML("2.x"))
+            .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
+              "jackson-core-asl", "jackson-mapper-asl", "jackson-jaxrs-1")),
+          mavenProject("my-app",
+            //language=java
+            srcMainJava(java(
+              """
+                import org.codehaus.jackson.annotate.JsonIgnoreProperties;
+
+                @JsonIgnoreProperties(ignoreUnknown = true)
+                class TestResource {
+                }
+                """
+            )),
+            //language=java
+            srcTestJava(java(
+              """
+                import org.codehaus.jackson.JsonNode;
+                import org.codehaus.jackson.jaxrs.JacksonJsonProvider;
+                import org.codehaus.jackson.map.ObjectMapper;
+
+                class ResourceTest {
+                    JacksonJsonProvider provider;
+                    ObjectMapper mapper;
+                    JsonNode node;
+                }
+                """
+            )),
+            //language=xml
+            pomXml(
+              """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>com.mycompany.app</groupId>
+                    <artifactId>my-app</artifactId>
+                    <version>1</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>com.sun.jersey</groupId>
+                            <artifactId>jersey-json</artifactId>
+                            <version>1.12</version>
+                        </dependency>
+                    </dependencies>
+                </project>
+                """,
+              spec -> spec.after(pom -> {
+                  assertThat(pom).containsPattern("<artifactId>jackson-annotations</artifactId>\\s*<version>[^<]+</version>\\s*</dependency>");
+                  return pom;
+              })
+            )
+          )
+        );
+    }
+
+    @Test
+    void multiModuleMainAnnotationsWithTestOnlyDatabind() {
+        rewriteRun(
+          spec -> spec.recipe(new CodehausDependencyToFasterXML("2.x"))
+            .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
+              "jackson-core-asl", "jackson-mapper-asl", "jackson-jaxrs-1")),
+          //language=xml
+          pomXml(
+            """
+              <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>com.mycompany.app</groupId>
+                  <artifactId>parent</artifactId>
+                  <version>1</version>
+                  <packaging>pom</packaging>
+                  <modules>
+                      <module>my-app</module>
+                  </modules>
+              </project>
+              """
+          ),
+          mavenProject("my-app",
+            //language=java
+            srcMainJava(java(
+              """
+                import org.codehaus.jackson.annotate.JsonIgnoreProperties;
+
+                @JsonIgnoreProperties(ignoreUnknown = true)
+                class TestResource {
+                }
+                """
+            )),
+            //language=java
+            srcTestJava(java(
+              """
+                import org.codehaus.jackson.JsonNode;
+                import org.codehaus.jackson.jaxrs.JacksonJsonProvider;
+                import org.codehaus.jackson.map.ObjectMapper;
+
+                class ResourceTest {
+                    JacksonJsonProvider provider;
+                    ObjectMapper mapper;
+                    JsonNode node;
+                }
+                """
+            )),
+            //language=xml
+            pomXml(
+              """
+                <project>
+                    <parent>
+                        <groupId>com.mycompany.app</groupId>
+                        <artifactId>parent</artifactId>
+                        <version>1</version>
+                    </parent>
+                    <modelVersion>4.0.0</modelVersion>
+                    <artifactId>my-app</artifactId>
+                    <packaging>war</packaging>
+                    <dependencies>
+                        <dependency>
+                            <groupId>com.sun.jersey</groupId>
+                            <artifactId>jersey-json</artifactId>
+                            <version>1.12</version>
+                        </dependency>
+                    </dependencies>
+                </project>
+                """,
+              spec -> spec.after(pom -> {
+                  assertThat(pom).containsPattern("<artifactId>jackson-annotations</artifactId>\\s*<version>[^<]+</version>\\s*</dependency>");
+                  return pom;
+              })
             )
           )
         );
