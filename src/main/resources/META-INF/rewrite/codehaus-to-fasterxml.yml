@@ -1572,10 +1572,6 @@ description: >-
   the other references to `JodaSerializers` and `JodaDeserializers`, where registering `JodaModule` takes their place.
 tags:
   - jackson-2
-preconditions:
-  - org.openrewrite.java.search.HasType:
-      fullyQualifiedTypeName: org.codehaus.jackson.map.ext..*
-      checkAssignability: false
 recipeList:
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: org.codehaus.jackson.map.ext.JodaSerializers$DateMidnightSerializer
@@ -1608,13 +1604,13 @@ recipeList:
       groupId: com.fasterxml.jackson.datatype
       artifactId: jackson-datatype-joda
       version: 2.x
-      onlyIfUsing: org.codehaus.jackson.map.ext.JodaSerializers..*
+      onlyIfUsing: org.codehaus.jackson.map.ext.JodaSerializers$*
       familyPattern: com.fasterxml.jackson*
       acceptTransitive: true
   - org.openrewrite.java.dependencies.AddDependency:
       groupId: com.fasterxml.jackson.datatype
       artifactId: jackson-datatype-joda
       version: 2.x
-      onlyIfUsing: org.codehaus.jackson.map.ext.JodaDeserializers..*
+      onlyIfUsing: org.codehaus.jackson.map.ext.JodaDeserializers$*
       familyPattern: com.fasterxml.jackson*
       acceptTransitive: true
