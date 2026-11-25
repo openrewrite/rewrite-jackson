@@ -985,9 +985,73 @@ class CodehausDependencyToFasterXMLTest implements RewriteTest {
                 </project>
                 """,
               spec -> spec.after(pom -> {
-                  assertThat(pom).containsPattern("<artifactId>jackson-annotations</artifactId>\\s*<version>[^<]+</version>\\s*</dependency>");
+                  assertThat(pom).containsPattern("<artifactId>jackson-annotations</artifactId>\\s*<version>2\\.\\d+</version>\\s*</dependency>");
+                  assertThat(pom).containsPattern("<artifactId>jackson-databind</artifactId>\\s*<version>2\\.\\d+\\.\\d+</version>\\s*<scope>test</scope>");
                   return pom;
               })
+            )
+          )
+        );
+    }
+
+    @Test
+    void annotationsTakeTheMinorVersionOfJackson2From220() {
+        rewriteRun(
+          spec -> spec.recipe(new CodehausDependencyToFasterXML("2.x")),
+          mavenProject("my-app",
+            //language=java
+            srcMainJava(java(
+              """
+                import org.codehaus.jackson.annotate.JsonIgnore;
+
+                class Dto {
+                    @JsonIgnore
+                    String name;
+                }
+                """
+            )),
+            //language=xml
+            pomXml(
+              """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>com.mycompany.app</groupId>
+                    <artifactId>my-app</artifactId>
+                    <version>1</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>com.fasterxml.jackson.core</groupId>
+                            <artifactId>jackson-core</artifactId>
+                            <version>2.21.0</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.codehaus.jackson</groupId>
+                            <artifactId>jackson-core-asl</artifactId>
+                            <version>1.9.13</version>
+                        </dependency>
+                    </dependencies>
+                </project>
+                """,
+              """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>com.mycompany.app</groupId>
+                    <artifactId>my-app</artifactId>
+                    <version>1</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>com.fasterxml.jackson.core</groupId>
+                            <artifactId>jackson-annotations</artifactId>
+                            <version>2.21</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>com.fasterxml.jackson.core</groupId>
+                            <artifactId>jackson-core</artifactId>
+                            <version>2.21.0</version>
+                        </dependency>
+                    </dependencies>
+                </project>
+                """
             )
           )
         );

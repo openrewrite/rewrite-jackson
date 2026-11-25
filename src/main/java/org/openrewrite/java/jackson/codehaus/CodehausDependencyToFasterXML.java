@@ -32,6 +32,9 @@ import org.openrewrite.java.marker.JavaProject;
 import org.openrewrite.java.marker.JavaSourceSet;
 import org.openrewrite.marker.SearchResult;
 import org.openrewrite.maven.MavenIsoVisitor;
+import org.openrewrite.maven.tree.MavenResolutionResult;
+import org.openrewrite.maven.tree.ResolvedDependency;
+import org.openrewrite.maven.tree.Version;
 import org.openrewrite.xml.tree.Content;
 import org.openrewrite.xml.tree.Xml;
 
@@ -228,7 +231,11 @@ public class CodehausDependencyToFasterXML extends Recipe {
                         }
                         kept.add(content);
                     }
-                    return removed ? t.withContent(kept) : t;
+                    if (!removed) {
+                        return t;
+                    }
+                    maybeUpdateModel();
+                    return t.withContent(kept);
                 }
             };
         }
@@ -294,11 +301,7 @@ public class CodehausDependencyToFasterXML extends Recipe {
             this.version = version;
             this.onlyIfUsing = onlyIfUsing;
             this.notIfUsing = notIfUsing;
-            // Since 2.20 jackson-annotations is versioned 2.20, 2.21 and so on, without the patch number of the other
-            // Jackson 2 artifacts, so it can't take their version. Each of its releases works with every 2.x databind.
-            this.delegate = new AddDependency(groupId, artifactId, version, null, onlyIfUsing,
-                    null, "jackson-annotations".equals(artifactId) ? null : "com.fasterxml.jackson*",
-                    null, null, null, null, null, null, true);
+            this.delegate = addDependency(version);
         }
 
         private final String displayName = "Add a Jackson 2 dependency where its types are used";
@@ -384,9 +387,105 @@ public class CodehausDependencyToFasterXML extends Recipe {
                     return tree;
                 }
             };
+            Map<String, TreeVisitor<?, ExecutionContext>> byVersion = new HashMap<>();
+            TreeVisitor<?, ExecutionContext> add = new TreeVisitor<Tree, ExecutionContext>() {
+                @Override
+                public @Nullable Tree visit(@Nullable Tree tree, ExecutionContext ctx) {
+                    if (!(tree instanceof SourceFile)) {
+                        return tree;
+                    }
+                    String alignedVersion = alignedVersion((SourceFile) tree);
+                    return byVersion.computeIfAbsent(alignedVersion,
+                                    v -> addDependency(v).getVisitor(requireNonNull(acc.delegate)))
+                            .visit(tree, ctx);
+                }
+            };
             return Preconditions.check(
                     Preconditions.and(notExcluded, new DoesNotIncludeDependency(groupId, artifactId, null, true, null, null).getVisitor()),
-                    delegate.getVisitor(requireNonNull(acc.delegate)));
+                    add);
+        }
+
+        private AddDependency addDependency(String version) {
+            return new AddDependency(groupId, artifactId, version, null, onlyIfUsing,
+                    null, null, null, null, null, null, null, null, true);
+        }
+
+        /**
+         * The version to add the artifact at: that of the Jackson 2 artifacts the build file already declares, as it is
+         * written there, or the version option when it declares none. {@code jackson-annotations} doesn't share their
+         * versions: since 2.20 it is versioned 2.20, 2.21 and so on, without their patch number, it has no
+         * micro-patches such as 2.12.7.1, and before 2.10 it had only the first release of each minor version.
+         */
+        private String alignedVersion(SourceFile sourceFile) {
+            String[] others = null;
+            String[] annotations = null;
+            MavenResolutionResult maven = sourceFile.getMarkers().findFirst(MavenResolutionResult.class).orElse(null);
+            if (maven != null) {
+                for (List<ResolvedDependency> dependencies : maven.getDependencies().values()) {
+                    for (ResolvedDependency d : dependencies) {
+                        if (d.isDirect() && isJackson2(d.getGroupId(), d.getArtifactId()) && d.getRequested().getVersion() != null) {
+                            String[] found = {d.getRequested().getVersion(), d.getVersion()};
+                            if ("jackson-annotations".equals(d.getArtifactId())) {
+                                annotations = newer(annotations, found);
+                            } else {
+                                others = newer(others, found);
+                            }
+                        }
+                    }
+                }
+            }
+            GradleProject gradle = sourceFile.getMarkers().findFirst(GradleProject.class).orElse(null);
+            if (gradle != null) {
+                for (GradleDependencyConfiguration configuration : gradle.getConfigurations()) {
+                    for (org.openrewrite.maven.tree.Dependency d : configuration.getRequested()) {
+                        if (isJackson2(d.getGroupId(), d.getArtifactId()) && d.getVersion() != null &&
+                            d.getVersion().matches("\\d+(\\.\\d+)+")) {
+                            String[] found = {d.getVersion(), d.getVersion()};
+                            if ("jackson-annotations".equals(d.getArtifactId())) {
+                                annotations = newer(annotations, found);
+                            } else {
+                                others = newer(others, found);
+                            }
+                        }
+                    }
+                }
+            }
+            if (!"jackson-annotations".equals(artifactId)) {
+                if (others != null) {
+                    return others[0];
+                }
+                if (annotations != null) {
+                    return annotations[1].split("\\.").length == 2 ? annotations[1] + ".0" : annotations[0];
+                }
+                return version;
+            }
+            if (others == null) {
+                return version;
+            }
+            String[] parts = others[1].split("\\.");
+            try {
+                int minor = parts.length < 2 ? -1 : Integer.parseInt(parts[1]);
+                if (!"2".equals(parts[0]) || minor < 0) {
+                    return version;
+                }
+                if (minor >= 20) {
+                    return "2." + minor;
+                }
+                if (minor < 10) {
+                    return "2." + minor + ".0";
+                }
+                return parts.length == 3 ? others[0] : parts[0] + "." + parts[1] + "." + parts[2];
+            } catch (NumberFormatException e) {
+                return version;
+            }
+        }
+
+        private static String[] newer(String @Nullable [] current, String[] found) {
+            return current == null || new Version(found[1]).compareTo(new Version(current[1])) > 0 ? found : current;
+        }
+
+        private static boolean isJackson2(@Nullable String groupId, String artifactId) {
+            return groupId != null && groupId.startsWith("com.fasterxml.jackson") && !artifactId.endsWith("-bom");
         }
     }
 }
