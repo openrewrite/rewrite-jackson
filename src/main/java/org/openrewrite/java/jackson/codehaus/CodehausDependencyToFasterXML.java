@@ -16,12 +16,13 @@
 package org.openrewrite.java.jackson.codehaus;
 
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.Value;
 import org.jspecify.annotations.Nullable;
-import org.openrewrite.Option;
-import org.openrewrite.Recipe;
+import org.openrewrite.*;
 import org.openrewrite.java.dependencies.AddDependency;
 import org.openrewrite.java.dependencies.ChangeDependency;
+import org.openrewrite.java.dependencies.search.DoesNotIncludeDependency;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -107,10 +108,58 @@ public class CodehausDependencyToFasterXML extends Recipe {
         }
         for (String[] usage : USAGES) {
             for (int i = 2; i < usage.length; i++) {
-                recipes.add(new AddDependency(usage[0], usage[1], newVersion, null, usage[i],
-                        null, "com.fasterxml.jackson*", null, null, null, null, null, null, true));
+                recipes.add(new AddJackson2Dependency(usage[0], usage[1], newVersion, usage[i]));
             }
         }
         return recipes;
+    }
+
+    /**
+     * Adds the Jackson 2 artifact where the types it is for are used, and leaves alone the build files that already
+     * declare it, where {@link AddDependency} would move the declared version to the newest release.
+     */
+    @Getter
+    @EqualsAndHashCode(callSuper = false, exclude = "delegate")
+    static class AddJackson2Dependency extends ScanningRecipe<AddDependency.Accumulator> {
+        private final String groupId;
+        private final String artifactId;
+        private final String version;
+        private final String onlyIfUsing;
+        private final transient AddDependency delegate;
+
+        AddJackson2Dependency(String groupId, String artifactId, String version, String onlyIfUsing) {
+            this.groupId = groupId;
+            this.artifactId = artifactId;
+            this.version = version;
+            this.onlyIfUsing = onlyIfUsing;
+            this.delegate = new AddDependency(groupId, artifactId, version, null, onlyIfUsing,
+                    null, "com.fasterxml.jackson*", null, null, null, null, null, null, true);
+        }
+
+        private final String displayName = "Add a Jackson 2 dependency where its types are used";
+
+        private final String description = "Adds the Jackson 2 artifact to the modules that use the types it is for and don't declare it.";
+
+        @Override
+        public String getInstanceNameSuffix() {
+            return String.format("`%s:%s` if using `%s`", groupId, artifactId, onlyIfUsing);
+        }
+
+        @Override
+        public AddDependency.Accumulator getInitialValue(ExecutionContext ctx) {
+            return delegate.getInitialValue(ctx);
+        }
+
+        @Override
+        public TreeVisitor<?, ExecutionContext> getScanner(AddDependency.Accumulator acc) {
+            return delegate.getScanner(acc);
+        }
+
+        @Override
+        public TreeVisitor<?, ExecutionContext> getVisitor(AddDependency.Accumulator acc) {
+            return Preconditions.check(
+                    new DoesNotIncludeDependency(groupId, artifactId, null, true, null, null).getVisitor(),
+                    delegate.getVisitor(acc));
+        }
     }
 }

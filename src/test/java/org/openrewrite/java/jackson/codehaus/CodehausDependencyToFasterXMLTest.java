@@ -475,6 +475,40 @@ class CodehausDependencyToFasterXMLTest implements RewriteTest {
     }
 
     @Test
+    void declaredJackson2VersionIsKept() {
+        rewriteRun(
+          spec -> spec.recipe(new CodehausDependencyToFasterXML(null)),
+          mavenProject("my-app",
+            //language=java
+            srcMainJava(java(MAPPER_USER)),
+            //language=xml
+            pomXml(
+              """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>com.mycompany.app</groupId>
+                    <artifactId>my-app</artifactId>
+                    <version>1</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>com.fasterxml.jackson.core</groupId>
+                            <artifactId>jackson-databind</artifactId>
+                            <version>2.12.7</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.avro</groupId>
+                            <artifactId>avro</artifactId>
+                            <version>1.7.7</version>
+                        </dependency>
+                    </dependencies>
+                </project>
+                """
+            )
+          )
+        );
+    }
+
+    @Test
     void testScopeWhenOnlyTestsUseJackson1() {
         rewriteRun(
           spec -> spec.recipe(new CodehausDependencyToFasterXML("2.14.x")),
