@@ -24,9 +24,13 @@ tags:
   - jackson-2
 recipeList:
   - org.openrewrite.java.jackson.codehaus.TransferJsonSerializeArgumentsFromCodehausToFasterXML
+  - org.openrewrite.java.jackson.codehaus.MigrateCustomSerializerFactory
+  - org.openrewrite.java.jackson.codehaus.MigrateJodaSerializers
   - org.openrewrite.java.jackson.CodehausClassesToFasterXML
+  - org.openrewrite.java.jackson.CodehausModulesToFasterXML
   - org.openrewrite.java.jackson.codehaus.CodehausDependencyToFasterXML:
       version: 2.x
+  - org.openrewrite.java.jackson.codehaus.FindJackson1TypesWithoutJackson2Equivalent
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
@@ -47,8 +51,21 @@ recipeList:
   - org.openrewrite.java.jackson.codehaus.JsonIncludeAnnotation
   - org.openrewrite.java.jackson.codehaus.ReplaceSerializationConfigAnnotationIntrospector
   - org.openrewrite.java.jackson.codehaus.RemoveDoublyAnnotatedCodehausAnnotations
+  - org.openrewrite.java.jackson.codehaus.MigrateReadValueOfTreeAsJavaType
 
   # Before the type moves, while the calls still resolve to the Jackson 1 types
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.map.ObjectMapper setDeserializationConfig(org.codehaus.jackson.map.DeserializationConfig)
+      newMethodName: setConfig
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.map.ObjectMapper setSerializationConfig(org.codehaus.jackson.map.SerializationConfig)
+      newMethodName: setConfig
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.map.MapperConfig withAnnotationIntrospector(org.codehaus.jackson.map.AnnotationIntrospector)
+      newMethodName: with
+      matchOverrides: true
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: org.codehaus.jackson.JsonNode getFieldNames()
       newMethodName: fieldNames
@@ -151,11 +168,28 @@ recipeList:
       methodPattern: org.codehaus.jackson.map.ObjectMapper updatingReader(..)
       newMethodName: readerForUpdating
   - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.map.ObjectMapper reader(org.codehaus.jackson.type.JavaType)
+      newMethodName: readerFor
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.map.ObjectMapper reader(java.lang.Class)
+      newMethodName: readerFor
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.map.ObjectMapper reader(org.codehaus.jackson.type.TypeReference)
+      newMethodName: readerFor
+  - org.openrewrite.java.ChangeMethodName:
       methodPattern: org.codehaus.jackson.map.ObjectMapper schemaBasedReader(..)
       newMethodName: reader
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: org.codehaus.jackson.map.ObjectMapper withModule(..)
       newMethodName: registerModule
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.map.ObjectMapper readValue(org.codehaus.jackson.JsonNode, java.lang.Class)
+      newMethodName: treeToValue
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.map.ObjectMapper readValue(org.codehaus.jackson.JsonNode, org.codehaus.jackson.type.TypeReference)
+      newMethodName: convertValue
+      matchOverrides: true
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: org.codehaus.jackson.JsonParser enableFeature(..)
       newMethodName: enable
@@ -204,6 +238,15 @@ recipeList:
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: org.codehaus.jackson.JsonFactory isGeneratorFeatureEnabled(..)
       newMethodName: isEnabled
+  # Jackson 2 dropped createJsonGenerator(File, JsonEncoding) and deprecated the other createJson* methods
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonFactory createJsonParser(..)
+      newMethodName: createParser
+      matchOverrides: true
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: org.codehaus.jackson.JsonFactory createJsonGenerator(..)
+      newMethodName: createGenerator
+      matchOverrides: true
 
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: org.codehaus.jackson.map.JsonSerializer
@@ -1435,3 +1478,160 @@ recipeList:
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: org.codehaus.jackson.util.VersionUtil
       newFullyQualifiedTypeName: com.fasterxml.jackson.core.util.VersionUtil
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.jackson.CodehausModulesToFasterXML
+displayName: Migrate the Jackson Codehaus (legacy) companion modules to Jackson FasterXML
+description: >-
+  Moves the types of the Jackson 1 `jackson-jaxrs`, `jackson-xc`, `jackson-smile` and `jackson-mrbean` modules to their
+  counterparts in `jackson-jaxrs-json-provider`, `jackson-module-jaxb-annotations`, `jackson-dataformat-smile` and
+  `jackson-module-mrbean`. Types with no Jackson 2 counterpart, such as `XmlAdapterJsonSerializer`, keep their Jackson 1
+  names.
+tags:
+  - jackson-2
+preconditions:
+  - org.openrewrite.java.search.HasType:
+      fullyQualifiedTypeName: org.codehaus.jackson..*
+      checkAssignability: false
+recipeList:
+  # jaxrs
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.jaxrs.Annotations
+      newFullyQualifiedTypeName: com.fasterxml.jackson.jaxrs.cfg.Annotations
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.jaxrs.JacksonJaxbJsonProvider
+      newFullyQualifiedTypeName: com.fasterxml.jackson.jaxrs.json.JacksonJaxbJsonProvider
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.jaxrs.JacksonJsonProvider
+      newFullyQualifiedTypeName: com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.jaxrs.JsonMappingExceptionMapper
+      newFullyQualifiedTypeName: com.fasterxml.jackson.jaxrs.base.JsonMappingExceptionMapper
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.jaxrs.JsonParseExceptionMapper
+      newFullyQualifiedTypeName: com.fasterxml.jackson.jaxrs.base.JsonParseExceptionMapper
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.jaxrs.MapperConfigurator
+      newFullyQualifiedTypeName: com.fasterxml.jackson.jaxrs.json.JsonMapperConfigurator
+  # xc
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.xc.DataHandlerJsonDeserializer
+      newFullyQualifiedTypeName: com.fasterxml.jackson.module.jaxb.deser.DataHandlerJsonDeserializer
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.xc.DataHandlerJsonSerializer
+      newFullyQualifiedTypeName: com.fasterxml.jackson.module.jaxb.ser.DataHandlerJsonSerializer
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.xc.DomElementJsonDeserializer
+      newFullyQualifiedTypeName: com.fasterxml.jackson.module.jaxb.deser.DomElementJsonDeserializer
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.xc.DomElementJsonSerializer
+      newFullyQualifiedTypeName: com.fasterxml.jackson.module.jaxb.ser.DomElementJsonSerializer
+  # smile
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.smile.SmileGenerator$Feature
+      newFullyQualifiedTypeName: com.fasterxml.jackson.dataformat.smile.SmileGenerator$Feature
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.smile.SmileGenerator$SharedStringNode
+      newFullyQualifiedTypeName: com.fasterxml.jackson.dataformat.smile.SmileGenerator$SharedStringNode
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.smile.SmileParser$Feature
+      newFullyQualifiedTypeName: com.fasterxml.jackson.dataformat.smile.SmileParser$Feature
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.smile.SmileConstants
+      newFullyQualifiedTypeName: com.fasterxml.jackson.dataformat.smile.SmileConstants
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.smile.SmileFactory
+      newFullyQualifiedTypeName: com.fasterxml.jackson.dataformat.smile.SmileFactory
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.smile.SmileGenerator
+      newFullyQualifiedTypeName: com.fasterxml.jackson.dataformat.smile.SmileGenerator
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.smile.SmileParser
+      newFullyQualifiedTypeName: com.fasterxml.jackson.dataformat.smile.SmileParser
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.smile.SmileParserBootstrapper
+      newFullyQualifiedTypeName: com.fasterxml.jackson.dataformat.smile.SmileParserBootstrapper
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.smile.SmileUtil
+      newFullyQualifiedTypeName: com.fasterxml.jackson.dataformat.smile.SmileUtil
+  # mrbean
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.mrbean.AbstractTypeMaterializer$Feature
+      newFullyQualifiedTypeName: com.fasterxml.jackson.module.mrbean.AbstractTypeMaterializer$Feature
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.mrbean.AbstractTypeMaterializer$MyClassLoader
+      newFullyQualifiedTypeName: com.fasterxml.jackson.module.mrbean.AbstractTypeMaterializer$MyClassLoader
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.mrbean.BeanBuilder$TypeDescription
+      newFullyQualifiedTypeName: com.fasterxml.jackson.module.mrbean.BeanBuilder$TypeDescription
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.mrbean.AbstractTypeMaterializer
+      newFullyQualifiedTypeName: com.fasterxml.jackson.module.mrbean.AbstractTypeMaterializer
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.mrbean.BeanBuilder
+      newFullyQualifiedTypeName: com.fasterxml.jackson.module.mrbean.BeanBuilder
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.mrbean.BeanUtil
+      newFullyQualifiedTypeName: com.fasterxml.jackson.module.mrbean.BeanUtil
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.mrbean.MrBeanModule
+      newFullyQualifiedTypeName: com.fasterxml.jackson.module.mrbean.MrBeanModule
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.jackson.codehaus.MigrateJodaSerializers
+displayName: Migrate Jackson Codehaus (legacy) Joda serializers to `jackson-datatype-joda`
+description: >-
+  Jackson 1 handled Joda types in `jackson-mapper-asl`, through `JodaSerializers` and `JodaDeserializers`. Jackson 2
+  moved that support to the `jackson-datatype-joda` module. Where the Jackson 1 Joda serializers are added to a
+  `SimpleModule` registered on a mapper, registers `JodaModule` on that mapper instead. Moves each other Jackson 1 Joda
+  serializer and deserializer, such as the one named in `@JsonSerialize(using = JodaSerializers.DateTimeSerializer.class)`,
+  to its counterpart in `jackson-datatype-joda`, and adds that module where they are used.
+  `FindJackson1TypesWithoutJackson2Equivalent` marks the other references to `JodaSerializers` and `JodaDeserializers`,
+  where registering `JodaModule` takes their place.
+tags:
+  - jackson-2
+recipeList:
+  - org.openrewrite.java.jackson.codehaus.MigrateJodaModuleRegistration
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.map.ext.JodaSerializers$DateMidnightSerializer
+      newFullyQualifiedTypeName: com.fasterxml.jackson.datatype.joda.ser.DateMidnightSerializer
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.map.ext.JodaSerializers$DateTimeSerializer
+      newFullyQualifiedTypeName: com.fasterxml.jackson.datatype.joda.ser.DateTimeSerializer
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.map.ext.JodaSerializers$LocalDateSerializer
+      newFullyQualifiedTypeName: com.fasterxml.jackson.datatype.joda.ser.LocalDateSerializer
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.map.ext.JodaSerializers$LocalDateTimeSerializer
+      newFullyQualifiedTypeName: com.fasterxml.jackson.datatype.joda.ser.LocalDateTimeSerializer
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.map.ext.JodaDeserializers$DateMidnightDeserializer
+      newFullyQualifiedTypeName: com.fasterxml.jackson.datatype.joda.deser.DateMidnightDeserializer
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.map.ext.JodaDeserializers$DateTimeDeserializer
+      newFullyQualifiedTypeName: com.fasterxml.jackson.datatype.joda.deser.DateTimeDeserializer
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.map.ext.JodaDeserializers$LocalDateDeserializer
+      newFullyQualifiedTypeName: com.fasterxml.jackson.datatype.joda.deser.LocalDateDeserializer
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.map.ext.JodaDeserializers$LocalDateTimeDeserializer
+      newFullyQualifiedTypeName: com.fasterxml.jackson.datatype.joda.deser.LocalDateTimeDeserializer
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.codehaus.jackson.map.ext.JodaDeserializers$PeriodDeserializer
+      newFullyQualifiedTypeName: com.fasterxml.jackson.datatype.joda.deser.PeriodDeserializer
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: com.fasterxml.jackson.datatype
+      artifactId: jackson-datatype-joda
+      version: 2.x
+      onlyIfUsing: org.codehaus.jackson.map.ext.JodaSerializers$*
+      familyPattern: com.fasterxml.jackson*
+      acceptTransitive: true
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: com.fasterxml.jackson.datatype
+      artifactId: jackson-datatype-joda
+      version: 2.x
+      onlyIfUsing: org.codehaus.jackson.map.ext.JodaDeserializers$*
+      familyPattern: com.fasterxml.jackson*
+      acceptTransitive: true

@@ -49,17 +49,37 @@ recipeDependencies {
     parserClasspath("tools.jackson.core:jackson-core:$jackson3")
     parserClasspath("tools.jackson.core:jackson-databind:$jackson3")
 
+    // Needed by the template parser of MigrateJodaModuleRegistration to resolve JodaModule
+    parserClasspath("com.fasterxml.jackson.datatype:jackson-datatype-joda:2.19.2")
+
     parserClasspath("org.codehaus.jackson:jackson-core-asl:1.9.13")
     parserClasspath("org.codehaus.jackson:jackson-mapper-asl:1.9.13")
 
-    testParserClasspath("com.fasterxml.jackson.datatype:jackson-datatype-joda:2.19.2")
+    testParserClasspath("com.fasterxml.jackson.jaxrs:jackson-jaxrs-base:2.19.2")
+    testParserClasspath("com.fasterxml.jackson.jaxrs:jackson-jaxrs-json-provider:2.19.2")
+    testParserClasspath("com.fasterxml.jackson.module:jackson-module-jaxb-annotations:2.19.2")
+    testParserClasspath("com.fasterxml.jackson.module:jackson-module-mrbean:2.19.2")
     testParserClasspath("com.fasterxml.jackson.module:jackson-module-afterburner:2.19.2")
+    testParserClasspath("joda-time:joda-time:2.12.7")
+    testParserClasspath("org.codehaus.jackson:jackson-jaxrs:1.9.13")
+    testParserClasspath("org.codehaus.jackson:jackson-mrbean:1.9.13")
+    testParserClasspath("org.codehaus.jackson:jackson-smile:1.9.13")
     testParserClasspath("org.codehaus.jackson:jackson-xc:1.9.13")
     testParserClasspath("tools.jackson.dataformat:jackson-dataformat-cbor:$jackson3")
     testParserClasspath("tools.jackson.dataformat:jackson-dataformat-smile:$jackson3")
 }
 
+// An older Jackson 2 than the parser's, which tests compile the migrated code against where a build keeps its version
+val jackson212: Configuration by configurations.creating
+dependencies {
+    jackson212("com.fasterxml.jackson.core:jackson-databind:2.12.7")
+}
+
 tasks.withType<Test>().configureEach {
     // Fails a test whose recipe gives the code it writes other types than a parser gives that code
     systemProperty("org.openrewrite.test.parserTypedTrees", true)
+    inputs.files(jackson212)
+    jvmArgumentProviders.add(CommandLineArgumentProvider {
+        listOf("-Djackson212.classpath=${jackson212.asPath}")
+    })
 }
