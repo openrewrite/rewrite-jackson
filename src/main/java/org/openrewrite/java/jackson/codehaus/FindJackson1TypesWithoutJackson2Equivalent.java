@@ -23,6 +23,7 @@ import org.openrewrite.ScanningRecipe;
 import org.openrewrite.Tree;
 import org.openrewrite.TreeVisitor;
 import org.openrewrite.java.JavaIsoVisitor;
+import org.openrewrite.java.JavaParser;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JavaSourceFile;
@@ -30,7 +31,12 @@ import org.openrewrite.java.tree.JavaType;
 import org.openrewrite.java.tree.TypeUtils;
 import org.openrewrite.marker.SearchResult;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Path;
 import java.util.*;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 
 public class FindJackson1TypesWithoutJackson2Equivalent extends ScanningRecipe<Set<String>> {
 
@@ -69,7 +75,10 @@ public class FindJackson1TypesWithoutJackson2Equivalent extends ScanningRecipe<S
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor(Set<String> declared) {
-        return Preconditions.check(Preconditions.or(new UsesType<>("org.codehaus.jackson..*", false), new UsesJackson1Subtype()), new JavaIsoVisitor<ExecutionContext>() {
+        return Preconditions.check(Preconditions.or(
+                new UsesType<>("org.codehaus.jackson..*", false),
+                new UsesJackson1Subtype(),
+                new UsesMissingJackson2NestedType()), new JavaIsoVisitor<ExecutionContext>() {
             @Override
             public J.NewClass visitNewClass(J.NewClass newClass, ExecutionContext ctx) {
                 J.NewClass n = super.visitNewClass(newClass, ctx);
@@ -96,7 +105,7 @@ public class FindJackson1TypesWithoutJackson2Equivalent extends ScanningRecipe<S
 
             @Override
             public J.FieldAccess visitFieldAccess(J.FieldAccess fieldAccess, ExecutionContext ctx) {
-                String message = message(fieldAccess.getType(), fieldAccess.getSimpleName());
+                String message = message(fieldAccess.getType(), fieldAccess.getSimpleName(), ctx);
                 if (message != null) {
                     return SearchResult.found(fieldAccess, message);
                 }
@@ -106,7 +115,7 @@ public class FindJackson1TypesWithoutJackson2Equivalent extends ScanningRecipe<S
             @Override
             public J.Identifier visitIdentifier(J.Identifier identifier, ExecutionContext ctx) {
                 if (identifier.getFieldType() == null) {
-                    String message = message(identifier.getType(), identifier.getSimpleName());
+                    String message = message(identifier.getType(), identifier.getSimpleName(), ctx);
                     if (message != null) {
                         return SearchResult.found(identifier, message);
                     }
@@ -164,15 +173,79 @@ public class FindJackson1TypesWithoutJackson2Equivalent extends ScanningRecipe<S
     }
 
     /**
-     * The message for a type name that refers to a Jackson 1 type, or null when it doesn't name one.
+     * Finds the source files that refer to a nested class of a Jackson 2 type that Jackson 2 doesn't have.
      */
-    private static @Nullable String message(@Nullable JavaType type, String simpleName) {
+    private static class UsesMissingJackson2NestedType extends JavaIsoVisitor<ExecutionContext> {
+        @Override
+        public @Nullable J visit(@Nullable Tree tree, ExecutionContext ctx) {
+            if (tree instanceof JavaSourceFile) {
+                for (JavaType type : ((JavaSourceFile) tree).getTypesInUse().getTypesInUse()) {
+                    JavaType.FullyQualified fq = TypeUtils.asFullyQualified(type);
+                    if (fq != null && isMissingJackson2NestedType(fq.getFullyQualifiedName(), ctx)) {
+                        return SearchResult.found((JavaSourceFile) tree);
+                    }
+                }
+                return (J) tree;
+            }
+            return super.visit(tree, ctx);
+        }
+    }
+
+    /**
+     * The message for a type name that refers to a Jackson 1 type, or to a nested class that the migration gave the
+     * Jackson 2 name of its outer class, which Jackson 2 doesn't have, or null when it names neither.
+     */
+    private static @Nullable String message(@Nullable JavaType type, String simpleName, ExecutionContext ctx) {
         JavaType.FullyQualified fq = TypeUtils.asFullyQualified(type);
-        if (fq == null || type instanceof JavaType.Parameterized || !fq.getFullyQualifiedName().startsWith("org.codehaus.jackson.") ||
+        if (fq == null || type instanceof JavaType.Parameterized ||
             !simpleName.equals(fq.getClassName().substring(fq.getClassName().lastIndexOf('.') + 1))) {
             return null;
         }
-        return advice(fq.getFullyQualifiedName());
+        String name = fq.getFullyQualifiedName();
+        if (name.startsWith("org.codehaus.jackson.")) {
+            return advice(name);
+        }
+        if (isMissingJackson2NestedType(name, ctx)) {
+            return "Jackson 2 has no " + name.substring(name.lastIndexOf('.') + 1).replace('$', '.') +
+                   ", which the migration named after its Jackson 1 counterpart. " + advice(name);
+        }
+        return null;
+    }
+
+    private static final String JACKSON2_CLASSES = FindJackson1TypesWithoutJackson2Equivalent.class.getName() + ".jackson2Classes";
+
+    /**
+     * Whether the name is that of a nested class of a type of {@code jackson-core}, {@code jackson-databind} or
+     * {@code jackson-annotations} that has no such nested class: {@code ChangeType} moves a Jackson 1 type's nested
+     * classes with it, also those, like {@code BeanSerializerFactory.ConfigImpl}, that Jackson 2 dropped.
+     */
+    private static boolean isMissingJackson2NestedType(String name, ExecutionContext ctx) {
+        int nested = name.indexOf('$');
+        if (nested < 0 || !(name.startsWith("com.fasterxml.jackson.core.") ||
+                            name.startsWith("com.fasterxml.jackson.databind.") ||
+                            name.startsWith("com.fasterxml.jackson.annotation."))) {
+            return false;
+        }
+        Set<String> classes = ctx.computeMessageIfAbsent(JACKSON2_CLASSES, k -> jackson2Classes(ctx));
+        return classes.contains(name.substring(0, nested)) && !classes.contains(name);
+    }
+
+    private static Set<String> jackson2Classes(ExecutionContext ctx) {
+        Set<String> classes = new HashSet<>();
+        for (Path jar : JavaParser.dependenciesFromResources(ctx, "jackson-core-2", "jackson-databind-2", "jackson-annotations-2")) {
+            try (ZipFile zip = new ZipFile(jar.toFile())) {
+                Enumeration<? extends ZipEntry> entries = zip.entries();
+                while (entries.hasMoreElements()) {
+                    String entry = entries.nextElement().getName();
+                    if (entry.endsWith(".class") && !entry.startsWith("META-INF/")) {
+                        classes.add(entry.substring(0, entry.length() - ".class".length()).replace('/', '.'));
+                    }
+                }
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+        return classes;
     }
 
     static String advice(String type) {

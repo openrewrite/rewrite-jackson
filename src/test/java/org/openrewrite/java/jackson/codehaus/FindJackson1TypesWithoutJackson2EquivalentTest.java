@@ -127,6 +127,36 @@ class FindJackson1TypesWithoutJackson2EquivalentTest implements RewriteTest {
     }
 
     @Test
+    void marksNestedClassMovedToJackson2NameThatDoesNotExist() {
+        rewriteRun(
+          // the migration, which ends with this recipe; ChangeType gives the nested class a Jackson 2 name no class has
+          spec -> spec.recipeFromResources("org.openrewrite.java.jackson.CodehausToFasterXML")
+            .typeValidationOptions(TypeValidation.none()),
+          //language=java
+          java(
+            """
+              import org.codehaus.jackson.map.ser.BeanSerializerFactory;
+
+              class CruxSerializerFactory extends BeanSerializerFactory {
+                  CruxSerializerFactory() {
+                      super(new BeanSerializerFactory.ConfigImpl());
+                  }
+              }
+              """,
+            """
+              import com.fasterxml.jackson.databind.ser.BeanSerializerFactory;
+
+              class CruxSerializerFactory extends BeanSerializerFactory {
+                  CruxSerializerFactory() {
+                      super(new /*~~(Jackson 2 has no BeanSerializerFactory.ConfigImpl, which the migration named after its Jackson 1 counterpart. Jackson 2 has no counterpart of this serializer factory API: customize serialization with a com.fasterxml.jackson.databind.Module, such as a SimpleModule or a BeanSerializerModifier)~~>*/BeanSerializerFactory.ConfigImpl());
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void noJackson1TypesNoMarkers() {
         rewriteRun(
           //language=java
