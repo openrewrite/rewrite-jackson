@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.jackson;
 
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -895,31 +896,6 @@ class Jackson3DependenciesTest implements RewriteTest {
         );
     }
 
-    @Issue("https://github.com/openrewrite/rewrite-jackson/issues/49")
-    @Test
-    void jsonSchemaModuleIsNotMigrated() {
-        rewriteRun(
-          //language=xml
-          pomXml(
-            """
-              <project>
-                  <modelVersion>4.0.0</modelVersion>
-                  <groupId>org.example</groupId>
-                  <artifactId>example</artifactId>
-                  <version>1.0.0</version>
-                  <dependencies>
-                      <dependency>
-                          <groupId>com.fasterxml.jackson.module</groupId>
-                          <artifactId>jackson-module-jsonSchema</artifactId>
-                          <version>2.20.1</version>
-                      </dependency>
-                  </dependencies>
-              </project>
-              """
-          )
-        );
-    }
-
     @ParameterizedTest
     @ValueSource(strings = {"jackson-datatype-eclipse-collections", "jackson-datatype-guava", "jackson-datatype-hibernate4",
       "jackson-datatype-hibernate5", "jackson-datatype-hibernate5-jakarta", "jackson-datatype-hibernate6", "jackson-datatype-hibernate7",
@@ -1047,88 +1023,6 @@ class Jackson3DependenciesTest implements RewriteTest {
                 .contains(">tools.jackson.jr<")
                 .containsPattern("3\\.\\d+\\.\\d+")
                 .actual())
-          )
-        );
-    }
-
-    @Issue("https://github.com/openrewrite/rewrite-jackson/issues/170")
-    @Test
-    void keepJackson2DependenciesOfModuleAlreadyOnJackson3() {
-        rewriteRun(
-          spec -> spec.parser(JavaParser.fromJavaVersion()
-            .classpathFromResources(new InMemoryExecutionContext(), "jackson-core-3", "jackson-databind-3")),
-          mavenProject("project",
-            srcMainJava(
-              java(
-                """
-                  import tools.jackson.databind.ObjectMapper;
-
-                  class A {
-                      ObjectMapper mapper = new ObjectMapper();
-                  }
-                  """
-              )
-            ),
-            pomXml(
-              //language=xml
-              """
-                <project>
-                    <modelVersion>4.0.0</modelVersion>
-                    <groupId>org.example</groupId>
-                    <artifactId>example</artifactId>
-                    <version>1.0.0</version>
-                    <dependencies>
-                        <dependency>
-                            <groupId>tools.jackson.core</groupId>
-                            <artifactId>jackson-databind</artifactId>
-                            <version>3.0.0</version>
-                        </dependency>
-                        <dependency>
-                            <groupId>com.fasterxml.jackson.datatype</groupId>
-                            <artifactId>jackson-datatype-jsr310</artifactId>
-                            <version>2.15.2</version>
-                        </dependency>
-                    </dependencies>
-                </project>
-                """
-            )
-          )
-        );
-    }
-
-    @Issue("https://github.com/openrewrite/rewrite-jackson/issues/170")
-    @Test
-    void keepJackson2DependenciesOfGradleProjectAlreadyOnJackson3() {
-        rewriteRun(
-          spec -> spec.beforeRecipe(withToolingApi())
-            .parser(JavaParser.fromJavaVersion()
-              .classpathFromResources(new InMemoryExecutionContext(), "jackson-core-3", "jackson-databind-3")),
-          mavenProject("project",
-            srcMainJava(
-              java(
-                """
-                  import tools.jackson.databind.ObjectMapper;
-
-                  class A {
-                      ObjectMapper mapper = new ObjectMapper();
-                  }
-                  """
-              )
-            ),
-            buildGradle(
-              """
-                plugins {
-                    id 'java-library'
-                }
-                repositories {
-                    mavenCentral()
-                }
-                dependencies {
-                    implementation 'tools.jackson.core:jackson-databind:3.0.0'
-                    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.15.2'
-                }
-                """
-            )
           )
         );
     }
@@ -1264,5 +1158,116 @@ class Jackson3DependenciesTest implements RewriteTest {
             )
           )
         );
+    }
+
+    @Nested
+    class NoChange {
+
+        @Issue("https://github.com/openrewrite/rewrite-jackson/issues/49")
+        @Test
+        void jsonSchemaModuleIsNotMigrated() {
+            rewriteRun(
+              //language=xml
+              pomXml(
+                """
+                  <project>
+                      <modelVersion>4.0.0</modelVersion>
+                      <groupId>org.example</groupId>
+                      <artifactId>example</artifactId>
+                      <version>1.0.0</version>
+                      <dependencies>
+                          <dependency>
+                              <groupId>com.fasterxml.jackson.module</groupId>
+                              <artifactId>jackson-module-jsonSchema</artifactId>
+                              <version>2.20.1</version>
+                          </dependency>
+                      </dependencies>
+                  </project>
+                  """
+              )
+            );
+        }
+
+        @Issue("https://github.com/openrewrite/rewrite-jackson/issues/170")
+        @Test
+        void keepJackson2DependenciesOfModuleAlreadyOnJackson3() {
+            rewriteRun(
+              spec -> spec.parser(JavaParser.fromJavaVersion()
+                .classpathFromResources(new InMemoryExecutionContext(), "jackson-core-3", "jackson-databind-3")),
+              mavenProject("project",
+                srcMainJava(
+                  java(
+                    """
+                      import tools.jackson.databind.ObjectMapper;
+
+                      class A {
+                          ObjectMapper mapper = new ObjectMapper();
+                      }
+                      """
+                  )
+                ),
+                pomXml(
+                  //language=xml
+                  """
+                    <project>
+                        <modelVersion>4.0.0</modelVersion>
+                        <groupId>org.example</groupId>
+                        <artifactId>example</artifactId>
+                        <version>1.0.0</version>
+                        <dependencies>
+                            <dependency>
+                                <groupId>tools.jackson.core</groupId>
+                                <artifactId>jackson-databind</artifactId>
+                                <version>3.0.0</version>
+                            </dependency>
+                            <dependency>
+                                <groupId>com.fasterxml.jackson.datatype</groupId>
+                                <artifactId>jackson-datatype-jsr310</artifactId>
+                                <version>2.15.2</version>
+                            </dependency>
+                        </dependencies>
+                    </project>
+                    """
+                )
+              )
+            );
+        }
+
+        @Issue("https://github.com/openrewrite/rewrite-jackson/issues/170")
+        @Test
+        void keepJackson2DependenciesOfGradleProjectAlreadyOnJackson3() {
+            rewriteRun(
+              spec -> spec.beforeRecipe(withToolingApi())
+                .parser(JavaParser.fromJavaVersion()
+                  .classpathFromResources(new InMemoryExecutionContext(), "jackson-core-3", "jackson-databind-3")),
+              mavenProject("project",
+                srcMainJava(
+                  java(
+                    """
+                      import tools.jackson.databind.ObjectMapper;
+
+                      class A {
+                          ObjectMapper mapper = new ObjectMapper();
+                      }
+                      """
+                  )
+                ),
+                buildGradle(
+                  """
+                    plugins {
+                        id 'java-library'
+                    }
+                    repositories {
+                        mavenCentral()
+                    }
+                    dependencies {
+                        implementation 'tools.jackson.core:jackson-databind:3.0.0'
+                        implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.15.2'
+                    }
+                    """
+                )
+              )
+            );
+        }
     }
 }

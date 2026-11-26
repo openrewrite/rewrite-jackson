@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.jackson;
 
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.java.JavaParser;
@@ -136,96 +137,6 @@ class AddJsonCreatorToPrivateConstructorsTest implements RewriteTest {
     }
 
     @Test
-    void doNotChangePublicConstructor() {
-        rewriteRun(
-          //language=java
-          java(
-            """
-              import com.fasterxml.jackson.annotation.JsonProperty;
-
-              class Model {
-                  private final String name;
-
-                  public Model(@JsonProperty("name") String name) {
-                      this.name = name;
-                  }
-              }
-              """
-          )
-        );
-    }
-
-    @Test
-    void doNotChangeAlreadyAnnotatedWithJsonCreator() {
-        rewriteRun(
-          //language=java
-          java(
-            """
-              import com.fasterxml.jackson.annotation.JsonCreator;
-              import com.fasterxml.jackson.annotation.JsonProperty;
-
-              class Model {
-                  private final String name;
-
-                  @JsonCreator
-                  private Model(@JsonProperty("name") String name) {
-                      this.name = name;
-                  }
-              }
-              """
-          )
-        );
-    }
-
-    @Test
-    void doNotAddSecondCreatorWhenFactoryMethodIsAnnotated() {
-        rewriteRun(
-          //language=java
-          java(
-            """
-              import com.fasterxml.jackson.annotation.JsonCreator;
-              import java.util.function.Supplier;
-
-              public class Cell<T> {
-                  private T value;
-                  private Supplier<T> loader;
-
-                  private Cell(T value, Supplier<T> loader) {
-                      this.value = value;
-                      this.loader = loader;
-                  }
-
-                  @JsonCreator
-                  public static <T> Cell<T> cell(T value) {
-                      return new Cell<>(value, null);
-                  }
-              }
-              """
-          )
-        );
-    }
-
-    @Test
-    void doNotChangeNoArgConstructor() {
-        rewriteRun(
-          //language=java
-          java(
-            """
-              import com.fasterxml.jackson.annotation.JsonProperty;
-
-              class Model {
-                  @JsonProperty("name")
-                  private String name;
-
-                  private Model() {
-                  }
-              }
-              """
-          )
-        );
-    }
-
-    @Test
     void addJsonCreatorToConstructorWithoutJsonPropertyOnParamsInJacksonAnnotatedClass() {
         rewriteRun(
           //language=java
@@ -334,21 +245,115 @@ class AddJsonCreatorToPrivateConstructorsTest implements RewriteTest {
         );
     }
 
-    @Test
-    void doNotChangeClassWithoutJacksonAnnotations() {
-        rewriteRun(
-          //language=java
-          java(
-            """
-              class Model {
-                  private final String name;
+    @Nested
+    class NoChange {
 
-                  private Model(String name) {
-                      this.name = name;
+        @Test
+        void doNotChangePublicConstructor() {
+            rewriteRun(
+              //language=java
+              java(
+                """
+                  import com.fasterxml.jackson.annotation.JsonProperty;
+
+                  class Model {
+                      private final String name;
+
+                      public Model(@JsonProperty("name") String name) {
+                          this.name = name;
+                      }
                   }
-              }
-              """
-          )
-        );
+                  """
+              )
+            );
+        }
+
+        @Test
+        void doNotChangeAlreadyAnnotatedWithJsonCreator() {
+            rewriteRun(
+              //language=java
+              java(
+                """
+                  import com.fasterxml.jackson.annotation.JsonCreator;
+                  import com.fasterxml.jackson.annotation.JsonProperty;
+
+                  class Model {
+                      private final String name;
+
+                      @JsonCreator
+                      private Model(@JsonProperty("name") String name) {
+                          this.name = name;
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void doNotAddSecondCreatorWhenFactoryMethodIsAnnotated() {
+            rewriteRun(
+              //language=java
+              java(
+                """
+                  import com.fasterxml.jackson.annotation.JsonCreator;
+                  import java.util.function.Supplier;
+
+                  public class Cell<T> {
+                      private T value;
+                      private Supplier<T> loader;
+
+                      private Cell(T value, Supplier<T> loader) {
+                          this.value = value;
+                          this.loader = loader;
+                      }
+
+                      @JsonCreator
+                      public static <T> Cell<T> cell(T value) {
+                          return new Cell<>(value, null);
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void doNotChangeNoArgConstructor() {
+            rewriteRun(
+              //language=java
+              java(
+                """
+                  import com.fasterxml.jackson.annotation.JsonProperty;
+
+                  class Model {
+                      @JsonProperty("name")
+                      private String name;
+
+                      private Model() {
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void doNotChangeClassWithoutJacksonAnnotations() {
+            rewriteRun(
+              //language=java
+              java(
+                """
+                  class Model {
+                      private final String name;
+
+                      private Model(String name) {
+                          this.name = name;
+                      }
+                  }
+                  """
+              )
+            );
+        }
     }
 }
