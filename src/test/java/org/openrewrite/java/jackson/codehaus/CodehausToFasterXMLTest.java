@@ -364,13 +364,17 @@ class CodehausToFasterXMLTest implements RewriteTest {
           //language=xml
           xml(
             """
-              <beans xsi:schemaLocation="www.springframework.org/schema/beans">
+              <beans xmlns="http://www.springframework.org/schema/beans"
+                     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                     xsi:schemaLocation="http://www.springframework.org/schema/beans https://www.springframework.org/schema/beans/spring-beans.xsd">
                   <bean id="objectMapper" class="org.codehaus.jackson.map.ObjectMapper"/>
                   <bean id="jsonFactory" class="org.codehaus.jackson.JsonFactory"/>
               </beans>
               """,
             """
-              <beans xsi:schemaLocation="www.springframework.org/schema/beans">
+              <beans xmlns="http://www.springframework.org/schema/beans"
+                     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                     xsi:schemaLocation="http://www.springframework.org/schema/beans https://www.springframework.org/schema/beans/spring-beans.xsd">
                   <bean id="objectMapper" class="com.fasterxml.jackson.databind.ObjectMapper"/>
                   <bean id="jsonFactory" class="com.fasterxml.jackson.core.JsonFactory"/>
               </beans>
