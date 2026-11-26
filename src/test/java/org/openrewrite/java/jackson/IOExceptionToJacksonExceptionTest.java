@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.jackson;
 
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.InMemoryExecutionContext;
@@ -155,50 +156,6 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
     }
 
     @Test
-    void noChangeWhenNoJacksonCallInTry() {
-        rewriteRun(
-          java(
-            """
-              import java.io.IOException;
-              import java.io.FileInputStream;
-
-              class Test {
-                  void readFile() {
-                      try {
-                          new FileInputStream("test.txt").read();
-                      } catch (IOException e) {
-                          throw new RuntimeException(e);
-                      }
-                  }
-              }
-              """
-          )
-        );
-    }
-
-    @Test
-    void noChangeWhenCatchingException() {
-        rewriteRun(
-          java(
-            """
-              import com.fasterxml.jackson.databind.ObjectMapper;
-
-              class Test {
-                  void deserialize(byte[] data) {
-                      ObjectMapper mapper = new ObjectMapper();
-                      try {
-                          mapper.readValue(data, String.class);
-                      } catch (Exception e) {
-                          throw new RuntimeException(e);
-                      }
-                  }
-              }
-              """
-          )
-        );
-    }
-
-    @Test
     void multiCatchWhenMixedIOSources() {
         rewriteRun(
           // the multi-catch parameter keeps the `IOException` type, where javac gives it the alternatives' common supertype
@@ -293,57 +250,6 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
     }
 
     @Test
-    void noChangeWhenAlreadyCatchingJacksonException() {
-        rewriteRun(
-          java(
-            """
-              import tools.jackson.core.JacksonException;
-              import com.fasterxml.jackson.databind.ObjectMapper;
-
-              class Test {
-                  void deserialize(byte[] data) {
-                      ObjectMapper mapper = new ObjectMapper();
-                      try {
-                          mapper.readValue(data, String.class);
-                      } catch (JacksonException e) {
-                          throw new RuntimeException(e);
-                      }
-                  }
-              }
-              """
-          )
-        );
-    }
-
-    @Test
-    void noChangeWhenMixedIOAndAlreadyCatchingJacksonException() {
-        rewriteRun(
-          java(
-            """
-              import java.io.IOException;
-              import java.io.FileInputStream;
-              import com.fasterxml.jackson.databind.ObjectMapper;
-              import tools.jackson.core.JacksonException;
-
-              class Test {
-                  void readAndDeserialize() {
-                      ObjectMapper mapper = new ObjectMapper();
-                      try {
-                          byte[] data = new FileInputStream("data.json").readAllBytes();
-                          mapper.readValue(data, String.class);
-                      } catch (JacksonException e) {
-                          throw new RuntimeException("Jackson error", e);
-                      } catch (IOException e) {
-                          throw new RuntimeException("IO error", e);
-                      }
-                  }
-              }
-              """
-          )
-        );
-    }
-
-    @Test
     void wrapCaughtExceptionPassedOnAsIOException() {
         rewriteRun(
           // the output's `new UncheckedIOException(new IOException(e))` has a constructor taking `JacksonException`, which the class doesn't declare
@@ -381,32 +287,6 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
                           return mapper.writeValueAsBytes(o);
                       } catch (JacksonException e) {
                           throw new UncheckedIOException(new IOException(e));
-                      }
-                  }
-              }
-              """
-          )
-        );
-    }
-
-    @Test
-    void noChangeWhenMixedIOSourcesAndCaughtExceptionPassedOnAsIOException() {
-        rewriteRun(
-          java(
-            """
-              import java.io.FileInputStream;
-              import java.io.IOException;
-              import java.io.UncheckedIOException;
-              import com.fasterxml.jackson.databind.ObjectMapper;
-
-              class Test {
-                  void readAndDeserialize() {
-                      ObjectMapper mapper = new ObjectMapper();
-                      try {
-                          byte[] data = new FileInputStream("data.json").readAllBytes();
-                          mapper.readValue(data, String.class);
-                      } catch (IOException e) {
-                          throw new UncheckedIOException("Failed to read", e);
                       }
                   }
               }
@@ -702,35 +582,160 @@ class IOExceptionToJacksonExceptionTest implements RewriteTest {
         );
     }
 
-    @Test
-    void keepSneakyThrowsOfIOExceptionWithOtherIOSources() {
-        rewriteRun(
-          spec -> spec.parser(JavaParser.fromJavaVersion()
-            .classpathFromResources(new InMemoryExecutionContext(), "jackson-core-2", "jackson-databind-2")
-            .dependsOn(SNEAKY_THROWS)),
-          java(
-            """
-              import java.io.IOException;
-              import java.nio.file.Files;
-              import java.nio.file.Path;
-              import com.fasterxml.jackson.databind.ObjectMapper;
-              import lombok.SneakyThrows;
+    @Nested
+    class NoChange {
 
-              class Test {
-                  ObjectMapper objectMapper = new ObjectMapper();
+        @Test
+        void noChangeWhenNoJacksonCallInTry() {
+            rewriteRun(
+              java(
+                """
+                  import java.io.IOException;
+                  import java.io.FileInputStream;
 
-                  @SneakyThrows(IOException.class)
-                  String read(Path path) {
-                      return objectMapper.readValue(Files.readString(path), String.class);
+                  class Test {
+                      void readFile() {
+                          try {
+                              new FileInputStream("test.txt").read();
+                          } catch (IOException e) {
+                              throw new RuntimeException(e);
+                          }
+                      }
                   }
+                  """
+              )
+            );
+        }
 
-                  @SneakyThrows
-                  String readAny(String json) {
-                      return objectMapper.readValue(json, String.class);
+        @Test
+        void noChangeWhenCatchingException() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+
+                  class Test {
+                      void deserialize(byte[] data) {
+                          ObjectMapper mapper = new ObjectMapper();
+                          try {
+                              mapper.readValue(data, String.class);
+                          } catch (Exception e) {
+                              throw new RuntimeException(e);
+                          }
+                      }
                   }
-              }
-              """
-          )
-        );
+                  """
+              )
+            );
+        }
+
+        @Test
+        void noChangeWhenAlreadyCatchingJacksonException() {
+            rewriteRun(
+              java(
+                """
+                  import tools.jackson.core.JacksonException;
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+
+                  class Test {
+                      void deserialize(byte[] data) {
+                          ObjectMapper mapper = new ObjectMapper();
+                          try {
+                              mapper.readValue(data, String.class);
+                          } catch (JacksonException e) {
+                              throw new RuntimeException(e);
+                          }
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void noChangeWhenMixedIOAndAlreadyCatchingJacksonException() {
+            rewriteRun(
+              java(
+                """
+                  import java.io.IOException;
+                  import java.io.FileInputStream;
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+                  import tools.jackson.core.JacksonException;
+
+                  class Test {
+                      void readAndDeserialize() {
+                          ObjectMapper mapper = new ObjectMapper();
+                          try {
+                              byte[] data = new FileInputStream("data.json").readAllBytes();
+                              mapper.readValue(data, String.class);
+                          } catch (JacksonException e) {
+                              throw new RuntimeException("Jackson error", e);
+                          } catch (IOException e) {
+                              throw new RuntimeException("IO error", e);
+                          }
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void noChangeWhenMixedIOSourcesAndCaughtExceptionPassedOnAsIOException() {
+            rewriteRun(
+              java(
+                """
+                  import java.io.FileInputStream;
+                  import java.io.IOException;
+                  import java.io.UncheckedIOException;
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+
+                  class Test {
+                      void readAndDeserialize() {
+                          ObjectMapper mapper = new ObjectMapper();
+                          try {
+                              byte[] data = new FileInputStream("data.json").readAllBytes();
+                              mapper.readValue(data, String.class);
+                          } catch (IOException e) {
+                              throw new UncheckedIOException("Failed to read", e);
+                          }
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void keepSneakyThrowsOfIOExceptionWithOtherIOSources() {
+            rewriteRun(
+              spec -> spec.parser(JavaParser.fromJavaVersion()
+                .classpathFromResources(new InMemoryExecutionContext(), "jackson-core-2", "jackson-databind-2")
+                .dependsOn(SNEAKY_THROWS)),
+              java(
+                """
+                  import java.io.IOException;
+                  import java.nio.file.Files;
+                  import java.nio.file.Path;
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+                  import lombok.SneakyThrows;
+
+                  class Test {
+                      ObjectMapper objectMapper = new ObjectMapper();
+
+                      @SneakyThrows(IOException.class)
+                      String read(Path path) {
+                          return objectMapper.readValue(Files.readString(path), String.class);
+                      }
+
+                      @SneakyThrows
+                      String readAny(String json) {
+                          return objectMapper.readValue(json, String.class);
+                      }
+                  }
+                  """
+              )
+            );
+        }
     }
 }

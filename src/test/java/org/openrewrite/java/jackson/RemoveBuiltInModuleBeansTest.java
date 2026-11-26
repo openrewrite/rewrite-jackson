@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.jackson;
 
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.java.JavaParser;
@@ -66,43 +67,6 @@ class RemoveBuiltInModuleBeansTest implements RewriteTest {
         );
     }
 
-
-    @Test
-    void preserveCustomizedBeansAndOrdinaryMethods() {
-        rewriteRun(
-          java(
-            """
-              import org.springframework.context.annotation.Bean;
-              import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-              import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
-
-              class Config {
-                  @Bean
-                  JavaTimeModule customized() {
-                      JavaTimeModule module = new JavaTimeModule();
-                      module.configure();
-                      return module;
-                  }
-
-                  @Bean
-                  ParameterNamesModule withArguments() {
-                      return new ParameterNamesModule("properties");
-                  }
-
-                  @Bean
-                  JavaTimeModule anonymous() {
-                      return new JavaTimeModule() {};
-                  }
-
-                  JavaTimeModule ordinary() {
-                      return new JavaTimeModule();
-                  }
-              }
-              """
-          )
-        );
-    }
-
     @Test
     void removeParameterNamesModuleBean() {
         rewriteRun(
@@ -125,102 +89,142 @@ class RemoveBuiltInModuleBeansTest implements RewriteTest {
           )
         );
     }
-    @Test
-    void preserveInterfaceImplementations() {
-        rewriteRun(
-          java(
-            """
-              import org.springframework.context.annotation.Bean;
-              import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
-              interface Modules {
-                  JavaTimeModule annotated();
-                  JavaTimeModule unannotated();
-              }
+    @Nested
+    class NoChange {
 
-              class Config implements Modules {
-                  @Bean
-                  @Override
-                  public JavaTimeModule annotated() {
-                      return new JavaTimeModule();
+        @Test
+        void preserveCustomizedBeansAndOrdinaryMethods() {
+            rewriteRun(
+              java(
+                """
+                  import org.springframework.context.annotation.Bean;
+                  import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+                  import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
+
+                  class Config {
+                      @Bean
+                      JavaTimeModule customized() {
+                          JavaTimeModule module = new JavaTimeModule();
+                          module.configure();
+                          return module;
+                      }
+
+                      @Bean
+                      ParameterNamesModule withArguments() {
+                          return new ParameterNamesModule("properties");
+                      }
+
+                      @Bean
+                      JavaTimeModule anonymous() {
+                          return new JavaTimeModule() {};
+                      }
+
+                      JavaTimeModule ordinary() {
+                          return new JavaTimeModule();
+                      }
+                  }
+                  """
+              )
+            );
+        }
+        @Test
+        void preserveInterfaceImplementations() {
+            rewriteRun(
+              java(
+                """
+                  import org.springframework.context.annotation.Bean;
+                  import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
+                  interface Modules {
+                      JavaTimeModule annotated();
+                      JavaTimeModule unannotated();
                   }
 
-                  @Bean
-                  public JavaTimeModule unannotated() {
-                      return new JavaTimeModule();
+                  class Config implements Modules {
+                      @Bean
+                      @Override
+                      public JavaTimeModule annotated() {
+                          return new JavaTimeModule();
+                      }
+
+                      @Bean
+                      public JavaTimeModule unannotated() {
+                          return new JavaTimeModule();
+                      }
                   }
-              }
-              """
-          )
-        );
-    }
+                  """
+              )
+            );
+        }
 
-    @Test
-    void preserveFactoriesCalledFromAnotherFile() {
-        rewriteRun(
-          java(
-            """
-              import org.springframework.context.annotation.Bean;
-              import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+        @Test
+        void preserveFactoriesCalledFromAnotherFile() {
+            rewriteRun(
+              java(
+                """
+                  import org.springframework.context.annotation.Bean;
+                  import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
-              class Config {
-                  @Bean
-                  JavaTimeModule direct() {
-                      return new JavaTimeModule();
+                  class Config {
+                      @Bean
+                      JavaTimeModule direct() {
+                          return new JavaTimeModule();
+                      }
+
+                      @Bean
+                      JavaTimeModule reference() {
+                          return new JavaTimeModule();
+                      }
                   }
+                  """
+              ),
+              java(
+                """
+                  import java.util.function.Supplier;
+                  import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
-                  @Bean
-                  JavaTimeModule reference() {
-                      return new JavaTimeModule();
+                  class Caller {
+                      JavaTimeModule direct = new Config().direct();
+                      Supplier<JavaTimeModule> reference = new Config()::reference;
                   }
-              }
-              """
-          ),
-          java(
-            """
-              import java.util.function.Supplier;
-              import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+                  """
+              )
+            );
+        }
 
-              class Caller {
-                  JavaTimeModule direct = new Config().direct();
-                  Supplier<JavaTimeModule> reference = new Config()::reference;
-              }
-              """
-          )
-        );
-    }
+        @Test
+        void preserveBeanOverriddenByAnotherClass() {
+            rewriteRun(
+              java(
+                """
+                  import org.springframework.context.annotation.Bean;
+                  import com.fasterxml.jackson.databind.Module;
+                  import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
-    @Test
-    void preserveBeanOverriddenByAnotherClass() {
-        rewriteRun(
-          java(
-            """
-              import org.springframework.context.annotation.Bean;
-              import com.fasterxml.jackson.databind.Module;
-              import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-
-              class Base {
-                  @Bean
-                  public Module module() {
-                      return new JavaTimeModule();
+                  class Base {
+                      @Bean
+                      public Module module() {
+                          return new JavaTimeModule();
+                      }
                   }
-              }
-              """
-          ),
-          java(
-            """
-              import com.fasterxml.jackson.databind.Module;
-              import com.fasterxml.jackson.databind.module.SimpleModule;
+                  """
+              ),
+              java(
+                """
+                  import com.fasterxml.jackson.databind.Module;
+                  import com.fasterxml.jackson.databind.module.SimpleModule;
 
-              class Child extends Base {
-                  @Override
-                  public Module module() {
-                      return new SimpleModule();
+                  class Child extends Base {
+                      @Override
+                      public Module module() {
+                          return new SimpleModule();
+                      }
                   }
-              }
-              """
-          )
-        );
+                  """
+              )
+            );
+        }
     }
 
 }

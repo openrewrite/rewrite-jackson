@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.jackson;
 
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.java.JavaParser;
@@ -105,57 +106,6 @@ class UseModernDateTimeSerializationTest implements RewriteTest {
     }
 
     @Test
-    void keepCustomNonIso8601Format() {
-        rewriteRun(
-          java(
-            """
-              import com.fasterxml.jackson.annotation.JsonFormat;
-              import java.time.LocalDate;
-
-              class Person {
-                  @JsonFormat(pattern = "MM/dd/yyyy")
-                  private LocalDate birthDate;
-              }
-              """
-          )
-        );
-    }
-
-    @Test
-    void keepFormatWithAdditionalAttributes() {
-        rewriteRun(
-          java(
-            """
-              import com.fasterxml.jackson.annotation.JsonFormat;
-              import java.time.LocalDateTime;
-
-              class Event {
-                  @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss", timezone = "UTC")
-                  private LocalDateTime timestamp;
-              }
-              """
-          )
-        );
-    }
-
-    @Test
-    void doNotAffectNonJavaTimeTypes() {
-        rewriteRun(
-          java(
-            """
-              import com.fasterxml.jackson.annotation.JsonFormat;
-              import java.util.Date;
-
-              class Event {
-                  @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
-                  private Date timestamp;
-              }
-              """
-          )
-        );
-    }
-
-    @Test
     void removeIso8601FormatOnMultipleFields() {
         rewriteRun(
           java(
@@ -191,5 +141,60 @@ class UseModernDateTimeSerializationTest implements RewriteTest {
               """
           )
         );
+    }
+
+    @Nested
+    class NoChange {
+
+        @Test
+        void keepCustomNonIso8601Format() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.annotation.JsonFormat;
+                  import java.time.LocalDate;
+
+                  class Person {
+                      @JsonFormat(pattern = "MM/dd/yyyy")
+                      private LocalDate birthDate;
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void keepFormatWithAdditionalAttributes() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.annotation.JsonFormat;
+                  import java.time.LocalDateTime;
+
+                  class Event {
+                      @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss", timezone = "UTC")
+                      private LocalDateTime timestamp;
+                  }
+                  """
+              )
+            );
+        }
+
+        @Test
+        void doNotAffectNonJavaTimeTypes() {
+            rewriteRun(
+              java(
+                """
+                  import com.fasterxml.jackson.annotation.JsonFormat;
+                  import java.util.Date;
+
+                  class Event {
+                      @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
+                      private Date timestamp;
+                  }
+                  """
+              )
+            );
+        }
     }
 }

@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.jackson;
 
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.InMemoryExecutionContext;
@@ -105,63 +106,67 @@ class CommentMutatorsInObjectMapperSubclassesTest implements RewriteTest {
         );
     }
 
-    @Test
-    void leaveMapperConfiguredFromOutside() {
-        rewriteRun(
-          //language=java
-          java(
-            """
-              import com.fasterxml.jackson.annotation.JsonInclude;
-              import com.fasterxml.jackson.databind.ObjectMapper;
+    @Nested
+    class NoChange {
 
-              class Test {
-                  ObjectMapper mapper() {
-                      ObjectMapper mapper = new ObjectMapper();
-                      mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-                      return mapper;
+        @Test
+        void leaveMapperConfiguredFromOutside() {
+            rewriteRun(
+              //language=java
+              java(
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude;
+                  import com.fasterxml.jackson.databind.ObjectMapper;
+
+                  class Test {
+                      ObjectMapper mapper() {
+                          ObjectMapper mapper = new ObjectMapper();
+                          mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+                          return mapper;
+                      }
                   }
-              }
-              """
-          )
-        );
-    }
+                  """
+              )
+            );
+        }
 
-    @Test
-    void leaveSubclassConfiguringAnotherMapper() {
-        rewriteRun(
-          //language=java
-          java(
-            """
-              import com.fasterxml.jackson.annotation.JsonInclude;
-              import com.fasterxml.jackson.databind.ObjectMapper;
+        @Test
+        void leaveSubclassConfiguringAnotherMapper() {
+            rewriteRun(
+              //language=java
+              java(
+                """
+                  import com.fasterxml.jackson.annotation.JsonInclude;
+                  import com.fasterxml.jackson.databind.ObjectMapper;
 
-              class TestMapper extends ObjectMapper {
-                  static ObjectMapper other() {
-                      ObjectMapper other = new ObjectMapper();
-                      other.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-                      return other;
+                  class TestMapper extends ObjectMapper {
+                      static ObjectMapper other() {
+                          ObjectMapper other = new ObjectMapper();
+                          other.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+                          return other;
+                      }
                   }
-              }
-              """
-          )
-        );
-    }
+                  """
+              )
+            );
+        }
 
-    @Test
-    void leaveSubclassReadingValues() {
-        rewriteRun(
-          //language=java
-          java(
-            """
-              import com.fasterxml.jackson.databind.ObjectMapper;
+        @Test
+        void leaveSubclassReadingValues() {
+            rewriteRun(
+              //language=java
+              java(
+                """
+                  import com.fasterxml.jackson.databind.ObjectMapper;
 
-              class TestMapper extends ObjectMapper {
-                  String write(Object value) throws Exception {
-                      return writeValueAsString(value);
+                  class TestMapper extends ObjectMapper {
+                      String write(Object value) throws Exception {
+                          return writeValueAsString(value);
+                      }
                   }
-              }
-              """
-          )
-        );
+                  """
+              )
+            );
+        }
     }
 }
